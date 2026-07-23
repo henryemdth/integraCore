@@ -32,10 +32,10 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/50">
+    <div className="min-h-screen flex items-center justify-center bg-surface">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">integraCore</CardTitle>
+          <CardTitle className="text-headline-lg">integraCore</CardTitle>
           <CardDescription>{t("auth.signIn")}</CardDescription>
         </CardHeader>
         <CardContent>
@@ -46,7 +46,7 @@ export default function LoginPage() {
               </Alert>
             )}
             <div className="space-y-2">
-              <Label htmlFor="username">{t("auth.username")}</Label>
+              <Label htmlFor="username" className="text-label-caps">{t("auth.username")}</Label>
               <Input
                 id="username"
                 value={username}
@@ -56,7 +56,7 @@ export default function LoginPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">{t("auth.password")}</Label>
+              <Label htmlFor="password" className="text-label-caps">{t("auth.password")}</Label>
               <Input
                 id="password"
                 type="password"

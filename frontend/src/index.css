@@ -4,48 +4,41 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
+    --background: 228 100% 98%;
+    --foreground: 215 75% 12%;
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
+    --card-foreground: 215 75% 12%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
+    --popover-foreground: 215 75% 12%;
+    --primary: 217 90% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 154 100% 21%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 228 65% 92%;
+    --muted-foreground: 220 10% 40%;
+    --accent: 228 65% 92%;
+    --accent-foreground: 215 75% 12%;
+    --destructive: 0 83% 41%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 20% 90%;
+    --input: 220 20% 90%;
+    --ring: 217 90% 60%;
     --radius: 0.5rem;
-  }
 
-  .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
+    --action-blue: 217 90% 60%;
+    --success-green: 154 100% 21%;
+    --warning-amber: 33 100% 50%;
+    --error-crimson: 0 83% 41%;
+
+    --surface: 228 100% 98%;
+    --surface-dim: 220 65% 86%;
+    --surface-container-low: 228 60% 96%;
+    --surface-container: 228 55% 93%;
+    --surface-container-high: 228 50% 90%;
+    --surface-container-highest: 220 70% 88%;
+    --surface-variant: 220 80% 92%;
+
+    --font-data: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   }
 }
 

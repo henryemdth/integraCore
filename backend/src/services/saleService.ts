@@ -63,7 +63,7 @@ export function saleService(db: Database.Database) {
       const productIds = items.map((i) => i.product_id);
       const placeholders = productIds.map(() => "?").join(",");
       const products = db.prepare(
-        `SELECT id, name, price, stock FROM products WHERE id IN (${placeholders})`
+        `SELECT id, name, sell_price, stock FROM products WHERE id IN (${placeholders})`
       ).all(...productIds) as any[];
 
       const productMap = new Map(products.map((p) => [p.id, p]));
@@ -85,12 +85,12 @@ export function saleService(db: Database.Database) {
       let total = 0;
       const saleItems = items.map((item) => {
         const product = productMap.get(item.product_id)!;
-        const subtotal = product.price * item.quantity;
+        const subtotal = product.sell_price * item.quantity;
         total += subtotal;
         return {
           product_id: item.product_id,
           quantity: item.quantity,
-          unit_price: product.price,
+          unit_price: product.sell_price,
           subtotal,
         };
       });
@@ -121,9 +121,9 @@ export function saleService(db: Database.Database) {
     const sale = buildSaleDetail(db, saleId);
 
     for (const item of sale!.items) {
-      const product = db.prepare("SELECT id, name, sku, price, stock FROM products WHERE id = ?").get(item.product_id) as any;
+      const product = db.prepare("SELECT id, name, sku, price, sell_price, stock FROM products WHERE id = ?").get(item.product_id) as any;
       if (product) {
-        emitProductUpdated({ id: product.id, name: product.name, sku: product.sku, price: product.price, stock: product.stock });
+        emitProductUpdated({ id: product.id, name: product.name, sku: product.sku, price: product.price, sell_price: product.sell_price, stock: product.stock });
       }
     }
 
@@ -263,9 +263,9 @@ export function saleService(db: Database.Database) {
     deleteSale();
 
     for (const item of items) {
-      const product = db.prepare("SELECT id, name, sku, price, stock FROM products WHERE id = ?").get(item.product_id) as any;
+      const product = db.prepare("SELECT id, name, sku, price, sell_price, stock FROM products WHERE id = ?").get(item.product_id) as any;
       if (product) {
-        emitProductUpdated({ id: product.id, name: product.name, sku: product.sku, price: product.price, stock: product.stock });
+        emitProductUpdated({ id: product.id, name: product.name, sku: product.sku, price: product.price, sell_price: product.sell_price, stock: product.stock });
       }
     }
 

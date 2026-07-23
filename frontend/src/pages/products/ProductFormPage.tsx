@@ -20,6 +20,7 @@ export default function ProductFormPage() {
   const [sku, setSku] = useState("")
   const [category, setCategory] = useState("")
   const [price, setPrice] = useState("")
+  const [sellPrice, setSellPrice] = useState("")
   const [stock, setStock] = useState("")
   const [lowStockThreshold, setLowStockThreshold] = useState("5")
   const [error, setError] = useState("")
@@ -40,6 +41,7 @@ export default function ProductFormPage() {
           setSku(product.sku)
           setCategory(product.category)
           setPrice(String(product.price))
+          setSellPrice(String(product.sell_price))
           setStock(String(product.stock))
           setLowStockThreshold(String(product.low_stock_threshold))
         })
@@ -58,6 +60,7 @@ export default function ProductFormPage() {
       sku,
       category,
       price: parseFloat(price),
+      sell_price: parseFloat(sellPrice),
       stock: parseInt(stock) || 0,
       low_stock_threshold: parseInt(lowStockThreshold) || 5,
     }
@@ -85,7 +88,7 @@ export default function ProductFormPage() {
   }
 
   return (
-    <div className="max-w-xl">
+    <div className="w-full">
       <Button variant="ghost" size="sm" onClick={() => navigate("/products")} className="mb-4">
         <ArrowLeft className="h-4 w-4 mr-2" />
         {t("common.back")}
@@ -104,38 +107,38 @@ export default function ProductFormPage() {
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
-            <div className="space-y-2">
-              <Label htmlFor="name">{t("products.name") + " *"}</Label>
-              <Input
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder={t("products.createForm.namePlaceholder")}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="sku">{t("products.sku") + " *"}</Label>
-              <Input
-                id="sku"
-                value={sku}
-                onChange={(e) => setSku(e.target.value)}
-                placeholder={t("products.createForm.skuPlaceholder")}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="category">{t("products.category")}</Label>
-              <Input
-                id="category"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                placeholder={t("products.createForm.categoryPlaceholder")}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="price">{t("products.price") + " *"}</Label>
+            <div className="grid grid-cols-12 gap-4">
+              <div className="col-span-6 space-y-2">
+                <Label htmlFor="name">{t("products.name") + " *"}</Label>
+                <Input
+                  id="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder={t("products.createForm.namePlaceholder")}
+                  required
+                />
+              </div>
+              <div className="col-span-6 space-y-2">
+                <Label htmlFor="sku">{t("products.sku") + " *"}</Label>
+                <Input
+                  id="sku"
+                  value={sku}
+                  onChange={(e) => setSku(e.target.value)}
+                  placeholder={t("products.createForm.skuPlaceholder")}
+                  required
+                />
+              </div>
+              <div className="col-span-6 space-y-2">
+                <Label htmlFor="category">{t("products.category")}</Label>
+                <Input
+                  id="category"
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  placeholder={t("products.createForm.categoryPlaceholder")}
+                />
+              </div>
+              <div className="col-span-6 space-y-2">
+                <Label htmlFor="price">{t("products.purchasePrice") + " *"}</Label>
                 <Input
                   id="price"
                   type="number"
@@ -147,7 +150,20 @@ export default function ProductFormPage() {
                   required
                 />
               </div>
-              <div className="space-y-2">
+              <div className="col-span-4 space-y-2">
+                <Label htmlFor="sell_price">{t("products.sellPrice") + " *"}</Label>
+                <Input
+                  id="sell_price"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={sellPrice}
+                  onChange={(e) => setSellPrice(e.target.value)}
+                  placeholder="0.00"
+                  required
+                />
+              </div>
+              <div className="col-span-4 space-y-2">
                 <Label htmlFor="stock">{t("products.stock")}</Label>
                 <Input
                   id="stock"
@@ -158,17 +174,17 @@ export default function ProductFormPage() {
                   placeholder="0"
                 />
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="threshold">{t("products.lowStockThreshold")}</Label>
-              <Input
-                id="threshold"
-                type="number"
-                min="0"
-                value={lowStockThreshold}
-                onChange={(e) => setLowStockThreshold(e.target.value)}
-                placeholder="5"
-              />
+              <div className="col-span-4 space-y-2">
+                <Label htmlFor="threshold">{t("products.lowStockThreshold")}</Label>
+                <Input
+                  id="threshold"
+                  type="number"
+                  min="0"
+                  value={lowStockThreshold}
+                  onChange={(e) => setLowStockThreshold(e.target.value)}
+                  placeholder="5"
+                />
+              </div>
             </div>
           </CardContent>
           <CardFooter className="flex justify-end gap-2">

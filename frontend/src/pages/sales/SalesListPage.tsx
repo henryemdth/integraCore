@@ -34,7 +34,7 @@ export default function SalesListPage() {
   const [dateTo, setDateTo] = useState("")
   const [detailSale, setDetailSale] = useState<SaleDetail | null>(null)
 
-  const limit = 20
+  const limit = 10
   const filterParams: Record<string, string> = { page: String(page), limit: String(limit) }
   if (sellerFilter !== "all") filterParams.user_id = sellerFilter
   if (productFilter !== "all") filterParams.product_id = productFilter
@@ -74,24 +74,24 @@ export default function SalesListPage() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-bold tracking-tight">{t("sales.title")}</h2>
+      <h2 className="text-headline-lg">{t("sales.title")}</h2>
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="new-sale">{t("sales.tabs.newSale")}</TabsTrigger>
           <TabsTrigger value="history">{t("sales.tabs.history")}</TabsTrigger>
         </TabsList>
         <TabsContent value="new-sale">
-          <CreateSaleForm onSaleCreated={() => setActiveTab("history")} />
+          <CreateSaleForm />
         </TabsContent>
         <TabsContent value="history">
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-end gap-3 flex-wrap">
                 {isAdmin && (
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">{t("sales.seller")}</Label>
+                  <div className="space-y-1.5">
+                    <Label className="text-label-caps text-muted-foreground">{t("sales.seller")}</Label>
                     <Select value={sellerFilter} onValueChange={(v) => { setSellerFilter(v); resetPage() }}>
-                      <SelectTrigger className="w-[180px]"><SelectValue placeholder={t("sales.allSellers")} /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder={t("sales.allSellers")} /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">{t("sales.allSellers")}</SelectItem>
                         {users.map((u) => <SelectItem key={u.id} value={String(u.id)}>{u.full_name}</SelectItem>)}
@@ -99,23 +99,23 @@ export default function SalesListPage() {
                     </Select>
                   </div>
                 )}
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">{t("sales.product")}</Label>
+                <div className="space-y-1.5">
+                  <Label className="text-label-caps text-muted-foreground">{t("sales.product")}</Label>
                   <Select value={productFilter} onValueChange={(v) => { setProductFilter(v); resetPage() }}>
-                    <SelectTrigger className="w-[180px]"><SelectValue placeholder={t("sales.allProducts")} /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={t("sales.allProducts")} /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">{t("sales.allProducts")}</SelectItem>
                       {products.map((p) => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">{t("sales.from")}</Label>
-                  <Input type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); resetPage() }} className="w-[150px]" />
+                <div className="space-y-1.5">
+                  <Label className="text-label-caps text-muted-foreground">{t("sales.from")}</Label>
+                  <Input type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); resetPage() }} className="w-[170px]" />
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">{t("sales.to")}</Label>
-                  <Input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); resetPage() }} className="w-[150px]" />
+                <div className="space-y-1.5">
+                  <Label className="text-label-caps text-muted-foreground">{t("sales.to")}</Label>
+                  <Input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); resetPage() }} className="w-[170px]" />
                 </div>
                 <div className="flex-1" />
                 <Button variant="outline" size="sm" onClick={() => {
@@ -154,9 +154,9 @@ export default function SalesListPage() {
                       <TableCell className="text-right font-medium">{formatCurrency(sale.total)}</TableCell>
                       <TableCell>
                         <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDetailSale(sale)}><Eye className="h-4 w-4" /></Button>
+                          <Button variant="ghost" className="h-8 w-8 p-0" onClick={() => setDetailSale(sale)}><Eye className="h-4 w-4" /></Button>
                           {isAdmin && (
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive"
+                            <Button variant="ghost" className="h-8 w-8 p-0 text-destructive"
                               onClick={() => { if (confirm(t("sales.confirmDelete", { id: sale.id }))) deleteMutation.mutate(sale.id) }}>
                               <Trash2 className="h-4 w-4" />
                             </Button>

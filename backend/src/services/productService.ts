@@ -15,7 +15,7 @@ export function productService(db: Database.Database) {
     const { page, limit, search, category, sort, order } = params;
     const offset = (page - 1) * limit;
 
-    const validSorts = ["name", "sku", "price", "stock", "created_at"];
+    const validSorts = ["name", "sku", "price", "sell_price", "stock", "created_at"];
     const sortColumn = validSorts.includes(sort) ? sort : "created_at";
 
     const conditions: string[] = [];
@@ -79,6 +79,7 @@ export function productService(db: Database.Database) {
       { header: "SKU", key: "sku", width: 15 },
       { header: "Category", key: "category", width: 20 },
       { header: "Price", key: "price", width: 12 },
+      { header: "Sell Price", key: "sell_price", width: 12 },
       { header: "Stock", key: "stock", width: 10 },
       { header: "Low Stock Threshold", key: "low_stock_threshold", width: 20 },
       { header: "Created At", key: "created_at", width: 20 },
@@ -102,7 +103,7 @@ export function productService(db: Database.Database) {
     let imported = 0;
 
     const insertStmt = db.prepare(
-      "INSERT INTO products (name, sku, category, price, stock, low_stock_threshold) VALUES (?, ?, ?, ?, ?, ?)"
+      "INSERT INTO products (name, sku, category, price, sell_price, stock, low_stock_threshold) VALUES (?, ?, ?, ?, ?, ?, ?)"
     );
     const checkSku = db.prepare("SELECT id FROM products WHERE sku = ?");
     const seenSkus = new Set<string>();
@@ -114,39 +115,41 @@ export function productService(db: Database.Database) {
       const sku = String(row.getCell(2).value || "").trim();
       const category = String(row.getCell(3).value || "").trim();
       const price = parseFloat(String(row.getCell(4).value || "0"));
-      const stock = parseInt(String(row.getCell(5).value || "0"), 10);
-      const lowStockThreshold = parseInt(String(row.getCell(6).value || "5"), 10);
+      const sellPrice = parseFloat(String(row.getCell(5).value || "0"));
+      const stock = parseInt(String(row.getCell(6).value || "0"), 10);
+      const lowStockThreshold = parseInt(String(row.getCell(7).value || "5"), 10);
 
       if (!name) { errors.push({ row: rowNumber, sku: sku || "N/A", error: "Missing required field: name" }); return; }
       if (!sku) { errors.push({ row: rowNumber, sku: "N/A", error: "Missing required field: sku" }); return; }
       if (isNaN(price) || price < 0) { errors.push({ row: rowNumber, sku, error: "Invalid price" }); return; }
+      if (isNaN(sellPrice) || sellPrice < 0) { errors.push({ row: rowNumber, sku, error: "Invalid sell price" }); return; }
       if (seenSkus.has(sku)) { errors.push({ row: rowNumber, sku, error: "Duplicate SKU in file" }); return; }
 
       const existing = checkSku.get(sku);
       if (existing) { errors.push({ row: rowNumber, sku, error: "SKU already exists in database" }); return; }
 
       seenSkus.add(sku);
-      insertStmt.run(name, sku, category, price, isNaN(stock) ? 0 : stock, isNaN(lowStockThreshold) ? 5 : lowStockThreshold);
+      insertStmt.run(name, sku, category, price, sellPrice, isNaN(stock) ? 0 : stock, isNaN(lowStockThreshold) ? 5 : lowStockThreshold);
       imported++;
     });
 
     return { imported, errors };
   }
 
-  function create(data: { name: string; sku: string; category: string; price: number; stock: number; low_stock_threshold: number }) {
+  function create(data: { name: string; sku: string; category: string; price: number; sell_price: number; stock: number; low_stock_threshold: number }) {
     const existing = db.prepare("SELECT id FROM products WHERE sku = ?").get(data.sku);
     if (existing) throw new AppError(409, "SKU already exists");
 
     const result = db.prepare(
-      "INSERT INTO products (name, sku, category, price, stock, low_stock_threshold) VALUES (?, ?, ?, ?, ?, ?)"
-    ).run(data.name, data.sku, data.category, data.price, data.stock, data.low_stock_threshold);
+      "INSERT INTO products (name, sku, category, price, sell_price, stock, low_stock_threshold) VALUES (?, ?, ?, ?, ?, ?, ?)"
+    ).run(data.name, data.sku, data.category, data.price, data.sell_price, data.stock, data.low_stock_threshold);
 
     const product = db.prepare("SELECT * FROM products WHERE id = ?").get(Number(result.lastInsertRowid)) as any;
-    emitProductUpdated({ id: product.id, name: product.name, sku: product.sku, price: product.price, stock: product.stock });
+    emitProductUpdated({ id: product.id, name: product.name, sku: product.sku, price: product.price, sell_price: product.sell_price, stock: product.stock });
     return product;
   }
 
-  function update(id: number, data: { name?: string; sku?: string; category?: string; price?: number; stock?: number; low_stock_threshold?: number }) {
+  function update(id: number, data: { name?: string; sku?: string; category?: string; price?: number; sell_price?: number; stock?: number; low_stock_threshold?: number }) {
     const existing = db.prepare("SELECT * FROM products WHERE id = ?").get(id) as any;
     if (!existing) throw new AppError(404, "Product not found");
 
@@ -161,17 +164,18 @@ export function productService(db: Database.Database) {
         sku = COALESCE(?, sku),
         category = COALESCE(?, category),
         price = COALESCE(?, price),
+        sell_price = COALESCE(?, sell_price),
         stock = COALESCE(?, stock),
         low_stock_threshold = COALESCE(?, low_stock_threshold),
         updated_at = datetime('now')
       WHERE id = ?`
     ).run(
       data.name ?? null, data.sku ?? null, data.category ?? null,
-      data.price ?? null, data.stock ?? null, data.low_stock_threshold ?? null, id
+      data.price ?? null, data.sell_price ?? null, data.stock ?? null, data.low_stock_threshold ?? null, id
     );
 
     const product = db.prepare("SELECT * FROM products WHERE id = ?").get(id) as any;
-    emitProductUpdated({ id: product.id, name: product.name, sku: product.sku, price: product.price, stock: product.stock });
+    emitProductUpdated({ id: product.id, name: product.name, sku: product.sku, price: product.price, sell_price: product.sell_price, stock: product.stock });
     return product;
   }
 
@@ -195,7 +199,7 @@ export function productService(db: Database.Database) {
       .run(quantity, id);
 
     const updated = db.prepare("SELECT * FROM products WHERE id = ?").get(id) as any;
-    emitProductUpdated({ id: updated.id, name: updated.name, sku: updated.sku, price: updated.price, stock: updated.stock });
+    emitProductUpdated({ id: updated.id, name: updated.name, sku: updated.sku, price: updated.price, sell_price: updated.sell_price, stock: updated.stock });
     return updated;
   }
 
@@ -211,7 +215,7 @@ export function productService(db: Database.Database) {
       .run(quantity, id);
 
     const updated = db.prepare("SELECT * FROM products WHERE id = ?").get(id) as any;
-    emitProductUpdated({ id: updated.id, name: updated.name, sku: updated.sku, price: updated.price, stock: updated.stock });
+    emitProductUpdated({ id: updated.id, name: updated.name, sku: updated.sku, price: updated.price, sell_price: updated.sell_price, stock: updated.stock });
     return updated;
   }
 

@@ -9,7 +9,6 @@
     "back": "Volver",
     "previous": "Anterior",
     "next": "Siguiente",
-    "noData": "Sin resultados",
     "actions": "Acciones"
   },
   "auth": {
@@ -44,6 +43,8 @@
     "sku": "SKU",
     "category": "Categoría",
     "price": "Precio",
+    "purchasePrice": "Precio de compra",
+    "sellPrice": "Precio de venta",
     "stock": "Stock",
     "lowStockThreshold": "Umbral de stock bajo",
     "noProducts": "No se encontraron productos",
@@ -92,7 +93,6 @@
   },
   "sales": {
     "title": "Ventas",
-    "newSale": "Nueva venta",
     "tabs": {
       "newSale": "Nueva venta",
       "history": "Historial de ventas"
@@ -139,13 +139,13 @@
     "active": "Activo",
     "inactive": "Inactivo",
     "all": "Todos",
-    "count": "{{count}} usuario(s)",
     "username": "Usuario",
     "fullName": "Nombre completo",
     "role": "Rol",
     "status": "Estado",
     "created": "Creado",
     "noUsers": "No se encontraron usuarios",
+    "pageInfo": "Página {{page}} de {{totalPages}} ({{total}} usuarios)",
     "resetPassword": "Restablecer contraseña",
     "deactivate": "Desactivar",
     "activate": "Activar",

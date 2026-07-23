@@ -35,7 +35,7 @@ export default function ProductListPage() {
   const [stockType, setStockType] = useState<"in" | "out">("in")
   const [importOpen, setImportOpen] = useState(false)
 
-  const limit = 20
+  const limit = 10
   const params = { page: String(page), limit: String(limit), sort, order, ...(search && { search }), ...(category !== "all" && { category }) }
 
   const { data, isLoading } = useQuery({
@@ -83,18 +83,18 @@ export default function ProductListPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold tracking-tight">{t("products.title")}</h2>
+        <h2 className="text-headline-lg">{t("products.title")}</h2>
         {isAdmin && <Button onClick={() => navigate("/products/new")}><Plus className="h-4 w-4 mr-2" />{t("products.addProduct")}</Button>}
       </div>
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-3 flex-wrap">
             <div className="relative flex-1 min-w-[200px] max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input placeholder={t("products.search")} value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} className="pl-9" />
             </div>
             <Select value={category} onValueChange={(v) => { setCategory(v); setPage(1) }}>
-              <SelectTrigger className="w-[180px]"><SelectValue placeholder={t("products.allCategories")} /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder={t("products.allCategories")} /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{t("products.allCategories")}</SelectItem>
                 {categories.map((cat) => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
@@ -113,25 +113,27 @@ export default function ProductListPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="cursor-pointer hover:text-foreground" onClick={() => handleSort("name")}>{t("products.name")} {sort === "name" && (order === "ASC" ? "↑" : "↓")}</TableHead>
-                <TableHead className="cursor-pointer hover:text-foreground" onClick={() => handleSort("sku")}>{t("products.sku")} {sort === "sku" && (order === "ASC" ? "↑" : "↓")}</TableHead>
+                <TableHead className="cursor-pointer" onClick={() => handleSort("name")}>{t("products.name")} {sort === "name" && (order === "ASC" ? "↑" : "↓")}</TableHead>
+                <TableHead className="cursor-pointer" onClick={() => handleSort("sku")}>{t("products.sku")} {sort === "sku" && (order === "ASC" ? "↑" : "↓")}</TableHead>
                 <TableHead>{t("products.category")}</TableHead>
-                <TableHead className="cursor-pointer hover:text-foreground text-right" onClick={() => handleSort("price")}>{t("products.price")} {sort === "price" && (order === "ASC" ? "↑" : "↓")}</TableHead>
-                <TableHead className="cursor-pointer hover:text-foreground text-right" onClick={() => handleSort("stock")}>{t("products.stock")} {sort === "stock" && (order === "ASC" ? "↑" : "↓")}</TableHead>
-                {isAdmin && <TableHead className="w-[50px]" />}
+                <TableHead className="cursor-pointer text-right" onClick={() => handleSort("price")}>{t("products.purchasePrice")} {sort === "price" && (order === "ASC" ? "↑" : "↓")}</TableHead>
+                <TableHead className="cursor-pointer text-right" onClick={() => handleSort("sell_price")}>{t("products.sellPrice")} {sort === "sell_price" && (order === "ASC" ? "↑" : "↓")}</TableHead>
+                <TableHead className="cursor-pointer text-right" onClick={() => handleSort("stock")}>{t("products.stock")} {sort === "stock" && (order === "ASC" ? "↑" : "↓")}</TableHead>
+                {isAdmin && <TableHead className="w-[50px]">{t("common.actions")}</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={isAdmin ? 6 : 5} className="text-center py-8 text-muted-foreground">{t("common.loading")}</TableCell></TableRow>
+                <TableRow><TableCell colSpan={isAdmin ? 7 : 6} className="text-center py-8 text-muted-foreground">{t("common.loading")}</TableCell></TableRow>
               ) : products.length === 0 ? (
-                <TableRow><TableCell colSpan={isAdmin ? 6 : 5} className="text-center py-8 text-muted-foreground">{t("products.noProducts")}</TableCell></TableRow>
+                <TableRow><TableCell colSpan={isAdmin ? 7 : 6} className="text-center py-8 text-muted-foreground">{t("products.noProducts")}</TableCell></TableRow>
               ) : products.map((product) => (
                 <TableRow key={product.id}>
                   <TableCell className="font-medium">{product.name}</TableCell>
                   <TableCell><code className="text-xs bg-muted px-1.5 py-0.5 rounded">{product.sku}</code></TableCell>
                   <TableCell>{product.category || "—"}</TableCell>
                   <TableCell className="text-right">{formatCurrency(product.price)}</TableCell>
+                  <TableCell className="text-right">{formatCurrency(product.sell_price)}</TableCell>
                   <TableCell className="text-right">
                     {product.stock <= product.low_stock_threshold ? <Badge variant="destructive">{product.stock}</Badge> : <span>{product.stock}</span>}
                   </TableCell>
@@ -139,7 +141,7 @@ export default function ProductListPage() {
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
+                          <Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => navigate(`/products/${product.id}/edit`)}>{t("common.edit")}</DropdownMenuItem>

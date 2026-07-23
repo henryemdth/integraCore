@@ -18,10 +18,10 @@ export default function Layout() {
     <div className="min-h-screen flex">
       <Sidebar />
       <div className="flex-1 flex flex-col">
-        <header className="h-14 border-b border-border bg-card flex items-center justify-between px-6">
+        <header className="h-14 border-b border-border bg-white flex items-center justify-between px-6">
           <div />
           <div className="flex items-center gap-3">
-            <span className="text-sm text-muted-foreground">{user?.full_name}</span>
+            <span className="text-body-md text-muted-foreground">{user?.full_name}</span>
             <Badge variant="secondary" className="capitalize">
               {user?.role}
             </Badge>
@@ -34,7 +34,7 @@ export default function Layout() {
             </Button>
           </div>
         </header>
-        <main className="flex-1 p-6 bg-muted/50 overflow-auto">
+        <main className="flex-1 p-6 bg-background overflow-auto">
           <Outlet />
         </main>
       </div>

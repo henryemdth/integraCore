@@ -9,7 +9,6 @@
     "back": "Back",
     "previous": "Previous",
     "next": "Next",
-    "noData": "No results",
     "actions": "Actions"
   },
   "auth": {
@@ -44,6 +43,8 @@
     "sku": "SKU",
     "category": "Category",
     "price": "Price",
+    "purchasePrice": "Purchase Price",
+    "sellPrice": "Sell Price",
     "stock": "Stock",
     "lowStockThreshold": "Low Stock Threshold",
     "noProducts": "No products found",
@@ -92,7 +93,6 @@
   },
   "sales": {
     "title": "Sales",
-    "newSale": "New Sale",
     "tabs": {
       "newSale": "New Sale",
       "history": "Sales History"
@@ -139,13 +139,13 @@
     "active": "Active",
     "inactive": "Inactive",
     "all": "All",
-    "count": "{{count}} user(s)",
     "username": "Username",
     "fullName": "Full Name",
     "role": "Role",
     "status": "Status",
     "created": "Created",
     "noUsers": "No users found",
+    "pageInfo": "Page {{page}} of {{totalPages}} ({{total}} users)",
     "resetPassword": "Reset Password",
     "deactivate": "Deactivate",
     "activate": "Activate",

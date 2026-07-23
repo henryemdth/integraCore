@@ -18,6 +18,7 @@ export interface Product {
   sku: string;
   category: string;
   price: number;
+  sell_price: number;
   stock: number;
   low_stock_threshold: number;
   created_at: string;
@@ -78,6 +79,7 @@ export const CreateProductSchema = z.object({
   sku: z.string().min(1, "SKU is required"),
   category: z.string().optional().default(""),
   price: z.number().min(0, "Price must be >= 0"),
+  sell_price: z.number().min(0, "Sell price must be >= 0"),
   stock: z.number().int().min(0).optional().default(0),
   low_stock_threshold: z.number().int().min(0).optional().default(5),
 });
@@ -87,6 +89,7 @@ export const UpdateProductSchema = z.object({
   sku: z.string().min(1).optional(),
   category: z.string().optional(),
   price: z.number().min(0).optional(),
+  sell_price: z.number().min(0).optional(),
   stock: z.number().int().min(0).optional(),
   low_stock_threshold: z.number().int().min(0).optional(),
 });

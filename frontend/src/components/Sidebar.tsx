@@ -17,9 +17,9 @@ export default function Sidebar() {
   const { t } = useTranslation()
 
   return (
-    <aside className="w-64 bg-card border-r border-border flex flex-col">
+    <aside className="w-64 bg-white border-r border-border flex flex-col">
       <div className="p-6 border-b border-border">
-        <h1 className="text-xl font-bold">integraCore</h1>
+        <h1 className="text-headline-sm">integraCore</h1>
       </div>
       <nav className="flex-1 p-4 space-y-1">
         {navItems
@@ -31,14 +31,14 @@ export default function Sidebar() {
               end={item.to === "/"}
               className={({ isActive }) =>
                 cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                  "flex items-center gap-3 rounded px-3 py-2.5 text-body-md font-medium transition-colors min-h-[2.75rem]",
                   isActive
-                    ? "bg-primary text-primary-foreground"
+                    ? "bg-primary/10 text-primary"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 )
               }
             >
-              <item.icon className="h-4 w-4" />
+              <item.icon className="h-5 w-5" />
               {t(item.key)}
             </NavLink>
           ))}

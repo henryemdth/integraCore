@@ -35,8 +35,8 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold tracking-tight">{t("dashboard.welcome", { name: user?.full_name })}</h2>
-        <p className="text-muted-foreground">{t("dashboard.subtitle")}</p>
+        <h2 className="text-headline-lg text-primary">{t("dashboard.welcome", { name: user?.full_name })}</h2>
+        <p className="text-body-md text-muted-foreground">{t("dashboard.subtitle")}</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -44,10 +44,10 @@ export default function DashboardPage() {
           .filter((card) => card.roles.includes(isAdmin ? "admin" : "user"))
           .map((card) => (
             <Link key={card.to} to={card.to}>
-              <Card className="transition-colors hover:bg-muted/50 cursor-pointer">
+              <Card className="cursor-pointer">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">{t(card.titleKey)}</CardTitle>
-                  <card.icon className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-label-caps">{t(card.titleKey)}</CardTitle>
+                  <card.icon className="h-5 w-5 text-primary" />
                 </CardHeader>
                 <CardContent>
                   <CardDescription>{t(card.descKey)}</CardDescription>

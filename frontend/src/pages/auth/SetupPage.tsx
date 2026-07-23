@@ -51,17 +51,17 @@ export default function SetupPage() {
 
   if (checking) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-surface">
         <div className="text-muted-foreground">{t("common.loading")}</div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/50">
+    <div className="min-h-screen flex items-center justify-center bg-surface">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">integraCore</CardTitle>
+          <CardTitle className="text-headline-lg">integraCore</CardTitle>
           <CardDescription>{t("auth.setupDesc")}</CardDescription>
         </CardHeader>
         <CardContent>
@@ -72,7 +72,7 @@ export default function SetupPage() {
               </Alert>
             )}
             <div className="space-y-2">
-              <Label htmlFor="fullName">{t("auth.fullName")}</Label>
+              <Label htmlFor="fullName" className="text-label-caps">{t("auth.fullName")}</Label>
               <Input
                 id="fullName"
                 value={fullName}
@@ -82,7 +82,7 @@ export default function SetupPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="username">{t("auth.username")}</Label>
+              <Label htmlFor="username" className="text-label-caps">{t("auth.username")}</Label>
               <Input
                 id="username"
                 value={username}
@@ -93,7 +93,7 @@ export default function SetupPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">{t("auth.password")}</Label>
+              <Label htmlFor="password" className="text-label-caps">{t("auth.password")}</Label>
               <Input
                 id="password"
                 type="password"

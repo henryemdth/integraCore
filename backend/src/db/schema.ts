@@ -82,6 +82,7 @@ export function runMigrations(db: Database.Database): void {
       db.exec(sql);
     }
     addColumnIfMissing(db, "profit_targets", "period_days", "INTEGER NOT NULL DEFAULT 15");
+    addColumnIfMissing(db, "products", "sell_price", "REAL NOT NULL DEFAULT 0");
   });
   run();
   console.log("[db] Migrations completed successfully");

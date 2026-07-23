@@ -32,7 +32,7 @@ export function SaleDetailDialog({ sale, open, onOpenChange }: SaleDetailDialogP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-5xl">
         <DialogHeader>
           <DialogTitle>{t("sales.detail.title", { id: sale.id })}</DialogTitle>
           <DialogDescription>

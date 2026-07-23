@@ -47,7 +47,7 @@ export function CreateSaleForm({ onSaleCreated }: CreateSaleFormProps) {
     return products.filter((p) => (p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q)) && !cart.some((c) => c.product.id === p.id)).slice(0, 10)
   }, [search, products, cart])
 
-  const total = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0)
+  const total = cart.reduce((sum, item) => sum + item.product.sell_price * item.quantity, 0)
   const addToCart = (product: Product) => { setCart([...cart, { product, quantity: 1 }]); setSearch("") }
   const updateQuantity = (productId: number, qty: number) => { if (qty < 1) return; setCart(cart.map((item) => (item.product.id === productId ? { ...item, quantity: qty } : item))) }
   const removeFromCart = (productId: number) => setCart(cart.filter((item) => item.product.id !== productId))
@@ -96,7 +96,7 @@ export function CreateSaleForm({ onSaleCreated }: CreateSaleFormProps) {
                 {filteredProducts.map((product) => (
                   <button key={product.id} type="button" className="w-full text-left px-3 py-2 hover:bg-muted text-sm flex justify-between items-center" onClick={() => addToCart(product)}>
                     <span>{product.name} <code className="text-xs text-muted-foreground">{product.sku}</code></span>
-                    <span className="text-muted-foreground">{formatCurrency(product.price)} | {t("sales.create.stockLabel", { stock: product.stock })}</span>
+                    <span className="text-muted-foreground">{formatCurrency(product.sell_price)} | {t("sales.create.stockLabel", { stock: product.stock })}</span>
                   </button>
                 ))}
               </div>
@@ -108,7 +108,7 @@ export function CreateSaleForm({ onSaleCreated }: CreateSaleFormProps) {
                 <TableHeader>
                   <TableRow>
                     <TableHead>{t("sales.product")}</TableHead>
-                    <TableHead className="text-right">{t("products.price")}</TableHead>
+                    <TableHead className="text-right">{t("products.sellPrice")}</TableHead>
                     <TableHead className="text-right w-[100px]">{t("sales.create.qty")}</TableHead>
                     <TableHead className="text-right">{t("sales.create.subtotal")}</TableHead>
                     <TableHead className="w-[40px]" />
@@ -118,12 +118,12 @@ export function CreateSaleForm({ onSaleCreated }: CreateSaleFormProps) {
                   {cart.map((item) => (
                     <TableRow key={item.product.id}>
                       <TableCell className="font-medium">{item.product.name}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(item.product.price)}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(item.product.sell_price)}</TableCell>
                       <TableCell className="text-right">
                         <Input type="number" min="1" value={item.quantity} onChange={(e) => updateQuantity(item.product.id, parseInt(e.target.value) || 1)} className="h-8 w-16 text-right" />
                       </TableCell>
-                      <TableCell className="text-right">{formatCurrency(item.product.price * item.quantity)}</TableCell>
-                      <TableCell><Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeFromCart(item.product.id)}><X className="h-4 w-4" /></Button></TableCell>
+                      <TableCell className="text-right">{formatCurrency(item.product.sell_price * item.quantity)}</TableCell>
+                      <TableCell><Button type="button" variant="ghost" className="h-8 w-8 p-0" onClick={() => removeFromCart(item.product.id)}><X className="h-4 w-4" /></Button></TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

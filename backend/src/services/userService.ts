@@ -3,10 +3,31 @@ import bcrypt from "bcryptjs";
 import { AppError } from "./authService.js";
 
 export function userService(db: Database.Database) {
-  function list() {
-    return db.prepare(
-      "SELECT id, username, full_name, role, active, created_at, updated_at FROM users ORDER BY full_name ASC"
-    ).all();
+  function list(params: { page: number; limit: number; active?: string }) {
+    const { page, limit, active } = params;
+    const offset = (page - 1) * limit;
+
+    const conditions: string[] = [];
+    const sqlParams: any[] = [];
+
+    if (active === "active") {
+      conditions.push("active = 1");
+    } else if (active === "inactive") {
+      conditions.push("active = 0");
+    }
+
+    const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+    const countRow = db.prepare(`SELECT COUNT(*) as count FROM users ${where}`)
+      .get(...sqlParams) as { count: number };
+    const total = countRow.count;
+    const totalPages = Math.ceil(total / limit);
+
+    const users = db.prepare(
+      `SELECT id, username, full_name, role, active, created_at, updated_at FROM users ${where} ORDER BY full_name ASC LIMIT ? OFFSET ?`
+    ).all(...sqlParams, limit, offset);
+
+    return { users, total, page, totalPages };
   }
 
   function getById(id: number) {

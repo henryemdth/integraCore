@@ -7,10 +7,15 @@ import { userService } from "../services/userService.js";
 
 const router = Router();
 
-router.get("/", authenticate, requireRole("admin"), (_req: Request, res: Response) => {
+router.get("/", authenticate, requireRole("admin"), (req: Request, res: Response) => {
   const db = getDb();
   const svc = userService(db);
-  res.json({ users: svc.list() });
+  const result = svc.list({
+    page: Math.max(1, parseInt(req.query.page as string) || 1),
+    limit: Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 10)),
+    active: (req.query.active as string) || undefined,
+  });
+  res.json(result);
 });
 
 router.get("/:id", authenticate, requireRole("admin"), (req: Request, res: Response) => {

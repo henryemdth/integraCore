@@ -18,15 +18,28 @@ import { Plus, MoreHorizontal } from "lucide-react"
 export default function UserListPage() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const [page, setPage] = useState(1)
   const [filter, setFilter] = useState<"all" | "active" | "inactive">("active")
   const [createOpen, setCreateOpen] = useState(false)
   const [editUser, setEditUser] = useState<User | null>(null)
   const [resetPwdUser, setResetPwdUser] = useState<User | null>(null)
 
-  const { data: users = [], isLoading } = useQuery({
-    queryKey: ["users"],
-    queryFn: async () => { const res = await api.get("/api/users"); return res.data.users as User[] },
+  const limit = 10
+  const params: Record<string, string> = { page: String(page), limit: String(limit) }
+  if (filter !== "all") params.active = filter
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["users", params],
+    queryFn: async () => {
+      const res = await api.get(`/api/users?${new URLSearchParams(params)}`)
+      return { users: res.data.users as User[], total: res.data.total as number, totalPages: res.data.totalPages as number }
+    },
+    placeholderData: (prev) => prev,
   })
+
+  const users = data?.users ?? []
+  const total = data?.total ?? 0
+  const totalPages = data?.totalPages ?? 1
 
   const deactivateMutation = useMutation({
     mutationFn: (id: number) => api.patch(`/api/users/${id}/deactivate`),
@@ -40,11 +53,7 @@ export default function UserListPage() {
     onError: (err: any) => toast.error(err.response?.data?.error || t("users.failedActivate")),
   })
 
-  const filtered = users.filter((u) => {
-    if (filter === "active") return u.active === 1
-    if (filter === "inactive") return u.active === 0
-    return true
-  })
+  const resetPage = () => setPage(1)
 
   return (
     <div className="space-y-4">
@@ -55,8 +64,8 @@ export default function UserListPage() {
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center gap-3">
-            <div className="space-y-1">
-              <Select value={filter} onValueChange={(v) => setFilter(v as any)}>
+            <div className="space-y-1.5">
+              <Select value={filter} onValueChange={(v) => { setFilter(v as any); resetPage() }}>
                 <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="active">{t("users.active")}</SelectItem>
@@ -66,7 +75,6 @@ export default function UserListPage() {
               </Select>
             </div>
             <div className="flex-1" />
-            <span className="text-sm text-muted-foreground">{t("users.count", { count: filtered.length })}</span>
           </div>
         </CardHeader>
         <CardContent>
@@ -84,9 +92,9 @@ export default function UserListPage() {
             <TableBody>
               {isLoading ? (
                 <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">{t("common.loading")}</TableCell></TableRow>
-              ) : filtered.length === 0 ? (
+              ) : users.length === 0 ? (
                 <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">{t("users.noUsers")}</TableCell></TableRow>
-              ) : filtered.map((user) => (
+              ) : users.map((user) => (
                 <TableRow key={user.id}>
                   <TableCell className="font-medium">{user.username}</TableCell>
                   <TableCell>{user.full_name}</TableCell>
@@ -96,7 +104,7 @@ export default function UserListPage() {
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
+                        <Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => setEditUser(user)}>{t("common.edit")}</DropdownMenuItem>
@@ -114,6 +122,15 @@ export default function UserListPage() {
               ))}
             </TableBody>
           </Table>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-4">
+              <span className="text-sm text-muted-foreground">{t("users.pageInfo", { page, totalPages, total })}</span>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>{t("common.previous")}</Button>
+                <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>{t("common.next")}</Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
       <CreateUserDialog open={createOpen} onOpenChange={setCreateOpen} />
