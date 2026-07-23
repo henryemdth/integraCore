@@ -1,14 +1,17 @@
 import { useState } from "react"
 import { Outlet } from "react-router-dom"
 import { useAuth } from "@/contexts/AuthContext"
+import { useTranslation } from "react-i18next"
 import Sidebar from "@/components/Sidebar"
 import { ChangePasswordDialog } from "@/components/users/ChangePasswordDialog"
+import NotificationBell from "@/components/notifications/NotificationBell"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { LogOut, Key } from "lucide-react"
 
 export default function Layout() {
   const { user, logout } = useAuth()
+  const { t } = useTranslation()
   const [pwdOpen, setPwdOpen] = useState(false)
 
   return (
@@ -22,10 +25,11 @@ export default function Layout() {
             <Badge variant="secondary" className="capitalize">
               {user?.role}
             </Badge>
-            <Button variant="ghost" size="icon" onClick={() => setPwdOpen(true)} title="Change Password">
+            <NotificationBell />
+            <Button variant="ghost" size="icon" onClick={() => setPwdOpen(true)} title={t("layout.changePassword")}>
               <Key className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" onClick={logout} title="Logout">
+            <Button variant="ghost" size="icon" onClick={logout} title={t("layout.logout")}>
               <LogOut className="h-4 w-4" />
             </Button>
           </div>

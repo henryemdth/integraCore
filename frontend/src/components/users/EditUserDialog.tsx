@@ -1,69 +1,47 @@
 import { useState, useEffect } from "react"
-import api from "@/lib/api"
+import { useTranslation } from "react-i18next"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useAuth } from "@/contexts/AuthContext"
+import api from "@/lib/api"
 import type { User } from "@integracore/shared"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { toast } from "sonner"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface EditUserDialogProps {
   user: User | null
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSuccess: () => void
 }
 
-export function EditUserDialog({ user, open, onOpenChange, onSuccess }: EditUserDialogProps) {
+export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps) {
+  const { t } = useTranslation()
   const { user: currentUser } = useAuth()
   const [fullName, setFullName] = useState("")
   const [role, setRole] = useState<"admin" | "user">("user")
   const [error, setError] = useState("")
-  const [loading, setLoading] = useState(false)
+  const queryClient = useQueryClient()
 
-  useEffect(() => {
-    if (user) {
-      setFullName(user.full_name)
-      setRole(user.role)
-      setError("")
-    }
-  }, [user])
+  useEffect(() => { if (user) { setFullName(user.full_name); setRole(user.role); setError("") } }, [user])
 
   const isSelf = currentUser?.id === user?.id
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!user) return
-    setError("")
-    setLoading(true)
-    try {
-      await api.put(`/api/users/${user.id}`, {
-        full_name: fullName,
-        role: isSelf ? undefined : role,
-      })
-      onSuccess()
+  const mutation = useMutation({
+    mutationFn: async () => {
+      if (!user) return
+      await api.put(`/api/users/${user.id}`, { full_name: fullName, role: isSelf ? undefined : role })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] })
+      toast.success(t("users.edit.saved"))
       onOpenChange(false)
-    } catch (err: any) {
-      setError(err.response?.data?.error || "Failed to update user")
-    } finally {
-      setLoading(false)
-    }
-  }
+    },
+    onError: (err: any) => setError(err.response?.data?.error || t("users.edit.failedSave")),
+  })
 
   if (!user) return null
 
@@ -71,50 +49,29 @@ export function EditUserDialog({ user, open, onOpenChange, onSuccess }: EditUser
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Edit User</DialogTitle>
-          <DialogDescription>Update user details for {user.username}</DialogDescription>
+          <DialogTitle>{t("users.edit.title")}</DialogTitle>
+          <DialogDescription>{t("users.edit.desc", { username: user.username })}</DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+        <form onSubmit={(e) => { e.preventDefault(); setError(""); mutation.mutate() }} className="space-y-4">
+          {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
           <div className="space-y-2">
-            <Label htmlFor="eu-fullname">Full Name</Label>
-            <Input
-              id="eu-fullname"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              required
-            />
+            <Label htmlFor="eu-fullname">{t("users.fullName")}</Label>
+            <Input id="eu-fullname" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
           </div>
           <div className="space-y-2">
-            <Label>Role</Label>
-            <Select
-              value={role}
-              onValueChange={(v) => setRole(v as "admin" | "user")}
-              disabled={isSelf}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
+            <Label>{t("users.role")}</Label>
+            <Select value={role} onValueChange={(v) => setRole(v as "admin" | "user")} disabled={isSelf}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="user">User (Seller)</SelectItem>
-                <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="user">{t("users.create.roleSeller")}</SelectItem>
+                <SelectItem value="admin">{t("users.create.roleAdmin")}</SelectItem>
               </SelectContent>
             </Select>
-            {isSelf && (
-              <p className="text-xs text-muted-foreground">You cannot change your own role</p>
-            )}
+            {isSelf && <p className="text-xs text-muted-foreground">{t("users.edit.selfRoleHint")}</p>}
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? "Saving..." : "Save Changes"}
-            </Button>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>
+            <Button type="submit" disabled={mutation.isPending}>{mutation.isPending ? t("users.edit.saving") : t("common.save")}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

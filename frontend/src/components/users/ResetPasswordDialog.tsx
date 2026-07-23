@@ -1,14 +1,10 @@
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
+import { useMutation } from "@tanstack/react-query"
 import api from "@/lib/api"
 import type { User } from "@integracore/shared"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { toast } from "sonner"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -21,66 +17,41 @@ interface ResetPasswordDialogProps {
 }
 
 export function ResetPasswordDialog({ user, open, onOpenChange }: ResetPasswordDialogProps) {
+  const { t } = useTranslation()
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
-  const [success, setSuccess] = useState(false)
-  const [loading, setLoading] = useState(false)
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!user) return
-    setError("")
-    setSuccess(false)
-    setLoading(true)
-    try {
+  const mutation = useMutation({
+    mutationFn: async () => {
+      if (!user) return
       await api.put(`/api/users/${user.id}/password`, { password })
-      setSuccess(true)
+    },
+    onSuccess: () => {
+      toast.success(t("users.resetPwd.success"))
       setPassword("")
-    } catch (err: any) {
-      setError(err.response?.data?.error || "Failed to reset password")
-    } finally {
-      setLoading(false)
-    }
-  }
+      onOpenChange(false)
+    },
+    onError: (err: any) => setError(err.response?.data?.error || t("users.resetPwd.failed")),
+  })
 
   if (!user) return null
 
   return (
-    <Dialog open={open} onOpenChange={(open) => { if (!open) { setPassword(""); setError(""); setSuccess(false) }; onOpenChange(open) }}>
+    <Dialog open={open} onOpenChange={(o) => { if (!o) { setPassword(""); setError("") }; onOpenChange(o) }}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Reset Password</DialogTitle>
-          <DialogDescription>Set a new password for {user.username}</DialogDescription>
+          <DialogTitle>{t("users.resetPwd.title")}</DialogTitle>
+          <DialogDescription>{t("users.resetPwd.desc", { username: user.username })}</DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          {success && (
-            <Alert>
-              <AlertDescription>Password updated successfully</AlertDescription>
-            </Alert>
-          )}
+        <form onSubmit={(e) => { e.preventDefault(); setError(""); mutation.mutate() }} className="space-y-4">
+          {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
           <div className="space-y-2">
-            <Label htmlFor="rp-password">New Password</Label>
-            <Input
-              id="rp-password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="min. 6 characters"
-              required
-            />
+            <Label htmlFor="rp-password">{t("users.resetPwd.newPassword")}</Label>
+            <Input id="rp-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t("users.resetPwd.placeholder")} required />
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Close
-            </Button>
-            <Button type="submit" disabled={loading || !password} variant="destructive">
-              {loading ? "Resetting..." : "Reset Password"}
-            </Button>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t("common.close")}</Button>
+            <Button type="submit" disabled={mutation.isPending || !password} variant="destructive">{mutation.isPending ? t("users.resetPwd.resetting") : t("users.resetPwd.reset")}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

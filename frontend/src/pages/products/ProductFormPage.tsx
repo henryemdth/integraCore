@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react"
 import { useNavigate, useParams } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import api from "@/lib/api"
 import type { Product } from "@integracore/shared"
 import { Button } from "@/components/ui/button"
@@ -10,6 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { ArrowLeft } from "lucide-react"
 
 export default function ProductFormPage() {
+  const { t } = useTranslation()
   const { id } = useParams()
   const isEdit = Boolean(id)
   const navigate = useNavigate()
@@ -31,7 +33,7 @@ export default function ProductFormPage() {
         .then((res) => {
           const product = res.data.products.find((p: Product) => p.id === Number(id))
           if (!product) {
-            setError("Product not found")
+            setError(t("products.editForm.notFound"))
             return
           }
           setName(product.name)
@@ -41,10 +43,10 @@ export default function ProductFormPage() {
           setStock(String(product.stock))
           setLowStockThreshold(String(product.low_stock_threshold))
         })
-        .catch(() => setError("Failed to load product"))
+        .catch(() => setError(t("products.createForm.failedSave")))
         .finally(() => setFetching(false))
     }
-  }, [id, isEdit])
+  }, [id, isEdit, t])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -68,7 +70,7 @@ export default function ProductFormPage() {
       }
       navigate("/products")
     } catch (err: any) {
-      setError(err.response?.data?.error || "Failed to save product")
+      setError(err.response?.data?.error || t("products.createForm.failedSave"))
     } finally {
       setLoading(false)
     }
@@ -77,7 +79,7 @@ export default function ProductFormPage() {
   if (fetching) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="text-muted-foreground">Loading product...</div>
+        <div className="text-muted-foreground">{t("common.loading")}</div>
       </div>
     )
   }
@@ -86,13 +88,13 @@ export default function ProductFormPage() {
     <div className="max-w-xl">
       <Button variant="ghost" size="sm" onClick={() => navigate("/products")} className="mb-4">
         <ArrowLeft className="h-4 w-4 mr-2" />
-        Back to Products
+        {t("common.back")}
       </Button>
       <Card>
         <CardHeader>
-          <CardTitle>{isEdit ? "Edit Product" : "Create Product"}</CardTitle>
+          <CardTitle>{isEdit ? t("products.editForm.title") : t("products.createForm.title")}</CardTitle>
           <CardDescription>
-            {isEdit ? "Update product details below" : "Fill in the product details below"}
+            {isEdit ? t("products.editForm.desc") : t("products.createForm.desc")}
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
@@ -103,37 +105,37 @@ export default function ProductFormPage() {
               </Alert>
             )}
             <div className="space-y-2">
-              <Label htmlFor="name">Name *</Label>
+              <Label htmlFor="name">{t("products.name") + " *"}</Label>
               <Input
                 id="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Product name"
+                placeholder={t("products.createForm.namePlaceholder")}
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="sku">SKU *</Label>
+              <Label htmlFor="sku">{t("products.sku") + " *"}</Label>
               <Input
                 id="sku"
                 value={sku}
                 onChange={(e) => setSku(e.target.value)}
-                placeholder="Stock Keeping Unit"
+                placeholder={t("products.createForm.skuPlaceholder")}
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="category">Category</Label>
+              <Label htmlFor="category">{t("products.category")}</Label>
               <Input
                 id="category"
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                placeholder="e.g. Electronics, Hardware"
+                placeholder={t("products.createForm.categoryPlaceholder")}
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="price">Price *</Label>
+                <Label htmlFor="price">{t("products.price") + " *"}</Label>
                 <Input
                   id="price"
                   type="number"
@@ -146,7 +148,7 @@ export default function ProductFormPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="stock">Stock</Label>
+                <Label htmlFor="stock">{t("products.stock")}</Label>
                 <Input
                   id="stock"
                   type="number"
@@ -158,7 +160,7 @@ export default function ProductFormPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="threshold">Low Stock Threshold</Label>
+              <Label htmlFor="threshold">{t("products.lowStockThreshold")}</Label>
               <Input
                 id="threshold"
                 type="number"
@@ -171,10 +173,10 @@ export default function ProductFormPage() {
           </CardContent>
           <CardFooter className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => navigate("/products")}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? "Saving..." : isEdit ? "Update Product" : "Create Product"}
+              {loading ? t("common.loading") : isEdit ? t("products.editForm.title") : t("products.createForm.title")}
             </Button>
           </CardFooter>
         </form>

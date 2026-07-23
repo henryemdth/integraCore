@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next"
 import type { SaleDetail } from "@integracore/shared"
 import {
   Dialog,
@@ -17,6 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { formatCurrency, formatDateTime } from "@/lib/format"
 
 interface SaleDetailDialogProps {
   sale: SaleDetail | null
@@ -25,21 +27,16 @@ interface SaleDetailDialogProps {
 }
 
 export function SaleDetailDialog({ sale, open, onOpenChange }: SaleDetailDialogProps) {
+  const { t } = useTranslation()
   if (!sale) return null
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Sale #{sale.id}</DialogTitle>
+          <DialogTitle>{t("sales.detail.title", { id: sale.id })}</DialogTitle>
           <DialogDescription>
-            {new Date(sale.created_at).toLocaleDateString("en-US", {
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
+            {formatDateTime(sale.created_at)}
             {" — "}
             {sale.seller_name}
           </DialogDescription>
@@ -47,18 +44,18 @@ export function SaleDetailDialog({ sale, open, onOpenChange }: SaleDetailDialogP
 
         {sale.notes && (
           <div className="text-sm text-muted-foreground">
-            Notes: {sale.notes}
+            {t("sales.detail.notes")}: {sale.notes}
           </div>
         )}
 
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Product</TableHead>
-              <TableHead>SKU</TableHead>
-              <TableHead className="text-right">Qty</TableHead>
-              <TableHead className="text-right">Price</TableHead>
-              <TableHead className="text-right">Subtotal</TableHead>
+              <TableHead>{t("sales.product")}</TableHead>
+              <TableHead>{t("products.sku")}</TableHead>
+              <TableHead className="text-right">{t("sales.create.qty")}</TableHead>
+              <TableHead className="text-right">{t("products.price")}</TableHead>
+              <TableHead className="text-right">{t("sales.create.subtotal")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -69,8 +66,8 @@ export function SaleDetailDialog({ sale, open, onOpenChange }: SaleDetailDialogP
                   <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{item.product_sku}</code>
                 </TableCell>
                 <TableCell className="text-right">{item.quantity}</TableCell>
-                <TableCell className="text-right">${item.unit_price.toFixed(2)}</TableCell>
-                <TableCell className="text-right">${item.subtotal.toFixed(2)}</TableCell>
+                <TableCell className="text-right">{formatCurrency(item.unit_price)}</TableCell>
+                <TableCell className="text-right">{formatCurrency(item.subtotal)}</TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -80,13 +77,13 @@ export function SaleDetailDialog({ sale, open, onOpenChange }: SaleDetailDialogP
 
         <div className="flex justify-end">
           <span className="text-lg font-bold">
-            Total: ${sale.total.toFixed(2)}
+            {t("sales.create.totalLabel", { amount: formatCurrency(sale.total) })}
           </span>
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Close
+            {t("common.close")}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1,28 +1,13 @@
-import { useState, useEffect } from "react"
 import { Navigate, Outlet } from "react-router-dom"
 import { useAuth } from "@/contexts/AuthContext"
-import api from "@/lib/api"
+import { useTranslation } from "react-i18next"
 
 export default function AuthGuard() {
   const { user, loading } = useAuth()
-  const [needsSetup, setNeedsSetup] = useState<boolean | null>(null)
+  const { t } = useTranslation()
 
-  useEffect(() => {
-    api.get("/api/auth/setup-status").then((res) => {
-      setNeedsSetup(res.data.needsSetup)
-    })
-  }, [])
-
-  if (loading || needsSetup === null) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-muted-foreground">Loading...</div>
-      </div>
-    )
-  }
-
-  if (needsSetup) {
-    return <Navigate to="/setup" replace />
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center text-muted-foreground">{t("common.loading")}</div>
   }
 
   if (!user) {

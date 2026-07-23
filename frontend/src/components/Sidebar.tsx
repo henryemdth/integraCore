@@ -1,17 +1,20 @@
 import { NavLink } from "react-router-dom"
 import { useAuth } from "@/contexts/AuthContext"
+import { useTranslation } from "react-i18next"
 import { LayoutDashboard, Package, ShoppingCart, Users, Settings } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const navItems = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "user"] },
-  { to: "/products", label: "Products", icon: Package, roles: ["admin", "user"] },
-  { to: "/sales", label: "Sales", icon: ShoppingCart, roles: ["admin", "user"] },
-  { to: "/users", label: "Users", icon: Users, roles: ["admin"] },
+  { to: "/", key: "sidebar.dashboard", icon: LayoutDashboard, roles: ["admin", "user"] },
+  { to: "/products", key: "sidebar.products", icon: Package, roles: ["admin", "user"] },
+  { to: "/sales", key: "sidebar.sales", icon: ShoppingCart, roles: ["admin", "user"] },
+  { to: "/users", key: "sidebar.users", icon: Users, roles: ["admin"] },
+  { to: "/settings", key: "sidebar.settings", icon: Settings, roles: ["admin"] },
 ]
 
 export default function Sidebar() {
   const { isAdmin } = useAuth()
+  const { t } = useTranslation()
 
   return (
     <aside className="w-64 bg-card border-r border-border flex flex-col">
@@ -36,7 +39,7 @@ export default function Sidebar() {
               }
             >
               <item.icon className="h-4 w-4" />
-              {item.label}
+              {t(item.key)}
             </NavLink>
           ))}
       </nav>

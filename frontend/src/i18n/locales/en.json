@@ -1,0 +1,257 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "close": "Close",
+    "back": "Back",
+    "previous": "Previous",
+    "next": "Next",
+    "noData": "No results",
+    "actions": "Actions"
+  },
+  "auth": {
+    "signIn": "Sign In",
+    "signingIn": "Signing in...",
+    "username": "Username",
+    "password": "Password",
+    "fullName": "Full Name",
+    "loginFailed": "Login failed",
+    "setupDesc": "Create your admin account to get started",
+    "createAdmin": "Create Admin Account",
+    "creatingAccount": "Creating account...",
+    "setupFailed": "Setup failed"
+  },
+  "sidebar": {
+    "dashboard": "Dashboard",
+    "products": "Products",
+    "sales": "Sales",
+    "users": "Users",
+    "settings": "Settings"
+  },
+  "products": {
+    "title": "Products",
+    "addProduct": "Add Product",
+    "search": "Search by name or SKU...",
+    "allCategories": "All categories",
+    "imp": "Import",
+    "export": "Export",
+    "stockIn": "Stock In",
+    "stockOut": "Stock Out",
+    "name": "Name",
+    "sku": "SKU",
+    "category": "Category",
+    "price": "Price",
+    "stock": "Stock",
+    "lowStockThreshold": "Low Stock Threshold",
+    "noProducts": "No products found",
+    "confirmDelete": "Delete \"{{name}}\"?",
+    "deleted": "Product deleted",
+    "failedDelete": "Failed to delete product",
+    "pageInfo": "Page {{page}} of {{totalPages}} ({{total}} products)",
+    "createForm": {
+      "title": "Create Product",
+      "desc": "Fill in the product details below",
+      "namePlaceholder": "Product name",
+      "skuPlaceholder": "Stock Keeping Unit",
+      "categoryPlaceholder": "e.g. Electronics, Hardware",
+      "created": "Product created",
+      "failedSave": "Failed to save product"
+    },
+    "editForm": {
+      "title": "Edit Product",
+      "desc": "Update product details below",
+      "notFound": "Product not found"
+    },
+    "stockMovement": {
+      "stockInTitle": "Stock In",
+      "stockOutTitle": "Stock Out",
+      "currentStock": "SKU: {{sku}} | Current stock: {{stock}}",
+      "quantity": "Quantity *",
+      "notes": "Notes",
+      "inPlaceholder": "Enter quantity to add",
+      "outPlaceholder": "Enter quantity to remove",
+      "addStock": "Add Stock",
+      "removeStock": "Remove Stock",
+      "added": "Stock added",
+      "removed": "Stock removed",
+      "failedAdd": "Failed to add stock",
+      "failedRemove": "Failed to remove stock"
+    },
+    "import": {
+      "title": "Import Products from Excel",
+      "desc": "Upload an .xlsx file. Expected columns: Name, SKU, Category, Price, Stock, Low Stock Threshold",
+      "importing": "Importing...",
+      "imported": "Imported {{count}} product(s)",
+      "errors": "{{count}} error(s):",
+      "rowError": "Row {{row}}: {{error}}",
+      "failedImport": "Failed to import file"
+    }
+  },
+  "sales": {
+    "title": "Sales",
+    "newSale": "New Sale",
+    "tabs": {
+      "newSale": "New Sale",
+      "history": "Sales History"
+    },
+    "seller": "Seller",
+    "product": "Product",
+    "from": "From",
+    "to": "To",
+    "allSellers": "All sellers",
+    "allProducts": "All products",
+    "saleId": "Sale ID",
+    "date": "Date",
+    "items": "Items",
+    "total": "Total",
+    "noSales": "No sales found",
+    "confirmDelete": "Delete sale #{{id}}? This will restore stock.",
+    "deleted": "Sale deleted, stock restored",
+    "failedDelete": "Failed to delete sale",
+    "pageInfo": "Page {{page}} of {{totalPages}} ({{total}} sales)",
+    "create": {
+      "title": "New Sale",
+      "desc": "Search for products and add them to the sale",
+      "addProduct": "Add Product",
+      "qty": "Qty",
+      "subtotal": "Subtotal",
+      "totalLabel": "Total: {{amount}}",
+      "notes": "Notes",
+      "notesPlaceholder": "Optional notes about this sale",
+      "completeSale": "Complete Sale",
+      "processing": "Processing...",
+      "stockLabel": "Stock: {{stock}}",
+      "minOneProduct": "Add at least one product to the sale",
+      "created": "Sale created",
+      "failedCreate": "Failed to create sale"
+    },
+    "detail": {
+      "title": "Sale #{{id}}",
+      "notes": "Notes"
+    }
+  },
+  "users": {
+    "title": "Users",
+    "newUser": "New User",
+    "active": "Active",
+    "inactive": "Inactive",
+    "all": "All",
+    "count": "{{count}} user(s)",
+    "username": "Username",
+    "fullName": "Full Name",
+    "role": "Role",
+    "status": "Status",
+    "created": "Created",
+    "noUsers": "No users found",
+    "resetPassword": "Reset Password",
+    "deactivate": "Deactivate",
+    "activate": "Activate",
+    "confirmDeactivate": "Deactivate {{name}}?",
+    "deactivated": "User deactivated",
+    "activated": "User activated",
+    "failedDeactivate": "Failed to deactivate user",
+    "failedActivate": "Failed to activate user",
+    "create": {
+      "title": "New User",
+      "desc": "Create a new user account",
+      "min3chars": "min. 3 characters",
+      "namePlaceholder": "e.g. John Smith",
+      "min6chars": "min. 6 characters",
+      "roleSeller": "Seller",
+      "roleAdmin": "Admin",
+      "created": "User created",
+      "failedCreate": "Failed to create user"
+    },
+    "edit": {
+      "title": "Edit User",
+      "desc": "Update user details for {{username}}",
+      "selfRoleHint": "You cannot change your own role",
+      "saved": "User updated",
+      "failedSave": "Failed to update user"
+    },
+    "resetPwd": {
+      "title": "Reset Password",
+      "desc": "Set a new password for {{username}}",
+      "newPassword": "New Password",
+      "placeholder": "min. 6 characters",
+      "resetting": "Resetting...",
+      "reset": "Reset Password",
+      "success": "Password reset successfully",
+      "failed": "Failed to reset password"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "profit": {
+      "title": "Profit Settings",
+      "targetConfig": "Target Configuration",
+      "targetDesc": "Set your revenue target and check period",
+      "revenueTarget": "Revenue Target",
+      "checkPeriod": "Check Period (days)",
+      "saveTarget": "Save Target",
+      "saving": "Saving...",
+      "currentStatus": "Current Status",
+      "statusDesc": "Revenue vs. target for the current period",
+      "revenue": "Revenue",
+      "target": "Target",
+      "progress": "Progress",
+      "gap": "Gap",
+      "period": "Period",
+      "behind": "{{amount}} behind",
+      "daysLabel": "{{days}} days",
+      "noTarget": "No target configured",
+      "saved": "Profit target saved",
+      "failedSave": "Failed to save target"
+    },
+    "language": {
+      "title": "Language",
+      "label": "Interface language",
+      "spanish": "Español",
+      "english": "English"
+    },
+    "currency": {
+      "title": "Currency",
+      "label": "Currency symbol for the interface"
+    }
+  },
+  "notifications": {
+    "title": "Notifications",
+    "markAllRead": "Mark all read",
+    "noNotifications": "No notifications"
+  },
+  "layout": {
+    "changePassword": "Change Password",
+    "logout": "Logout"
+  },
+  "dashboard": {
+    "welcome": "Welcome back, {{name}}",
+    "subtitle": "Here's what's happening with your business today.",
+    "productsCard": "Products",
+    "productsDesc": "Manage inventory, stock levels, and pricing",
+    "salesCard": "Sales",
+    "salesDesc": "Record sales and view history",
+    "usersCard": "Users",
+    "usersDesc": "Manage user accounts and roles"
+  },
+  "notFound": {
+    "title": "404",
+    "message": "Page not found",
+    "goHome": "Go to Dashboard"
+  },
+  "changePassword": {
+    "title": "Change Password",
+    "desc": "Update your account password",
+    "currentPassword": "Current Password",
+    "newPassword": "New Password",
+    "changing": "Changing...",
+    "success": "Password changed successfully",
+    "failed": "Failed to change password"
+  },
+  "export": {
+    "exported": "Exported {{filename}}",
+    "failedExport": "Failed to export file"
+  }
+}

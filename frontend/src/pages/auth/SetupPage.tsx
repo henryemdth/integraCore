@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { useAuth } from "@/contexts/AuthContext"
+import { useTranslation } from "react-i18next"
 import api from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,6 +18,7 @@ export default function SetupPage() {
   const [checking, setChecking] = useState(true)
   const { setup, user } = useAuth()
   const navigate = useNavigate()
+  const { t } = useTranslation()
 
   useEffect(() => {
     api
@@ -41,7 +43,7 @@ export default function SetupPage() {
       await setup(username, password, fullName)
       navigate("/")
     } catch (err: any) {
-      setError(err.response?.data?.error || "Setup failed")
+      setError(err.response?.data?.error || t("auth.setupFailed"))
     } finally {
       setLoading(false)
     }
@@ -50,7 +52,7 @@ export default function SetupPage() {
   if (checking) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-muted-foreground">Loading...</div>
+        <div className="text-muted-foreground">{t("common.loading")}</div>
       </div>
     )
   }
@@ -60,7 +62,7 @@ export default function SetupPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">integraCore</CardTitle>
-          <CardDescription>Create your admin account to get started</CardDescription>
+          <CardDescription>{t("auth.setupDesc")}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -70,40 +72,40 @@ export default function SetupPage() {
               </Alert>
             )}
             <div className="space-y-2">
-              <Label htmlFor="fullName">Full Name</Label>
+              <Label htmlFor="fullName">{t("auth.fullName")}</Label>
               <Input
                 id="fullName"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                placeholder="Enter your full name"
+                placeholder={t("auth.fullName")}
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="username">{t("auth.username")}</Label>
               <Input
                 id="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="Choose a username (min 3 characters)"
+                placeholder={t("users.create.min3chars")}
                 required
                 minLength={3}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{t("auth.password")}</Label>
               <Input
                 id="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Choose a password (min 6 characters)"
+                placeholder={t("users.create.min6chars")}
                 required
                 minLength={6}
               />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Creating account..." : "Create Admin Account"}
+              {loading ? t("auth.creatingAccount") : t("auth.createAdmin")}
             </Button>
           </form>
         </CardContent>

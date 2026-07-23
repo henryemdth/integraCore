@@ -1,0 +1,257 @@
+{
+  "common": {
+    "loading": "Cargando...",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "close": "Cerrar",
+    "back": "Volver",
+    "previous": "Anterior",
+    "next": "Siguiente",
+    "noData": "Sin resultados",
+    "actions": "Acciones"
+  },
+  "auth": {
+    "signIn": "Iniciar sesión",
+    "signingIn": "Iniciando sesión...",
+    "username": "Usuario",
+    "password": "Contraseña",
+    "fullName": "Nombre completo",
+    "loginFailed": "Error al iniciar sesión",
+    "setupDesc": "Crea tu cuenta de administrador para comenzar",
+    "createAdmin": "Crear cuenta de administrador",
+    "creatingAccount": "Creando cuenta...",
+    "setupFailed": "Error en la configuración"
+  },
+  "sidebar": {
+    "dashboard": "Panel",
+    "products": "Productos",
+    "sales": "Ventas",
+    "users": "Usuarios",
+    "settings": "Configuración"
+  },
+  "products": {
+    "title": "Productos",
+    "addProduct": "Agregar producto",
+    "search": "Buscar por nombre o SKU...",
+    "allCategories": "Todas las categorías",
+    "imp": "Importar",
+    "export": "Exportar",
+    "stockIn": "Entrada de stock",
+    "stockOut": "Salida de stock",
+    "name": "Nombre",
+    "sku": "SKU",
+    "category": "Categoría",
+    "price": "Precio",
+    "stock": "Stock",
+    "lowStockThreshold": "Umbral de stock bajo",
+    "noProducts": "No se encontraron productos",
+    "confirmDelete": "¿Eliminar \"{{name}}\"?",
+    "deleted": "Producto eliminado",
+    "failedDelete": "Error al eliminar producto",
+    "pageInfo": "Página {{page}} de {{totalPages}} ({{total}} productos)",
+    "createForm": {
+      "title": "Crear producto",
+      "desc": "Completa los detalles del producto",
+      "namePlaceholder": "Nombre del producto",
+      "skuPlaceholder": "Unidad de mantenimiento de stock",
+      "categoryPlaceholder": "ej. Electrónica, Ferretería",
+      "created": "Producto creado",
+      "failedSave": "Error al guardar producto"
+    },
+    "editForm": {
+      "title": "Editar producto",
+      "desc": "Actualiza los detalles del producto",
+      "notFound": "Producto no encontrado"
+    },
+    "stockMovement": {
+      "stockInTitle": "Entrada de stock",
+      "stockOutTitle": "Salida de stock",
+      "currentStock": "SKU: {{sku}} | Stock actual: {{stock}}",
+      "quantity": "Cantidad *",
+      "notes": "Notas",
+      "inPlaceholder": "Cantidad a agregar",
+      "outPlaceholder": "Cantidad a remover",
+      "addStock": "Agregar stock",
+      "removeStock": "Remover stock",
+      "added": "Stock agregado",
+      "removed": "Stock removido",
+      "failedAdd": "Error al agregar stock",
+      "failedRemove": "Error al remover stock"
+    },
+    "import": {
+      "title": "Importar productos desde Excel",
+      "desc": "Sube un archivo .xlsx. Columnas esperadas: Nombre, SKU, Categoría, Precio, Stock, Umbral de stock bajo",
+      "importing": "Importando...",
+      "imported": "Importado(s) {{count}} producto(s)",
+      "errors": "{{count}} error(es):",
+      "rowError": "Fila {{row}}: {{error}}",
+      "failedImport": "Error al importar archivo"
+    }
+  },
+  "sales": {
+    "title": "Ventas",
+    "newSale": "Nueva venta",
+    "tabs": {
+      "newSale": "Nueva venta",
+      "history": "Historial de ventas"
+    },
+    "seller": "Vendedor",
+    "product": "Producto",
+    "from": "Desde",
+    "to": "Hasta",
+    "allSellers": "Todos los vendedores",
+    "allProducts": "Todos los productos",
+    "saleId": "ID de venta",
+    "date": "Fecha",
+    "items": "Artículos",
+    "total": "Total",
+    "noSales": "No se encontraron ventas",
+    "confirmDelete": "¿Eliminar venta #{{id}}? Se restaurará el stock.",
+    "deleted": "Venta eliminada, stock restaurado",
+    "failedDelete": "Error al eliminar venta",
+    "pageInfo": "Página {{page}} de {{totalPages}} ({{total}} ventas)",
+    "create": {
+      "title": "Nueva venta",
+      "desc": "Busca productos y agrégales a la venta",
+      "addProduct": "Agregar producto",
+      "qty": "Cant.",
+      "subtotal": "Subtotal",
+      "totalLabel": "Total: {{amount}}",
+      "notes": "Notas",
+      "notesPlaceholder": "Notas opcionales sobre esta venta",
+      "completeSale": "Completar venta",
+      "processing": "Procesando...",
+      "stockLabel": "Stock: {{stock}}",
+      "minOneProduct": "Agrega al menos un producto a la venta",
+      "created": "Venta creada",
+      "failedCreate": "Error al crear venta"
+    },
+    "detail": {
+      "title": "Venta #{{id}}",
+      "notes": "Notas"
+    }
+  },
+  "users": {
+    "title": "Usuarios",
+    "newUser": "Nuevo usuario",
+    "active": "Activo",
+    "inactive": "Inactivo",
+    "all": "Todos",
+    "count": "{{count}} usuario(s)",
+    "username": "Usuario",
+    "fullName": "Nombre completo",
+    "role": "Rol",
+    "status": "Estado",
+    "created": "Creado",
+    "noUsers": "No se encontraron usuarios",
+    "resetPassword": "Restablecer contraseña",
+    "deactivate": "Desactivar",
+    "activate": "Activar",
+    "confirmDeactivate": "¿Desactivar a {{name}}?",
+    "deactivated": "Usuario desactivado",
+    "activated": "Usuario activado",
+    "failedDeactivate": "Error al desactivar usuario",
+    "failedActivate": "Error al activar usuario",
+    "create": {
+      "title": "Nuevo usuario",
+      "desc": "Crea una nueva cuenta de usuario",
+      "min3chars": "mín. 3 caracteres",
+      "namePlaceholder": "ej. Juan Pérez",
+      "min6chars": "mín. 6 caracteres",
+      "roleSeller": "Vendedor",
+      "roleAdmin": "Administrador",
+      "created": "Usuario creado",
+      "failedCreate": "Error al crear usuario"
+    },
+    "edit": {
+      "title": "Editar usuario",
+      "desc": "Actualiza los datos de {{username}}",
+      "selfRoleHint": "No puedes cambiar tu propio rol",
+      "saved": "Usuario actualizado",
+      "failedSave": "Error al actualizar usuario"
+    },
+    "resetPwd": {
+      "title": "Restablecer contraseña",
+      "desc": "Establece una nueva contraseña para {{username}}",
+      "newPassword": "Nueva contraseña",
+      "placeholder": "mín. 6 caracteres",
+      "resetting": "Restableciendo...",
+      "reset": "Restablecer contraseña",
+      "success": "Contraseña restablecida exitosamente",
+      "failed": "Error al restablecer contraseña"
+    }
+  },
+  "settings": {
+    "title": "Configuración",
+    "profit": {
+      "title": "Configuración de ganancias",
+      "targetConfig": "Configuración de objetivo",
+      "targetDesc": "Establece tu objetivo de ingresos y período de verificación",
+      "revenueTarget": "Objetivo de ingresos",
+      "checkPeriod": "Período de verificación (días)",
+      "saveTarget": "Guardar objetivo",
+      "saving": "Guardando...",
+      "currentStatus": "Estado actual",
+      "statusDesc": "Ingresos vs. objetivo del período actual",
+      "revenue": "Ingresos",
+      "target": "Objetivo",
+      "progress": "Progreso",
+      "gap": "Déficit",
+      "period": "Período",
+      "behind": "{{amount}} por debajo",
+      "daysLabel": "{{days}} días",
+      "noTarget": "Sin objetivo configurado",
+      "saved": "Objetivo de ganancias guardado",
+      "failedSave": "Error al guardar objetivo"
+    },
+    "language": {
+      "title": "Idioma",
+      "label": "Idioma de la interfaz",
+      "spanish": "Español",
+      "english": "English"
+    },
+    "currency": {
+      "title": "Moneda",
+      "label": "Símbolo de moneda para la interfaz"
+    }
+  },
+  "notifications": {
+    "title": "Notificaciones",
+    "markAllRead": "Marcar todo leído",
+    "noNotifications": "Sin notificaciones"
+  },
+  "layout": {
+    "changePassword": "Cambiar contraseña",
+    "logout": "Cerrar sesión"
+  },
+  "dashboard": {
+    "welcome": "Bienvenido, {{name}}",
+    "subtitle": "Esto es lo que pasa con tu negocio hoy.",
+    "productsCard": "Productos",
+    "productsDesc": "Administra inventario, niveles de stock y precios",
+    "salesCard": "Ventas",
+    "salesDesc": "Registra ventas y consulta el historial",
+    "usersCard": "Usuarios",
+    "usersDesc": "Administra cuentas de usuario y roles"
+  },
+  "notFound": {
+    "title": "404",
+    "message": "Página no encontrada",
+    "goHome": "Ir al panel"
+  },
+  "changePassword": {
+    "title": "Cambiar contraseña",
+    "desc": "Actualiza la contraseña de tu cuenta",
+    "currentPassword": "Contraseña actual",
+    "newPassword": "Nueva contraseña",
+    "changing": "Cambiando...",
+    "success": "Contraseña cambiada exitosamente",
+    "failed": "Error al cambiar contraseña"
+  },
+  "export": {
+    "exported": "Exportado {{filename}}",
+    "failedExport": "Error al exportar archivo"
+  }
+}

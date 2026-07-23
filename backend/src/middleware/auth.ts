@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-
-const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-in-production";
+import { config } from "../config.js";
 
 interface JwtPayload {
   id: number;
@@ -20,7 +19,7 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
   const token = authHeader.split(" ")[1];
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
+    const decoded = jwt.verify(token, config.jwtSecret) as JwtPayload;
     req.user = { id: decoded.id, username: decoded.username, role: decoded.role };
     next();
   } catch {
@@ -45,5 +44,5 @@ export function requireRole(...roles: string[]) {
 }
 
 export function signToken(payload: JwtPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: "24h" });
+  return jwt.sign(payload, config.jwtSecret, { expiresIn: "24h" });
 }

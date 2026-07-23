@@ -5,4 +5,5 @@ data/
 .env
 .env.*
 MEMORY.md
+DESIGN.md
 

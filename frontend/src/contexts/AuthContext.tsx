@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import api from "@/lib/api"
 import type { User } from "@integracore/shared"
 
@@ -16,6 +17,7 @@ const AuthContext = createContext<AuthContextType | null>(null)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
 
   useEffect(() => {
     const token = localStorage.getItem("token")
@@ -49,6 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     localStorage.removeItem("token")
     setUser(null)
+    queryClient.clear()
   }
 
   return (

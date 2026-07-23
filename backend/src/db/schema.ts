@@ -68,11 +68,20 @@ const migrations: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_sale_items_product_id ON sale_items(product_id);`,
 ];
 
+function addColumnIfMissing(db: Database.Database, table: string, column: string, definition: string) {
+  const columns = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+  if (!columns.some((c) => c.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+    console.log(`[db] Added column ${table}.${column}`);
+  }
+}
+
 export function runMigrations(db: Database.Database): void {
   const run = db.transaction(() => {
     for (const sql of migrations) {
       db.exec(sql);
     }
+    addColumnIfMissing(db, "profit_targets", "period_days", "INTEGER NOT NULL DEFAULT 15");
   });
   run();
   console.log("[db] Migrations completed successfully");

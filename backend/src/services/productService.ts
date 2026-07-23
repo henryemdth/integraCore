@@ -1,0 +1,219 @@
+import type Database from "better-sqlite3";
+import ExcelJS from "exceljs";
+import { AppError } from "./authService.js";
+import { emitProductUpdated } from "../socket/index.js";
+
+export function productService(db: Database.Database) {
+  function list(params: {
+    page: number;
+    limit: number;
+    search: string;
+    category: string;
+    sort: string;
+    order: "ASC" | "DESC";
+  }) {
+    const { page, limit, search, category, sort, order } = params;
+    const offset = (page - 1) * limit;
+
+    const validSorts = ["name", "sku", "price", "stock", "created_at"];
+    const sortColumn = validSorts.includes(sort) ? sort : "created_at";
+
+    const conditions: string[] = [];
+    const sqlParams: any[] = [];
+
+    if (search) {
+      conditions.push("(name LIKE ? OR sku LIKE ?)");
+      sqlParams.push(`%${search}%`, `%${search}%`);
+    }
+    if (category) {
+      conditions.push("category = ?");
+      sqlParams.push(category);
+    }
+
+    const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+    const countRow = db.prepare(`SELECT COUNT(*) as count FROM products ${where}`)
+      .get(...sqlParams) as { count: number };
+    const total = countRow.count;
+    const totalPages = Math.ceil(total / limit);
+
+    const products = db.prepare(
+      `SELECT * FROM products ${where} ORDER BY ${sortColumn} ${order} LIMIT ? OFFSET ?`
+    ).all(...sqlParams, limit, offset);
+
+    return { products, total, page, totalPages };
+  }
+
+  function listLowStock() {
+    return db.prepare(
+      "SELECT * FROM products WHERE stock <= low_stock_threshold ORDER BY stock ASC"
+    ).all();
+  }
+
+  function getCategories() {
+    const products = db.prepare("SELECT category FROM products WHERE category != ''").all() as any[];
+    return [...new Set(products.map((p) => p.category))].sort();
+  }
+
+  async function exportToExcel(search: string, category: string) {
+    const conditions: string[] = [];
+    const params: any[] = [];
+
+    if (search) {
+      conditions.push("(name LIKE ? OR sku LIKE ?)");
+      params.push(`%${search}%`, `%${search}%`);
+    }
+    if (category) {
+      conditions.push("category = ?");
+      params.push(category);
+    }
+
+    const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+    const products = db.prepare(`SELECT * FROM products ${where} ORDER BY name ASC`).all() as any[];
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Products");
+    sheet.columns = [
+      { header: "ID", key: "id", width: 8 },
+      { header: "Name", key: "name", width: 30 },
+      { header: "SKU", key: "sku", width: 15 },
+      { header: "Category", key: "category", width: 20 },
+      { header: "Price", key: "price", width: 12 },
+      { header: "Stock", key: "stock", width: 10 },
+      { header: "Low Stock Threshold", key: "low_stock_threshold", width: 20 },
+      { header: "Created At", key: "created_at", width: 20 },
+      { header: "Updated At", key: "updated_at", width: 20 },
+    ];
+    sheet.getRow(1).font = { bold: true };
+    for (const p of products) sheet.addRow(p);
+
+    return workbook;
+  }
+
+  async function importFromExcel(base64File: string) {
+    const buffer = Buffer.from(base64File, "base64");
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(buffer as any);
+    const sheet = workbook.getWorksheet(1);
+
+    if (!sheet) throw new AppError(400, "No worksheet found in Excel file");
+
+    const errors: { row: number; sku: string; error: string }[] = [];
+    let imported = 0;
+
+    const insertStmt = db.prepare(
+      "INSERT INTO products (name, sku, category, price, stock, low_stock_threshold) VALUES (?, ?, ?, ?, ?, ?)"
+    );
+    const checkSku = db.prepare("SELECT id FROM products WHERE sku = ?");
+    const seenSkus = new Set<string>();
+
+    sheet.eachRow((row, rowNumber) => {
+      if (rowNumber === 1) return;
+
+      const name = String(row.getCell(1).value || "").trim();
+      const sku = String(row.getCell(2).value || "").trim();
+      const category = String(row.getCell(3).value || "").trim();
+      const price = parseFloat(String(row.getCell(4).value || "0"));
+      const stock = parseInt(String(row.getCell(5).value || "0"), 10);
+      const lowStockThreshold = parseInt(String(row.getCell(6).value || "5"), 10);
+
+      if (!name) { errors.push({ row: rowNumber, sku: sku || "N/A", error: "Missing required field: name" }); return; }
+      if (!sku) { errors.push({ row: rowNumber, sku: "N/A", error: "Missing required field: sku" }); return; }
+      if (isNaN(price) || price < 0) { errors.push({ row: rowNumber, sku, error: "Invalid price" }); return; }
+      if (seenSkus.has(sku)) { errors.push({ row: rowNumber, sku, error: "Duplicate SKU in file" }); return; }
+
+      const existing = checkSku.get(sku);
+      if (existing) { errors.push({ row: rowNumber, sku, error: "SKU already exists in database" }); return; }
+
+      seenSkus.add(sku);
+      insertStmt.run(name, sku, category, price, isNaN(stock) ? 0 : stock, isNaN(lowStockThreshold) ? 5 : lowStockThreshold);
+      imported++;
+    });
+
+    return { imported, errors };
+  }
+
+  function create(data: { name: string; sku: string; category: string; price: number; stock: number; low_stock_threshold: number }) {
+    const existing = db.prepare("SELECT id FROM products WHERE sku = ?").get(data.sku);
+    if (existing) throw new AppError(409, "SKU already exists");
+
+    const result = db.prepare(
+      "INSERT INTO products (name, sku, category, price, stock, low_stock_threshold) VALUES (?, ?, ?, ?, ?, ?)"
+    ).run(data.name, data.sku, data.category, data.price, data.stock, data.low_stock_threshold);
+
+    const product = db.prepare("SELECT * FROM products WHERE id = ?").get(Number(result.lastInsertRowid)) as any;
+    emitProductUpdated({ id: product.id, name: product.name, sku: product.sku, price: product.price, stock: product.stock });
+    return product;
+  }
+
+  function update(id: number, data: { name?: string; sku?: string; category?: string; price?: number; stock?: number; low_stock_threshold?: number }) {
+    const existing = db.prepare("SELECT * FROM products WHERE id = ?").get(id) as any;
+    if (!existing) throw new AppError(404, "Product not found");
+
+    if (data.sku && data.sku !== existing.sku) {
+      const skuExists = db.prepare("SELECT id FROM products WHERE sku = ? AND id != ?").get(data.sku, id);
+      if (skuExists) throw new AppError(409, "SKU already exists");
+    }
+
+    db.prepare(
+      `UPDATE products SET
+        name = COALESCE(?, name),
+        sku = COALESCE(?, sku),
+        category = COALESCE(?, category),
+        price = COALESCE(?, price),
+        stock = COALESCE(?, stock),
+        low_stock_threshold = COALESCE(?, low_stock_threshold),
+        updated_at = datetime('now')
+      WHERE id = ?`
+    ).run(
+      data.name ?? null, data.sku ?? null, data.category ?? null,
+      data.price ?? null, data.stock ?? null, data.low_stock_threshold ?? null, id
+    );
+
+    const product = db.prepare("SELECT * FROM products WHERE id = ?").get(id) as any;
+    emitProductUpdated({ id: product.id, name: product.name, sku: product.sku, price: product.price, stock: product.stock });
+    return product;
+  }
+
+  function remove(id: number) {
+    const existing = db.prepare("SELECT * FROM products WHERE id = ?").get(id) as any;
+    if (!existing) throw new AppError(404, "Product not found");
+
+    const hasSales = db.prepare("SELECT COUNT(*) as count FROM sale_items WHERE product_id = ?")
+      .get(id) as { count: number };
+    if (hasSales.count > 0) throw new AppError(409, "Cannot delete product with existing sales");
+
+    db.prepare("DELETE FROM products WHERE id = ?").run(id);
+    return { success: true };
+  }
+
+  function stockIn(id: number, quantity: number) {
+    const product = db.prepare("SELECT * FROM products WHERE id = ?").get(id) as any;
+    if (!product) throw new AppError(404, "Product not found");
+
+    db.prepare("UPDATE products SET stock = stock + ?, updated_at = datetime('now') WHERE id = ?")
+      .run(quantity, id);
+
+    const updated = db.prepare("SELECT * FROM products WHERE id = ?").get(id) as any;
+    emitProductUpdated({ id: updated.id, name: updated.name, sku: updated.sku, price: updated.price, stock: updated.stock });
+    return updated;
+  }
+
+  function stockOut(id: number, quantity: number) {
+    const product = db.prepare("SELECT * FROM products WHERE id = ?").get(id) as any;
+    if (!product) throw new AppError(404, "Product not found");
+
+    if (product.stock < quantity) {
+      throw new AppError(400, `Insufficient stock: available ${product.stock}, requested ${quantity}`);
+    }
+
+    db.prepare("UPDATE products SET stock = stock - ?, updated_at = datetime('now') WHERE id = ?")
+      .run(quantity, id);
+
+    const updated = db.prepare("SELECT * FROM products WHERE id = ?").get(id) as any;
+    emitProductUpdated({ id: updated.id, name: updated.name, sku: updated.sku, price: updated.price, stock: updated.stock });
+    return updated;
+  }
+
+  return { list, listLowStock, getCategories, exportToExcel, importFromExcel, create, update, remove, stockIn, stockOut };
+}
