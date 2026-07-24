@@ -42,7 +42,7 @@ export function authService(db: DatabaseAdapter) {
       "SELECT id, username, password_hash, full_name, role, active FROM users WHERE username = ?",
       [username]
     ) as any;
-    console.log("User fetched from DB:", username, user); // Debugging line
+    
     if (!user) throw new AppError(401, "Invalid credentials");
     if (!user.active) throw new AppError(403, "Account is deactivated");
 
