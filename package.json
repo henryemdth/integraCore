@@ -2,6 +2,10 @@
   "name": "integracore",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "packageManager": "pnpm@9.0.0",
   "workspaces": [
     "backend",
     "frontend",
@@ -9,6 +13,7 @@
   ],
   "scripts": {
     "dev": "concurrently -n backend,frontend -c blue,green \"npm run dev -w backend\" \"npm run dev -w frontend\"",
+    "dev-fe": "concurrently -n frontend -c green \"npm run dev -w frontend\"",
     "dev:electron": "concurrently -n backend,frontend,electron -c blue,green,yellow \"npm run dev -w backend\" \"npm run dev -w frontend\" \"npm run dev -w electron\"",
     "build": "npm run build -w shared && npm run build -w backend && npm run build -w frontend",
     "start": "npm run start -w backend"
