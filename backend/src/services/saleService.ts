@@ -1,22 +1,24 @@
-import type Database from "better-sqlite3";
+import type { DatabaseAdapter } from "../db/adapter.js";
 import ExcelJS from "exceljs";
 import { AppError } from "./authService.js";
 import { emitProductUpdated } from "../socket/index.js";
 
-function buildSaleDetail(db: Database.Database, saleId: number) {
-  const sale = db.prepare(
+async function buildSaleDetail(db: DatabaseAdapter, saleId: number) {
+  const sale = await db.get(
     `SELECT s.*, u.full_name as seller_name
      FROM sales s JOIN users u ON s.user_id = u.id
-     WHERE s.id = ?`
-  ).get(saleId) as any;
+     WHERE s.id = ?`,
+    [saleId]
+  ) as any;
 
   if (!sale) return null;
 
-  const items = db.prepare(
+  const items = await db.all(
     `SELECT si.*, p.name as product_name, p.sku as product_sku
      FROM sale_items si JOIN products p ON si.product_id = p.id
-     WHERE si.sale_id = ?`
-  ).all(saleId);
+     WHERE si.sale_id = ?`,
+    [saleId]
+  );
 
   return { ...sale, items };
 }
@@ -57,14 +59,15 @@ function buildFilterQuery(filters: {
   return { where, params };
 }
 
-export function saleService(db: Database.Database) {
-  function create(userId: number, items: { product_id: number; quantity: number }[], notes?: string) {
-    const createSale = db.transaction(() => {
+export function saleService(db: DatabaseAdapter) {
+  async function create(userId: number, items: { product_id: number; quantity: number }[], notes?: string) {
+    const saleId = await db.transaction(async (tx) => {
       const productIds = items.map((i) => i.product_id);
       const placeholders = productIds.map(() => "?").join(",");
-      const products = db.prepare(
-        `SELECT id, name, sell_price, stock FROM products WHERE id IN (${placeholders})`
-      ).all(...productIds) as any[];
+      const products = await tx.all(
+        `SELECT id, name, sell_price, stock FROM products WHERE id IN (${placeholders})`,
+        productIds
+      ) as any[];
 
       const productMap = new Map(products.map((p) => [p.id, p]));
 
@@ -95,33 +98,33 @@ export function saleService(db: Database.Database) {
         };
       });
 
-      const saleResult = db.prepare(
-        "INSERT INTO sales (user_id, total, notes) VALUES (?, ?, ?)"
-      ).run(userId, total, notes || "");
-
-      const saleId = Number(saleResult.lastInsertRowid);
-      const insertItem = db.prepare(
-        "INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, subtotal) VALUES (?, ?, ?, ?, ?)"
+      const saleResult = await tx.run(
+        "INSERT INTO sales (user_id, total, notes) VALUES (?, ?, ?)",
+        [userId, total, notes || ""]
       );
+
+      const insertedSaleId = saleResult.insertId;
       for (const item of saleItems) {
-        insertItem.run(saleId, item.product_id, item.quantity, item.unit_price, item.subtotal);
+        await tx.run(
+          "INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, subtotal) VALUES (?, ?, ?, ?, ?)",
+          [insertedSaleId, item.product_id, item.quantity, item.unit_price, item.subtotal]
+        );
       }
 
-      const updateStock = db.prepare(
-        "UPDATE products SET stock = stock - ?, updated_at = datetime('now') WHERE id = ?"
-      );
       for (const item of saleItems) {
-        updateStock.run(item.quantity, item.product_id);
+        await tx.run(
+          "UPDATE products SET stock = stock - ?, updated_at = datetime('now') WHERE id = ?",
+          [item.quantity, item.product_id]
+        );
       }
 
-      return saleId;
+      return insertedSaleId;
     });
 
-    const saleId = createSale();
-    const sale = buildSaleDetail(db, saleId);
+    const sale = await buildSaleDetail(db, saleId);
 
     for (const item of sale!.items) {
-      const product = db.prepare("SELECT id, name, sku, price, sell_price, stock FROM products WHERE id = ?").get(item.product_id) as any;
+      const product = await db.get("SELECT id, name, sku, price, sell_price, stock FROM products WHERE id = ?", [item.product_id]) as any;
       if (product) {
         emitProductUpdated({ id: product.id, name: product.name, sku: product.sku, price: product.price, sell_price: product.sell_price, stock: product.stock });
       }
@@ -130,7 +133,7 @@ export function saleService(db: Database.Database) {
     return { sale };
   }
 
-  function list(params: {
+  async function list(params: {
     page: number;
     limit: number;
     isAdmin: boolean;
@@ -147,33 +150,39 @@ export function saleService(db: Database.Database) {
       userId, isAdmin, requesterId, dateFrom, dateTo, productId,
     });
 
-    const countRow = db.prepare(`SELECT COUNT(*) as count FROM sales s ${where}`)
-      .get(...(filterParams as any[])) as { count: number };
-    const total = countRow.count;
+    const countRow = await db.get<{ count: number }>(
+      `SELECT COUNT(*) as count FROM sales s ${where}`,
+      filterParams
+    );
+    const total = countRow!.count;
     const totalPages = Math.ceil(total / limit);
 
-    const sales = db.prepare(
+    const sales = await db.all(
       `SELECT s.id, s.user_id, u.full_name as seller_name, s.total, s.notes, s.created_at
        FROM sales s JOIN users u ON s.user_id = u.id
        ${where}
        ORDER BY s.created_at DESC
-       LIMIT ? OFFSET ?`
-    ).all(...filterParams, limit, offset);
+       LIMIT ? OFFSET ?`,
+      [...filterParams, limit, offset]
+    );
 
-    const salesWithItems = sales.map((sale: any) => {
-      const items = db.prepare(
-        `SELECT si.*, p.name as product_name, p.sku as product_sku
-         FROM sale_items si JOIN products p ON si.product_id = p.id
-         WHERE si.sale_id = ?`
-      ).all(sale.id);
-      return { ...sale, items };
-    });
+    const salesWithItems = await Promise.all(
+      sales.map(async (sale: any) => {
+        const items = await db.all(
+          `SELECT si.*, p.name as product_name, p.sku as product_sku
+           FROM sale_items si JOIN products p ON si.product_id = p.id
+           WHERE si.sale_id = ?`,
+          [sale.id]
+        );
+        return { ...sale, items };
+      })
+    );
 
     return { sales: salesWithItems, total, page, totalPages };
   }
 
-  function getById(id: number, requesterId: number, isAdmin: boolean) {
-    const sale = buildSaleDetail(db, id);
+  async function getById(id: number, requesterId: number, isAdmin: boolean) {
+    const sale = await buildSaleDetail(db, id);
     if (!sale) throw new AppError(404, "Sale not found");
 
     if (!isAdmin && sale.user_id !== requesterId) {
@@ -200,12 +209,13 @@ export function saleService(db: Database.Database) {
       productId: filters.productId,
     });
 
-    const sales = db.prepare(
+    const sales = await db.all(
       `SELECT s.id, s.created_at, u.full_name as seller_name, s.total, s.notes
        FROM sales s JOIN users u ON s.user_id = u.id
        ${where}
-       ORDER BY s.created_at DESC`
-    ).all(...params) as any[];
+       ORDER BY s.created_at DESC`,
+      params
+    ) as any[];
 
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet("Sales");
@@ -224,11 +234,12 @@ export function saleService(db: Database.Database) {
     sheet.getRow(1).font = { bold: true };
 
     for (const sale of sales) {
-      const items = db.prepare(
+      const items = await db.all(
         `SELECT si.*, p.name as product_name, p.sku as product_sku
          FROM sale_items si JOIN products p ON si.product_id = p.id
-         WHERE si.sale_id = ?`
-      ).all(sale.id) as any[];
+         WHERE si.sale_id = ?`,
+        [sale.id]
+      ) as any[];
 
       for (const item of items) {
         sheet.addRow({
@@ -243,27 +254,25 @@ export function saleService(db: Database.Database) {
     return workbook;
   }
 
-  function remove(id: number) {
-    const sale = db.prepare("SELECT * FROM sales WHERE id = ?").get(id) as any;
+  async function remove(id: number) {
+    const sale = await db.get("SELECT * FROM sales WHERE id = ?", [id]) as any;
     if (!sale) throw new AppError(404, "Sale not found");
 
-    const items = db.prepare("SELECT * FROM sale_items WHERE sale_id = ?").all(id) as any[];
+    const items = await db.all("SELECT * FROM sale_items WHERE sale_id = ?", [id]) as any[];
 
-    const deleteSale = db.transaction(() => {
-      const updateStock = db.prepare(
-        "UPDATE products SET stock = stock + ?, updated_at = datetime('now') WHERE id = ?"
-      );
+    await db.transaction(async (tx) => {
       for (const item of items) {
-        updateStock.run(item.quantity, item.product_id);
+        await tx.run(
+          "UPDATE products SET stock = stock + ?, updated_at = datetime('now') WHERE id = ?",
+          [item.quantity, item.product_id]
+        );
       }
-      db.prepare("DELETE FROM sale_items WHERE sale_id = ?").run(id);
-      db.prepare("DELETE FROM sales WHERE id = ?").run(id);
+      await tx.run("DELETE FROM sale_items WHERE sale_id = ?", [id]);
+      await tx.run("DELETE FROM sales WHERE id = ?", [id]);
     });
 
-    deleteSale();
-
     for (const item of items) {
-      const product = db.prepare("SELECT id, name, sku, price, sell_price, stock FROM products WHERE id = ?").get(item.product_id) as any;
+      const product = await db.get("SELECT id, name, sku, price, sell_price, stock FROM products WHERE id = ?", [item.product_id]) as any;
       if (product) {
         emitProductUpdated({ id: product.id, name: product.name, sku: product.sku, price: product.price, sell_price: product.sell_price, stock: product.stock });
       }

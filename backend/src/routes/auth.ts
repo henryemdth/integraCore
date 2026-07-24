@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { getDb } from "../db/index.js";
+import { getAdapter } from "../db/index.js";
 import { authenticate, requireRole } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
 import { SetupSchema, LoginSchema, RegisterSchema, ChangePasswordSchema } from "@integracore/shared";
@@ -7,44 +7,44 @@ import { authService } from "../services/authService.js";
 
 const router = Router();
 
-router.get("/setup-status", (_req: Request, res: Response) => {
-  const db = getDb();
+router.get("/setup-status", async (_req: Request, res: Response) => {
+  const db = getAdapter();
   const svc = authService(db);
-  res.json({ needsSetup: svc.getSetupStatus() });
+  res.json({ needsSetup: await svc.getSetupStatus() });
 });
 
-router.post("/setup", validate(SetupSchema), (req: Request, res: Response) => {
-  const db = getDb();
+router.post("/setup", validate(SetupSchema), async (req: Request, res: Response) => {
+  const db = getAdapter();
   const svc = authService(db);
-  const result = svc.setup(req.body.username, req.body.password, req.body.full_name);
+  const result = await svc.setup(req.body.username, req.body.password, req.body.full_name);
   res.status(201).json(result);
 });
 
-router.post("/login", validate(LoginSchema), (req: Request, res: Response) => {
-  const db = getDb();
+router.post("/login", validate(LoginSchema), async (req: Request, res: Response) => {
+  const db = getAdapter();
   const svc = authService(db);
-  const result = svc.login(req.body.username, req.body.password);
+  const result = await svc.login(req.body.username, req.body.password);
   res.json(result);
 });
 
-router.post("/register", authenticate, requireRole("admin"), validate(RegisterSchema), (req: Request, res: Response) => {
-  const db = getDb();
+router.post("/register", authenticate, requireRole("admin"), validate(RegisterSchema), async (req: Request, res: Response) => {
+  const db = getAdapter();
   const svc = authService(db);
-  const result = svc.register(req.body.username, req.body.password, req.body.full_name, req.body.role);
+  const result = await svc.register(req.body.username, req.body.password, req.body.full_name, req.body.role);
   res.status(201).json(result);
 });
 
-router.put("/password", authenticate, validate(ChangePasswordSchema), (req: Request, res: Response) => {
-  const db = getDb();
+router.put("/password", authenticate, validate(ChangePasswordSchema), async (req: Request, res: Response) => {
+  const db = getAdapter();
   const svc = authService(db);
-  const result = svc.changePassword(req.user!.id, req.body.current_password, req.body.new_password);
+  const result = await svc.changePassword(req.user!.id, req.body.current_password, req.body.new_password);
   res.json(result);
 });
 
-router.get("/me", authenticate, (req: Request, res: Response) => {
-  const db = getDb();
+router.get("/me", authenticate, async (req: Request, res: Response) => {
+  const db = getAdapter();
   const svc = authService(db);
-  const result = svc.getMe(req.user!.id);
+  const result = await svc.getMe(req.user!.id);
   res.json(result);
 });
 

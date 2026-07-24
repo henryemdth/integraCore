@@ -1,4 +1,4 @@
-import type Database from "better-sqlite3";
+import type { DatabaseAdapter } from "../db/adapter.js";
 import bcrypt from "bcryptjs";
 import { signToken } from "../middleware/auth.js";
 
@@ -9,37 +9,40 @@ export class AppError extends Error {
   }
 }
 
-export function authService(db: Database.Database) {
-  function getSetupStatus() {
-    const count = db.prepare("SELECT COUNT(*) as count FROM users").get() as { count: number };
-    return count.count === 0;
+export function authService(db: DatabaseAdapter) {
+  async function getSetupStatus() {
+    const count = await db.get<{ count: number }>("SELECT COUNT(*) as count FROM users");
+    return count!.count === 0;
   }
 
-  function setup(username: string, password: string, fullName: string) {
-    const count = db.prepare("SELECT COUNT(*) as count FROM users").get() as { count: number };
-    if (count.count > 0) throw new AppError(400, "Setup already completed");
+  async function setup(username: string, password: string, fullName: string) {
+    const count = await db.get<{ count: number }>("SELECT COUNT(*) as count FROM users");
+    if (count!.count > 0) throw new AppError(400, "Setup already completed");
 
-    const existing = db.prepare("SELECT id FROM users WHERE username = ?").get(username);
+    const existing = await db.get("SELECT id FROM users WHERE username = ?", [username]);
     if (existing) throw new AppError(409, "Username already exists");
 
     const passwordHash = bcrypt.hashSync(password, 10);
-    const result = db.prepare(
-      "INSERT INTO users (username, password_hash, full_name, role) VALUES (?, ?, ?, 'admin')"
-    ).run(username, passwordHash, fullName);
+    const result = await db.run(
+      "INSERT INTO users (username, password_hash, full_name, role) VALUES (?, ?, ?, 'admin')",
+      [username, passwordHash, fullName]
+    );
 
-    const user = db.prepare(
-      "SELECT id, username, full_name, role, active, created_at, updated_at FROM users WHERE id = ?"
-    ).get(Number(result.lastInsertRowid)) as any;
+    const user = await db.get(
+      "SELECT id, username, full_name, role, active, created_at, updated_at FROM users WHERE id = ?",
+      [result.insertId]
+    );
 
-    const token = signToken({ id: user.id, username: user.username, role: user.role });
+    const token = signToken({ id: user!.id, username: user!.username, role: user!.role });
     return { token, user };
   }
 
-  function login(username: string, password: string) {
-    const user = db.prepare(
-      "SELECT id, username, password_hash, full_name, role, active FROM users WHERE username = ?"
-    ).get(username) as any;
-
+  async function login(username: string, password: string) {
+    const user = await db.get(
+      "SELECT id, username, password_hash, full_name, role, active FROM users WHERE username = ?",
+      [username]
+    ) as any;
+    console.log("User fetched from DB:", username, user); // Debugging line
     if (!user) throw new AppError(401, "Invalid credentials");
     if (!user.active) throw new AppError(403, "Account is deactivated");
 
@@ -61,42 +64,47 @@ export function authService(db: Database.Database) {
     };
   }
 
-  function register(username: string, password: string, fullName: string, role: string) {
+  async function register(username: string, password: string, fullName: string, role: string) {
     const userRole = role === "admin" ? "admin" : "user";
 
-    const existing = db.prepare("SELECT id FROM users WHERE username = ?").get(username);
+    const existing = await db.get("SELECT id FROM users WHERE username = ?", [username]);
     if (existing) throw new AppError(409, "Username already exists");
 
     const passwordHash = bcrypt.hashSync(password, 10);
-    const result = db.prepare(
-      "INSERT INTO users (username, password_hash, full_name, role) VALUES (?, ?, ?, ?)"
-    ).run(username, passwordHash, fullName, userRole);
+    const result = await db.run(
+      "INSERT INTO users (username, password_hash, full_name, role) VALUES (?, ?, ?, ?)",
+      [username, passwordHash, fullName, userRole]
+    );
 
-    const user = db.prepare(
-      "SELECT id, username, full_name, role, active, created_at, updated_at FROM users WHERE id = ?"
-    ).get(Number(result.lastInsertRowid)) as any;
+    const user = await db.get(
+      "SELECT id, username, full_name, role, active, created_at, updated_at FROM users WHERE id = ?",
+      [result.insertId]
+    );
 
     return { user };
   }
 
-  function changePassword(userId: number, currentPassword: string, newPassword: string) {
-    const user = db.prepare("SELECT id, password_hash FROM users WHERE id = ?").get(userId) as any;
+  async function changePassword(userId: number, currentPassword: string, newPassword: string) {
+    const user = await db.get("SELECT id, password_hash FROM users WHERE id = ?", [userId]) as any;
     if (!user) throw new AppError(404, "User not found");
 
     const valid = bcrypt.compareSync(currentPassword, user.password_hash);
     if (!valid) throw new AppError(401, "Current password is incorrect");
 
     const passwordHash = bcrypt.hashSync(newPassword, 10);
-    db.prepare("UPDATE users SET password_hash = ?, updated_at = datetime('now') WHERE id = ?")
-      .run(passwordHash, userId);
+    await db.run(
+      "UPDATE users SET password_hash = ?, updated_at = datetime('now') WHERE id = ?",
+      [passwordHash, userId]
+    );
 
     return { success: true };
   }
 
-  function getMe(userId: number) {
-    const user = db.prepare(
-      "SELECT id, username, full_name, role, active, created_at, updated_at FROM users WHERE id = ?"
-    ).get(userId) as any;
+  async function getMe(userId: number) {
+    const user = await db.get(
+      "SELECT id, username, full_name, role, active, created_at, updated_at FROM users WHERE id = ?",
+      [userId]
+    );
 
     if (!user) throw new AppError(404, "User not found");
     return { user };

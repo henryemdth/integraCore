@@ -1,37 +1,40 @@
-import type Database from "better-sqlite3";
+import type { DatabaseAdapter } from "../db/adapter.js";
 import { AppError } from "./authService.js";
 import { emitNotification } from "../socket/index.js";
 
-export function profitService(db: Database.Database) {
-  function getTarget() {
-    const target = db.prepare("SELECT * FROM profit_targets ORDER BY id DESC LIMIT 1").get() as any;
+export function profitService(db: DatabaseAdapter) {
+  async function getTarget() {
+    const target = await db.get("SELECT * FROM profit_targets ORDER BY id DESC LIMIT 1") as any;
     return target || { id: 0, target_amount: 0, period_days: 15, period: "custom", created_at: "", updated_at: "" };
   }
 
-  function updateTarget(targetAmount: number, periodDays: number) {
-    const existing = db.prepare("SELECT id FROM profit_targets LIMIT 1").get() as any;
+  async function updateTarget(targetAmount: number, periodDays: number) {
+    const existing = await db.get("SELECT id FROM profit_targets LIMIT 1") as any;
     if (existing) {
-      db.prepare(
-        "UPDATE profit_targets SET target_amount = ?, period_days = ?, updated_at = datetime('now') WHERE id = ?"
-      ).run(targetAmount, periodDays, existing.id);
+      await db.run(
+        "UPDATE profit_targets SET target_amount = ?, period_days = ?, updated_at = datetime('now') WHERE id = ?",
+        [targetAmount, periodDays, existing.id]
+      );
     } else {
-      db.prepare(
-        "INSERT INTO profit_targets (target_amount, period_days, period) VALUES (?, ?, 'custom')"
-      ).run(targetAmount, periodDays);
+      await db.run(
+        "INSERT INTO profit_targets (target_amount, period_days, period) VALUES (?, ?, 'custom')",
+        [targetAmount, periodDays]
+      );
     }
-    return getTarget();
+    return await getTarget();
   }
 
-  function checkProfit(periodDays?: number) {
-    const target = getTarget();
+  async function checkProfit(periodDays?: number) {
+    const target = await getTarget();
     const days = periodDays || (target as any).period_days || 15;
 
-    const sales = db.prepare(
+    const sales = await db.get(
       `SELECT COALESCE(SUM(si.subtotal), 0) as total_revenue
        FROM sale_items si
        JOIN sales s ON si.sale_id = s.id
-       WHERE s.created_at >= datetime('now', '-' || ? || ' days')`
-    ).get(days) as { total_revenue: number };
+       WHERE s.created_at >= datetime('now', '-' || ? || ' days')`,
+      [days]
+    ) as { total_revenue: number };
 
     const revenue = sales.total_revenue;
     const targetAmount = target.target_amount;
@@ -48,24 +51,26 @@ export function profitService(db: Database.Database) {
     };
   }
 
-  function getRevenueSummary(periodDays: number) {
-    const sales = db.prepare(
+  async function getRevenueSummary(periodDays: number) {
+    const sales = await db.get(
       `SELECT COALESCE(SUM(si.subtotal), 0) as total_revenue
        FROM sale_items si
        JOIN sales s ON si.sale_id = s.id
-       WHERE s.created_at >= datetime('now', '-' || ? || ' days')`
-    ).get(periodDays) as { total_revenue: number };
+       WHERE s.created_at >= datetime('now', '-' || ? || ' days')`,
+      [periodDays]
+    ) as { total_revenue: number };
 
     return { total_revenue: sales.total_revenue, period_days: periodDays };
   }
 
-  function createNotification(type: string, message: string) {
-    const result = db.prepare(
-      "INSERT INTO notifications (type, message) VALUES (?, ?)"
-    ).run(type, message);
+  async function createNotification(type: string, message: string) {
+    const result = await db.run(
+      "INSERT INTO notifications (type, message) VALUES (?, ?)",
+      [type, message]
+    );
 
     const notification = {
-      id: Number(result.lastInsertRowid),
+      id: result.insertId,
       type,
       message,
     };
@@ -74,24 +79,24 @@ export function profitService(db: Database.Database) {
     return notification;
   }
 
-  function listNotifications(unreadOnly = false) {
+  async function listNotifications(unreadOnly = false) {
     const where = unreadOnly ? "WHERE read = 0" : "";
-    return db.prepare(`SELECT * FROM notifications ${where} ORDER BY created_at DESC LIMIT 50`).all();
+    return await db.all(`SELECT * FROM notifications ${where} ORDER BY created_at DESC LIMIT 50`);
   }
 
-  function markAsRead(id: number) {
-    db.prepare("UPDATE notifications SET read = 1 WHERE id = ?").run(id);
+  async function markAsRead(id: number) {
+    await db.run("UPDATE notifications SET read = 1 WHERE id = ?", [id]);
     return { success: true };
   }
 
-  function markAllAsRead() {
-    db.prepare("UPDATE notifications SET read = 1 WHERE read = 0").run();
+  async function markAllAsRead() {
+    await db.run("UPDATE notifications SET read = 1 WHERE read = 0");
     return { success: true };
   }
 
-  function getUnreadCount() {
-    const row = db.prepare("SELECT COUNT(*) as count FROM notifications WHERE read = 0").get() as { count: number };
-    return row.count;
+  async function getUnreadCount() {
+    const row = await db.get<{ count: number }>("SELECT COUNT(*) as count FROM notifications WHERE read = 0");
+    return row!.count;
   }
 
   return { getTarget, updateTarget, checkProfit, getRevenueSummary, createNotification, listNotifications, markAsRead, markAllAsRead, getUnreadCount };

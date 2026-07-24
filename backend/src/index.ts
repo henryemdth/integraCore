@@ -34,25 +34,32 @@ app.use("/api/notifications", notificationRoutes)
 
 app.use(errorHandler)
 
-const db = initDatabase()
-startProfitCron(db)
+async function main() {
+  const { adapter } = await initDatabase()
+  startProfitCron(adapter)
 
-server.listen(config.port, "0.0.0.0", () => {
-  console.log(`[backend] Running on http://0.0.0.0:${config.port}`)
-})
-
-function shutdown(signal: string) {
-  console.log(`\n[backend] ${signal} received, shutting down...`)
-  server.close(() => {
-    db.close()
-    console.log("[backend] Closed.")
-    process.exit(0)
+  server.listen(config.port, "0.0.0.0", () => {
+    console.log(`[backend] Running on http://0.0.0.0:${config.port}`)
   })
-  setTimeout(() => {
-    console.error("[backend] Forced shutdown after timeout")
-    process.exit(1)
-  }, 5000)
+
+  function shutdown(signal: string) {
+    console.log(`\n[backend] ${signal} received, shutting down...`)
+    server.close(async () => {
+      await adapter.close()
+      console.log("[backend] Closed.")
+      process.exit(0)
+    })
+    setTimeout(() => {
+      console.error("[backend] Forced shutdown after timeout")
+      process.exit(1)
+    }, 5000)
+  }
+
+  process.on("SIGTERM", () => shutdown("SIGTERM"))
+  process.on("SIGINT", () => shutdown("SIGINT"))
 }
 
-process.on("SIGTERM", () => shutdown("SIGTERM"))
-process.on("SIGINT", () => shutdown("SIGINT"))
+main().catch((err) => {
+  console.error("[backend] Fatal startup error:", err)
+  process.exit(1)
+})

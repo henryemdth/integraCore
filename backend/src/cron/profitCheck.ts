@@ -1,15 +1,15 @@
 import cron from "node-cron";
-import type Database from "better-sqlite3";
+import type { DatabaseAdapter } from "../db/adapter.js";
 import { profitService } from "../services/profitService.js";
 
-export function startProfitCron(db: Database.Database) {
-  cron.schedule("0 0 * * *", () => {
+export function startProfitCron(db: DatabaseAdapter) {
+  cron.schedule("0 0 * * *", async () => {
     try {
       const svc = profitService(db);
-      const result = svc.checkProfit();
+      const result = await svc.checkProfit();
 
       if (result.behind) {
-        svc.createNotification(
+        await svc.createNotification(
           "profit_behind",
           `Profit behind pace: ${result.revenue.toFixed(2)} / ${result.target_amount.toFixed(2)} (${result.percentage}%). Gap: ${result.gap.toFixed(2)}`
         );

@@ -2,25 +2,38 @@ import Database from "better-sqlite3";
 import path from "path";
 import { fileURLToPath } from "url";
 import { config } from "../config.js";
-import { runMigrations } from "./schema.js";
+import type { DatabaseAdapter } from "./adapter.js";
+import { SqliteAdapter } from "./sqlite.js";
+import { runMigrations, runPostgresMigrations } from "./schema.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-let db: Database.Database;
+let adapter: DatabaseAdapter | null = null;
 
-export function getDb(): Database.Database {
-  if (!db) {
+/** Returns the database adapter (async-capable). */
+export function getAdapter(): DatabaseAdapter {
+  if (!adapter) {
     throw new Error("Database not initialized. Call initDatabase() first.");
   }
-  return db;
+  return adapter;
 }
 
-export function initDatabase(): Database.Database {
+export async function initDatabase(): Promise<{ adapter: DatabaseAdapter }> {
+  if (config.dbDriver === "postgresql") {
+    const { PostgresAdapter } = await import("./postgres.js");
+    adapter = new PostgresAdapter(config.pg);
+    console.log(`[db] Connected to PostgreSQL at ${config.pg.host}:${config.pg.port}/${config.pg.database}`);
+    await runPostgresMigrations(adapter);
+    return { adapter };
+  }
+
+  // SQLite (default)
   const dbPath = config.dbPath || path.join(__dirname, "../../data/integracore.db");
-  db = new Database(dbPath);
-  db.pragma("journal_mode = WAL");
-  db.pragma("foreign_keys = ON");
-  runMigrations(db);
+  const rawDb = new Database(dbPath);
+  rawDb.pragma("journal_mode = WAL");
+  rawDb.pragma("foreign_keys = ON");
+  adapter = new SqliteAdapter(rawDb);
+  runMigrations(rawDb);
   console.log(`[db] Connected to ${dbPath}`);
-  return db;
+  return { adapter };
 }

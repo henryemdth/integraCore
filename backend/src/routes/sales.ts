@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { getDb } from "../db/index.js";
+import { getAdapter } from "../db/index.js";
 import { authenticate, requireRole } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
 import { CreateSaleSchema } from "@integracore/shared";
@@ -7,17 +7,17 @@ import { saleService } from "../services/saleService.js";
 
 const router = Router();
 
-router.post("/", authenticate, validate(CreateSaleSchema), (req: Request, res: Response) => {
-  const db = getDb();
+router.post("/", authenticate, validate(CreateSaleSchema), async (req: Request, res: Response) => {
+  const db = getAdapter();
   const svc = saleService(db);
-  const result = svc.create(req.user!.id, req.body.items, req.body.notes);
+  const result = await svc.create(req.user!.id, req.body.items, req.body.notes);
   res.status(201).json(result);
 });
 
-router.get("/", authenticate, (req: Request, res: Response) => {
-  const db = getDb();
+router.get("/", authenticate, async (req: Request, res: Response) => {
+  const db = getAdapter();
   const svc = saleService(db);
-  const result = svc.list({
+  const result = await svc.list({
     page: Math.max(1, parseInt(req.query.page as string) || 1),
     limit: Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20)),
     isAdmin: req.user!.role === "admin",
@@ -31,7 +31,7 @@ router.get("/", authenticate, (req: Request, res: Response) => {
 });
 
 router.get("/export", authenticate, async (req: Request, res: Response) => {
-  const db = getDb();
+  const db = getAdapter();
   const svc = saleService(db);
   const workbook = await svc.exportToExcel({
     isAdmin: req.user!.role === "admin",
@@ -47,17 +47,17 @@ router.get("/export", authenticate, async (req: Request, res: Response) => {
   res.end();
 });
 
-router.get("/:id", authenticate, (req: Request, res: Response) => {
-  const db = getDb();
+router.get("/:id", authenticate, async (req: Request, res: Response) => {
+  const db = getAdapter();
   const svc = saleService(db);
-  const result = svc.getById(Number(req.params.id), req.user!.id, req.user!.role === "admin");
+  const result = await svc.getById(Number(req.params.id), req.user!.id, req.user!.role === "admin");
   res.json(result);
 });
 
-router.delete("/:id", authenticate, requireRole("admin"), (req: Request, res: Response) => {
-  const db = getDb();
+router.delete("/:id", authenticate, requireRole("admin"), async (req: Request, res: Response) => {
+  const db = getAdapter();
   const svc = saleService(db);
-  const result = svc.remove(Number(req.params.id));
+  const result = await svc.remove(Number(req.params.id));
   res.json(result);
 });
 
