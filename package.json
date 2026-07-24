@@ -2,10 +2,6 @@
   "name": "integracore",
   "version": "0.1.0",
   "private": true,
-  "engines": {
-    "node": ">=20.0.0"
-  },
-  "packageManager": "pnpm@9.0.0",
   "workspaces": [
     "backend",
     "frontend",

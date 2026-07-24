@@ -17,7 +17,7 @@ const app = express()
 const server = createServer(app)
 
 initSocket(server)
-
+console.log(config, 'Backend CORS origin ---')
 app.use(cors({ origin: config.corsOrigin }))
 app.use(express.json({ limit: "10mb" }))
 
