@@ -32,6 +32,11 @@ The architecture must allow future expansion to a cloud-based backend without re
 - Low-stock alerts (configurable threshold per product)
 - Bulk product import from Excel
 - Export current inventory to Excel
+- **Product status**: each product has a `status` field — `active` (default) or `discontinued`
+  - Since products cannot be deleted (sales history references them), setting stock to 0 is not sufficient to signal "I no longer intend to restock this."
+  - Low-stock alerts must only be generated for products with `status: active`. A `discontinued` product sitting at 0 stock must not keep re-triggering alerts.
+  - The Admin can toggle a product between `active` and `discontinued` at any time; reactivating a product resumes normal low-stock alerting.
+  - Discontinued products remain visible in inventory (e.g., visually de-emphasized or in a separate filter/tab), since they still matter for sales history and reporting — they are hidden from alerts only, not from the system.
 
 ### 2. Sales Module
 - Register sales, automatically decrementing stock

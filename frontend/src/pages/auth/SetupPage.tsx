@@ -6,8 +6,10 @@ import api from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { AuthLayout } from "@/components/auth/AuthLayout"
+import { Loader2 } from "lucide-react"
 
 export default function SetupPage() {
   const [fullName, setFullName] = useState("")
@@ -51,17 +53,19 @@ export default function SetupPage() {
 
   if (checking) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-surface">
-        <div className="text-muted-foreground">{t("common.loading")}</div>
-      </div>
+      <AuthLayout>
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      </AuthLayout>
     )
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-surface">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-headline-lg">integraCore</CardTitle>
+    <AuthLayout>
+      <Card className="border-0 shadow-none lg:border lg:shadow-subtle">
+        <CardHeader>
+          <CardTitle className="text-headline-md">{t("auth.createAdmin")}</CardTitle>
           <CardDescription>{t("auth.setupDesc")}</CardDescription>
         </CardHeader>
         <CardContent>
@@ -90,6 +94,7 @@ export default function SetupPage() {
                 placeholder={t("users.create.min3chars")}
                 required
                 minLength={3}
+                autoComplete="username"
               />
             </div>
             <div className="space-y-2">
@@ -102,14 +107,16 @@ export default function SetupPage() {
                 placeholder={t("users.create.min6chars")}
                 required
                 minLength={6}
+                autoComplete="new-password"
               />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
+              {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {loading ? t("auth.creatingAccount") : t("auth.createAdmin")}
             </Button>
           </form>
         </CardContent>
       </Card>
-    </div>
+    </AuthLayout>
   )
 }

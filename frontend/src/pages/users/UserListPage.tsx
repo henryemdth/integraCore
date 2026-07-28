@@ -10,10 +10,13 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Skeleton } from "@/components/ui/skeleton"
 import { CreateUserDialog } from "@/components/users/CreateUserDialog"
 import { EditUserDialog } from "@/components/users/EditUserDialog"
 import { ResetPasswordDialog } from "@/components/users/ResetPasswordDialog"
-import { Plus, MoreHorizontal } from "lucide-react"
+import { StatCard } from "@/components/StatCard"
+import { Plus, MoreHorizontal, Users, UserCheck, Shield } from "lucide-react"
+import { formatDateTime } from "@/lib/format"
 
 export default function UserListPage() {
   const { t } = useTranslation()
@@ -41,6 +44,17 @@ export default function UserListPage() {
   const total = data?.total ?? 0
   const totalPages = data?.totalPages ?? 1
 
+  const { data: allUsers } = useQuery({
+    queryKey: ["users", "stats"],
+    queryFn: async () => {
+      const res = await api.get("/api/users?limit=1000")
+      return res.data.users as User[]
+    },
+  })
+
+  const activeCount = allUsers?.filter((u) => u.active).length ?? 0
+  const adminCount = allUsers?.filter((u) => u.role === "admin").length ?? 0
+
   const deactivateMutation = useMutation({
     mutationFn: (id: number) => api.patch(`/api/users/${id}/deactivate`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["users"] }); toast.success(t("users.deactivated")) },
@@ -58,9 +72,16 @@ export default function UserListPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold tracking-tight">{t("users.title")}</h2>
+        <h2 className="text-headline-lg">{t("users.title")}</h2>
         <Button onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4 mr-2" />{t("users.newUser")}</Button>
       </div>
+
+      <div className="grid gap-4 grid-cols-3">
+        <StatCard label={t("users.stats.total")} value={total} icon={Users} loading={isLoading || !allUsers} />
+        <StatCard label={t("users.stats.active")} value={activeCount} icon={UserCheck} loading={isLoading || !allUsers} />
+        <StatCard label={t("users.stats.admins")} value={adminCount} icon={Shield} loading={isLoading || !allUsers} />
+      </div>
+
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center gap-3">
@@ -91,16 +112,25 @@ export default function UserListPage() {
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">{t("common.loading")}</TableCell></TableRow>
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-14 rounded-sm" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-14 rounded-sm" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                    <TableCell><Skeleton className="h-8 w-8 rounded" /></TableCell>
+                  </TableRow>
+                ))
               ) : users.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">{t("users.noUsers")}</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="text-center py-12 text-muted-foreground">{t("users.noUsers")}</TableCell></TableRow>
               ) : users.map((user) => (
                 <TableRow key={user.id}>
                   <TableCell className="font-medium">{user.username}</TableCell>
                   <TableCell>{user.full_name}</TableCell>
-                  <TableCell><Badge variant={user.role === "admin" ? "default" : "secondary"}>{user.role}</Badge></TableCell>
-                  <TableCell><Badge variant={user.active ? "outline" : "destructive"}>{user.active ? t("users.active") : t("users.inactive")}</Badge></TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{new Date(user.created_at).toLocaleDateString()}</TableCell>
+                  <TableCell><Badge variant={user.role === "admin" ? "info" : "secondary"}>{user.role}</Badge></TableCell>
+                  <TableCell><Badge variant={user.active ? "success-light" : "error-light"}>{user.active ? t("users.active") : t("users.inactive")}</Badge></TableCell>
+                  <TableCell className="text-body-sm text-muted-foreground">{formatDateTime(user.created_at)}</TableCell>
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>

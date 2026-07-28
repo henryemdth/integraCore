@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Loader2 } from "lucide-react"
 
 interface ResetPasswordDialogProps {
   user: User | null
@@ -51,7 +52,7 @@ export function ResetPasswordDialog({ user, open, onOpenChange }: ResetPasswordD
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t("common.close")}</Button>
-            <Button type="submit" disabled={mutation.isPending || !password} variant="destructive">{mutation.isPending ? t("users.resetPwd.resetting") : t("users.resetPwd.reset")}</Button>
+            <Button type="submit" disabled={mutation.isPending || !password} variant="destructive">{mutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}{mutation.isPending ? t("users.resetPwd.resetting") : t("users.resetPwd.reset")}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

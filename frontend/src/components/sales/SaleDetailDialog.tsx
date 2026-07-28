@@ -43,7 +43,7 @@ export function SaleDetailDialog({ sale, open, onOpenChange }: SaleDetailDialogP
         </DialogHeader>
 
         {sale.notes && (
-          <div className="text-sm text-muted-foreground">
+          <div className="text-body-sm text-muted-foreground bg-surface-container-low rounded-md p-3">
             {t("sales.detail.notes")}: {sale.notes}
           </div>
         )}
@@ -63,11 +63,11 @@ export function SaleDetailDialog({ sale, open, onOpenChange }: SaleDetailDialogP
               <TableRow key={item.id}>
                 <TableCell className="font-medium">{item.product_name}</TableCell>
                 <TableCell>
-                  <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{item.product_sku}</code>
+                  <code className="text-xs bg-surface-container-highest px-1.5 py-0.5 rounded font-data">{item.product_sku}</code>
                 </TableCell>
-                <TableCell className="text-right">{item.quantity}</TableCell>
-                <TableCell className="text-right">{formatCurrency(item.unit_price)}</TableCell>
-                <TableCell className="text-right">{formatCurrency(item.subtotal)}</TableCell>
+                <TableCell className="text-right font-data">{item.quantity}</TableCell>
+                <TableCell className="text-right font-data">{formatCurrency(item.unit_price)}</TableCell>
+                <TableCell className="text-right font-data font-semibold">{formatCurrency(item.subtotal)}</TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -76,7 +76,7 @@ export function SaleDetailDialog({ sale, open, onOpenChange }: SaleDetailDialogP
         <Separator />
 
         <div className="flex justify-end">
-          <span className="text-lg font-bold">
+          <span className="text-headline-sm font-data">
             {t("sales.create.totalLabel", { amount: formatCurrency(sale.total) })}
           </span>
         </div>

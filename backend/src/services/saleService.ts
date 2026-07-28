@@ -65,7 +65,7 @@ export function saleService(db: DatabaseAdapter) {
       const productIds = items.map((i) => i.product_id);
       const placeholders = productIds.map(() => "?").join(",");
       const products = await tx.all(
-        `SELECT id, name, sell_price, stock FROM products WHERE id IN (${placeholders})`,
+        `SELECT id, name, sell_price, stock, status FROM products WHERE id IN (${placeholders})`,
         productIds
       ) as any[];
 
@@ -78,6 +78,9 @@ export function saleService(db: DatabaseAdapter) {
       }
       for (const item of items) {
         const product = productMap.get(item.product_id)!;
+        if (product.status === "discontinued") {
+          throw new AppError(400, `Cannot sell discontinued product: "${product.name}"`);
+        }
         if (product.stock < item.quantity) {
           throw new AppError(400,
             `Insufficient stock for "${product.name}": available ${product.stock}, requested ${item.quantity}`
@@ -124,9 +127,9 @@ export function saleService(db: DatabaseAdapter) {
     const sale = await buildSaleDetail(db, saleId);
 
     for (const item of sale!.items) {
-      const product = await db.get("SELECT id, name, sku, price, sell_price, stock FROM products WHERE id = ?", [item.product_id]) as any;
+      const product = await db.get("SELECT id, name, sku, price, sell_price, stock, status FROM products WHERE id = ?", [item.product_id]) as any;
       if (product) {
-        emitProductUpdated({ id: product.id, name: product.name, sku: product.sku, price: product.price, sell_price: product.sell_price, stock: product.stock });
+        emitProductUpdated({ id: product.id, name: product.name, sku: product.sku, price: product.price, sell_price: product.sell_price, stock: product.stock, status: product.status });
       }
     }
 
@@ -272,9 +275,9 @@ export function saleService(db: DatabaseAdapter) {
     });
 
     for (const item of items) {
-      const product = await db.get("SELECT id, name, sku, price, sell_price, stock FROM products WHERE id = ?", [item.product_id]) as any;
+      const product = await db.get("SELECT id, name, sku, price, sell_price, stock, status FROM products WHERE id = ?", [item.product_id]) as any;
       if (product) {
-        emitProductUpdated({ id: product.id, name: product.name, sku: product.sku, price: product.price, sell_price: product.sell_price, stock: product.stock });
+        emitProductUpdated({ id: product.id, name: product.name, sku: product.sku, price: product.price, sell_price: product.sell_price, stock: product.stock, status: product.status });
       }
     }
 

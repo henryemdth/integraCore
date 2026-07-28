@@ -9,10 +9,11 @@ export function productService(db: DatabaseAdapter) {
     limit: number;
     search: string;
     category: string;
+    status: string;
     sort: string;
     order: "ASC" | "DESC";
   }) {
-    const { page, limit, search, category, sort, order } = params;
+    const { page, limit, search, category, status, sort, order } = params;
     const offset = (page - 1) * limit;
 
     const validSorts = ["name", "sku", "price", "sell_price", "stock", "created_at"];
@@ -28,6 +29,10 @@ export function productService(db: DatabaseAdapter) {
     if (category) {
       conditions.push("category = ?");
       sqlParams.push(category);
+    }
+    if (status && status !== "all") {
+      conditions.push("status = ?");
+      sqlParams.push(status);
     }
 
     const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
@@ -49,7 +54,7 @@ export function productService(db: DatabaseAdapter) {
 
   async function listLowStock() {
     return await db.all(
-      "SELECT * FROM products WHERE stock <= low_stock_threshold ORDER BY stock ASC"
+      "SELECT * FROM products WHERE stock <= low_stock_threshold AND status = 'active' ORDER BY stock ASC"
     );
   }
 
@@ -58,7 +63,7 @@ export function productService(db: DatabaseAdapter) {
     return [...new Set(products.map((p) => p.category))].sort();
   }
 
-  async function exportToExcel(search: string, category: string) {
+  async function exportToExcel(search: string, category: string, status: string) {
     const conditions: string[] = [];
     const params: any[] = [];
 
@@ -69,6 +74,10 @@ export function productService(db: DatabaseAdapter) {
     if (category) {
       conditions.push("category = ?");
       params.push(category);
+    }
+    if (status && status !== "all") {
+      conditions.push("status = ?");
+      params.push(status);
     }
 
     const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
@@ -85,6 +94,7 @@ export function productService(db: DatabaseAdapter) {
       { header: "Sell Price", key: "sell_price", width: 12 },
       { header: "Stock", key: "stock", width: 10 },
       { header: "Low Stock Threshold", key: "low_stock_threshold", width: 20 },
+      { header: "Status", key: "status", width: 15 },
       { header: "Created At", key: "created_at", width: 20 },
       { header: "Updated At", key: "updated_at", width: 20 },
     ];
@@ -119,20 +129,22 @@ export function productService(db: DatabaseAdapter) {
       const sellPrice = parseFloat(String(row.getCell(5).value || "0"));
       const stock = parseInt(String(row.getCell(6).value || "0"), 10);
       const lowStockThreshold = parseInt(String(row.getCell(7).value || "5"), 10);
+      const status = String(row.getCell(8).value || "active").trim().toLowerCase();
 
       if (!name) { errors.push({ row: rowNumber, sku: sku || "N/A", error: "Missing required field: name" }); continue; }
       if (!sku) { errors.push({ row: rowNumber, sku: "N/A", error: "Missing required field: sku" }); continue; }
       if (isNaN(price) || price < 0) { errors.push({ row: rowNumber, sku, error: "Invalid price" }); continue; }
       if (isNaN(sellPrice) || sellPrice < 0) { errors.push({ row: rowNumber, sku, error: "Invalid sell price" }); continue; }
       if (seenSkus.has(sku)) { errors.push({ row: rowNumber, sku, error: "Duplicate SKU in file" }); continue; }
+      if (status !== "active" && status !== "discontinued") { errors.push({ row: rowNumber, sku, error: "Invalid status (must be 'active' or 'discontinued')" }); continue; }
 
       const existing = await db.get("SELECT id FROM products WHERE sku = ?", [sku]);
       if (existing) { errors.push({ row: rowNumber, sku, error: "SKU already exists in database" }); continue; }
 
       seenSkus.add(sku);
       await db.run(
-        "INSERT INTO products (name, sku, category, price, sell_price, stock, low_stock_threshold) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        [name, sku, category, price, sellPrice, isNaN(stock) ? 0 : stock, isNaN(lowStockThreshold) ? 5 : lowStockThreshold]
+        "INSERT INTO products (name, sku, category, price, sell_price, stock, low_stock_threshold, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        [name, sku, category, price, sellPrice, isNaN(stock) ? 0 : stock, isNaN(lowStockThreshold) ? 5 : lowStockThreshold, status]
       );
       imported++;
     }
@@ -140,21 +152,23 @@ export function productService(db: DatabaseAdapter) {
     return { imported, errors };
   }
 
-  async function create(data: { name: string; sku: string; category: string; price: number; sell_price: number; stock: number; low_stock_threshold: number }) {
+  async function create(data: { name: string; sku: string; category: string; price: number; sell_price: number; stock: number; low_stock_threshold: number; status?: string }) {
     const existing = await db.get("SELECT id FROM products WHERE sku = ?", [data.sku]);
     if (existing) throw new AppError(409, "SKU already exists");
 
+    const status = data.status || "active";
+
     const result = await db.run(
-      "INSERT INTO products (name, sku, category, price, sell_price, stock, low_stock_threshold) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      [data.name, data.sku, data.category, data.price, data.sell_price, data.stock, data.low_stock_threshold]
+      "INSERT INTO products (name, sku, category, price, sell_price, stock, low_stock_threshold, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      [data.name, data.sku, data.category, data.price, data.sell_price, data.stock, data.low_stock_threshold, status]
     );
 
     const product = await db.get("SELECT * FROM products WHERE id = ?", [result.insertId]) as any;
-    emitProductUpdated({ id: product.id, name: product.name, sku: product.sku, price: product.price, sell_price: product.sell_price, stock: product.stock });
+    emitProductUpdated({ id: product.id, name: product.name, sku: product.sku, price: product.price, sell_price: product.sell_price, stock: product.stock, status: product.status });
     return product;
   }
 
-  async function update(id: number, data: { name?: string; sku?: string; category?: string; price?: number; sell_price?: number; stock?: number; low_stock_threshold?: number }) {
+  async function update(id: number, data: { name?: string; sku?: string; category?: string; price?: number; sell_price?: number; stock?: number; low_stock_threshold?: number; status?: string }) {
     const existing = await db.get("SELECT * FROM products WHERE id = ?", [id]) as any;
     if (!existing) throw new AppError(404, "Product not found");
 
@@ -172,16 +186,17 @@ export function productService(db: DatabaseAdapter) {
         sell_price = COALESCE(?, sell_price),
         stock = COALESCE(?, stock),
         low_stock_threshold = COALESCE(?, low_stock_threshold),
+        status = COALESCE(?, status),
         updated_at = datetime('now')
       WHERE id = ?`,
       [
         data.name ?? null, data.sku ?? null, data.category ?? null,
-        data.price ?? null, data.sell_price ?? null, data.stock ?? null, data.low_stock_threshold ?? null, id
+        data.price ?? null, data.sell_price ?? null, data.stock ?? null, data.low_stock_threshold ?? null, data.status ?? null, id
       ]
     );
 
     const product = await db.get("SELECT * FROM products WHERE id = ?", [id]) as any;
-    emitProductUpdated({ id: product.id, name: product.name, sku: product.sku, price: product.price, sell_price: product.sell_price, stock: product.stock });
+    emitProductUpdated({ id: product.id, name: product.name, sku: product.sku, price: product.price, sell_price: product.sell_price, stock: product.stock, status: product.status });
     return product;
   }
 
@@ -206,7 +221,7 @@ export function productService(db: DatabaseAdapter) {
     );
 
     const updated = await db.get("SELECT * FROM products WHERE id = ?", [id]) as any;
-    emitProductUpdated({ id: updated.id, name: updated.name, sku: updated.sku, price: updated.price, sell_price: updated.sell_price, stock: updated.stock });
+    emitProductUpdated({ id: updated.id, name: updated.name, sku: updated.sku, price: updated.price, sell_price: updated.sell_price, stock: updated.stock, status: updated.status });
     return updated;
   }
 
@@ -224,7 +239,7 @@ export function productService(db: DatabaseAdapter) {
     );
 
     const updated = await db.get("SELECT * FROM products WHERE id = ?", [id]) as any;
-    emitProductUpdated({ id: updated.id, name: updated.name, sku: updated.sku, price: updated.price, sell_price: updated.sell_price, stock: updated.stock });
+    emitProductUpdated({ id: updated.id, name: updated.name, sku: updated.sku, price: updated.price, sell_price: updated.sell_price, stock: updated.stock, status: updated.status });
     return updated;
   }
 

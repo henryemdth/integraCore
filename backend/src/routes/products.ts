@@ -15,6 +15,7 @@ router.get("/", authenticate, async (req: Request, res: Response) => {
     limit: Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20)),
     search: (req.query.search as string) || "",
     category: (req.query.category as string) || "",
+    status: (req.query.status as string) || "",
     sort: (req.query.sort as string) || "created_at",
     order: (req.query.order as string)?.toUpperCase() === "ASC" ? "ASC" : "DESC",
   });
@@ -38,7 +39,8 @@ router.get("/export", authenticate, async (req: Request, res: Response) => {
   const svc = productService(db);
   const workbook = await svc.exportToExcel(
     (req.query.search as string) || "",
-    (req.query.category as string) || ""
+    (req.query.category as string) || "",
+    (req.query.status as string) || ""
   );
   res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
   res.setHeader("Content-Disposition", "attachment; filename=products.xlsx");

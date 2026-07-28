@@ -21,6 +21,7 @@ export interface Product {
   sell_price: number;
   stock: number;
   low_stock_threshold: number;
+  status: "active" | "discontinued";
   created_at: string;
   updated_at: string;
 }
@@ -82,6 +83,7 @@ export const CreateProductSchema = z.object({
   sell_price: z.number().min(0, "Sell price must be >= 0"),
   stock: z.number().int().min(0).optional().default(0),
   low_stock_threshold: z.number().int().min(0).optional().default(5),
+  status: z.enum(["active", "discontinued"]).optional().default("active"),
 });
 
 export const UpdateProductSchema = z.object({
@@ -92,6 +94,7 @@ export const UpdateProductSchema = z.object({
   sell_price: z.number().min(0).optional(),
   stock: z.number().int().min(0).optional(),
   low_stock_threshold: z.number().int().min(0).optional(),
+  status: z.enum(["active", "discontinued"]).optional(),
 });
 
 export const StockMovementSchema = z.object({

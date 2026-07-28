@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next"
 import { useAuth } from "@/contexts/AuthContext"
 import { useExportExcel } from "@/hooks/useExportExcel"
 import api from "@/lib/api"
-import { formatCurrency } from "@/lib/format"
+import { formatCurrency, formatDateTime } from "@/lib/format"
 import type { SaleDetail, Product } from "@integracore/shared"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -14,9 +14,11 @@ import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Skeleton } from "@/components/ui/skeleton"
 import { SaleDetailDialog } from "@/components/sales/SaleDetailDialog"
 import { CreateSaleForm } from "@/components/sales/CreateSaleForm"
-import { Eye, Trash2, Download } from "lucide-react"
+import { StatCard } from "@/components/StatCard"
+import { Eye, Trash2, Download, ShoppingCart, TrendingUp } from "lucide-react"
 
 interface UserListItem { id: number; full_name: string; username: string }
 
@@ -64,6 +66,17 @@ export default function SalesListPage() {
     queryFn: async () => { const res = await api.get("/api/products?limit=100"); return res.data.products as Product[] },
   })
 
+  const { data: allSales } = useQuery({
+    queryKey: ["sales", "stats"],
+    queryFn: async () => {
+      const res = await api.get("/api/sales?limit=10000")
+      return res.data.sales as SaleDetail[]
+    },
+  })
+
+  const totalRevenue = allSales?.reduce((sum, s) => sum + Number(s.total), 0) ?? 0
+  const avgSaleValue = allSales && allSales.length > 0 ? totalRevenue / allSales.length : 0
+
   const deleteMutation = useMutation({
     mutationFn: (id: number) => api.delete(`/api/sales/${id}`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["sales"] }); toast.success(t("sales.deleted")) },
@@ -83,7 +96,12 @@ export default function SalesListPage() {
         <TabsContent value="new-sale">
           <CreateSaleForm />
         </TabsContent>
-        <TabsContent value="history">
+        <TabsContent value="history" className="space-y-4">
+          <div className="grid gap-4 grid-cols-2 lg:grid-cols-3">
+            <StatCard label={t("sales.stats.totalSales")} value={total} icon={ShoppingCart} loading={isLoading || !allSales} />
+            <StatCard label={t("sales.stats.totalRevenue")} value={formatCurrency(totalRevenue)} icon={TrendingUp} loading={isLoading || !allSales} />
+            <StatCard label={t("sales.stats.avgSale")} value={formatCurrency(avgSaleValue)} icon={TrendingUp} loading={isLoading || !allSales} />
+          </div>
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-end gap-3 flex-wrap">
@@ -142,16 +160,25 @@ export default function SalesListPage() {
                 </TableHeader>
                 <TableBody>
                   {isLoading ? (
-                    <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">{t("common.loading")}</TableCell></TableRow>
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell><Skeleton className="h-4 w-10" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                        <TableCell className="text-right"><Skeleton className="h-4 w-6 ml-auto" /></TableCell>
+                        <TableCell className="text-right"><Skeleton className="h-4 w-16 ml-auto" /></TableCell>
+                        <TableCell><Skeleton className="h-8 w-16" /></TableCell>
+                      </TableRow>
+                    ))
                   ) : sales.length === 0 ? (
-                    <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">{t("sales.noSales")}</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={6} className="text-center py-12 text-muted-foreground">{t("sales.noSales")}</TableCell></TableRow>
                   ) : sales.map((sale) => (
                     <TableRow key={sale.id}>
-                      <TableCell className="font-medium">#{sale.id}</TableCell>
-                      <TableCell>{new Date(sale.created_at).toLocaleDateString()}</TableCell>
+                      <TableCell className="font-data">#{sale.id}</TableCell>
+                      <TableCell className="text-body-sm">{formatDateTime(sale.created_at)}</TableCell>
                       <TableCell>{sale.seller_name}</TableCell>
-                      <TableCell className="text-right">{sale.items.length}</TableCell>
-                      <TableCell className="text-right font-medium">{formatCurrency(sale.total)}</TableCell>
+                      <TableCell className="text-right font-data">{sale.items.length}</TableCell>
+                      <TableCell className="text-right font-data font-semibold">{formatCurrency(sale.total)}</TableCell>
                       <TableCell>
                         <div className="flex gap-1">
                           <Button variant="ghost" className="h-8 w-8 p-0" onClick={() => setDetailSale(sale)}><Eye className="h-4 w-4" /></Button>

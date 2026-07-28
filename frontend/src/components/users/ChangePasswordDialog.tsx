@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Loader2 } from "lucide-react"
 
 interface ChangePasswordDialogProps {
   open: boolean
@@ -51,7 +52,7 @@ export function ChangePasswordDialog({ open, onOpenChange }: ChangePasswordDialo
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>
-            <Button type="submit" disabled={mutation.isPending || !currentPassword || !newPassword}>{mutation.isPending ? t("changePassword.changing") : t("changePassword.title")}</Button>
+            <Button type="submit" disabled={mutation.isPending || !currentPassword || !newPassword}>{mutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}{mutation.isPending ? t("changePassword.changing") : t("changePassword.title")}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

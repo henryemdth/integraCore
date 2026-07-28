@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Loader2 } from "lucide-react"
 
 interface ImportDialogProps {
   open: boolean
@@ -66,7 +67,10 @@ export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={handleClose}>{result ? t("common.close") : t("common.cancel")}</Button>
-            {!result && <Button type="submit" disabled={!file || mutation.isPending}>{mutation.isPending ? t("products.import.importing") : t("products.import.title")}</Button>}
+            {!result && <Button type="submit" disabled={!file || mutation.isPending}>
+              {mutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {mutation.isPending ? t("products.import.importing") : t("products.import.title")}
+            </Button>}
           </DialogFooter>
         </form>
       </DialogContent>

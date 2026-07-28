@@ -18,6 +18,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { StockMovementDialog } from "@/components/products/StockMovementDialog"
 import { ImportDialog } from "@/components/products/ImportDialog"
 import { Plus, MoreHorizontal, Search, PackagePlus, PackageMinus, Download, Upload } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 export default function ProductListPage() {
   const { t } = useTranslation()
@@ -29,14 +30,15 @@ export default function ProductListPage() {
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState("")
   const [category, setCategory] = useState("all")
+  const [statusFilter, setStatusFilter] = useState("all")
   const [sort, setSort] = useState("created_at")
   const [order, setOrder] = useState<"ASC" | "DESC">("DESC")
   const [stockProduct, setStockProduct] = useState<Product | null>(null)
   const [stockType, setStockType] = useState<"in" | "out">("in")
   const [importOpen, setImportOpen] = useState(false)
 
-  const limit = 10
-  const params = { page: String(page), limit: String(limit), sort, order, ...(search && { search }), ...(category !== "all" && { category }) }
+  const limit = 20
+  const params = { page: String(page), limit: String(limit), sort, order, ...(search && { search }), ...(category !== "all" && { category }), ...(statusFilter !== "all" && { status: statusFilter }) }
 
   const { data, isLoading } = useQuery({
     queryKey: ["products", params],
@@ -75,10 +77,13 @@ export default function ProductListPage() {
     const p: Record<string, string> = {}
     if (search) p.search = search
     if (category !== "all") p.category = category
+    if (statusFilter !== "all") p.status = statusFilter
     exportToExcel("/api/products/export", p, "products.xlsx")
   }
 
   const openStock = (product: Product, type: "in" | "out") => { setStockProduct(product); setStockType(type) }
+
+  const colCount = isAdmin ? 8 : 7
 
   return (
     <div className="space-y-4">
@@ -100,6 +105,14 @@ export default function ProductListPage() {
                 {categories.map((cat) => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
               </SelectContent>
             </Select>
+            <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1) }}>
+              <SelectTrigger className="w-[160px]"><SelectValue placeholder={t("products.statusFilter")} /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t("products.statusFilter")}</SelectItem>
+                <SelectItem value="active">{t("products.active")}</SelectItem>
+                <SelectItem value="discontinued">{t("products.discontinued")}</SelectItem>
+              </SelectContent>
+            </Select>
             <div className="flex-1" />
             {isAdmin && (
               <>
@@ -119,16 +132,17 @@ export default function ProductListPage() {
                 <TableHead className="cursor-pointer text-right" onClick={() => handleSort("price")}>{t("products.purchasePrice")} {sort === "price" && (order === "ASC" ? "↑" : "↓")}</TableHead>
                 <TableHead className="cursor-pointer text-right" onClick={() => handleSort("sell_price")}>{t("products.sellPrice")} {sort === "sell_price" && (order === "ASC" ? "↑" : "↓")}</TableHead>
                 <TableHead className="cursor-pointer text-right" onClick={() => handleSort("stock")}>{t("products.stock")} {sort === "stock" && (order === "ASC" ? "↑" : "↓")}</TableHead>
+                <TableHead>{t("products.status")}</TableHead>
                 {isAdmin && <TableHead className="w-[50px]">{t("common.actions")}</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={isAdmin ? 7 : 6} className="text-center py-8 text-muted-foreground">{t("common.loading")}</TableCell></TableRow>
+                <TableRow><TableCell colSpan={colCount} className="text-center py-8 text-muted-foreground">{t("common.loading")}</TableCell></TableRow>
               ) : products.length === 0 ? (
-                <TableRow><TableCell colSpan={isAdmin ? 7 : 6} className="text-center py-8 text-muted-foreground">{t("products.noProducts")}</TableCell></TableRow>
+                <TableRow><TableCell colSpan={colCount} className="text-center py-8 text-muted-foreground">{t("products.noProducts")}</TableCell></TableRow>
               ) : products.map((product) => (
-                <TableRow key={product.id}>
+                <TableRow key={product.id} className={cn((product.status ?? "active") === "discontinued" && "opacity-60")}>
                   <TableCell className="font-medium">{product.name}</TableCell>
                   <TableCell><code className="text-xs bg-muted px-1.5 py-0.5 rounded">{product.sku}</code></TableCell>
                   <TableCell>{product.category || "—"}</TableCell>
@@ -137,11 +151,16 @@ export default function ProductListPage() {
                   <TableCell className="text-right">
                     {product.stock <= product.low_stock_threshold ? <Badge variant="destructive">{product.stock}</Badge> : <span>{product.stock}</span>}
                   </TableCell>
+                  <TableCell>
+                    <Badge variant={(product.status ?? "active") === "active" ? "success-light" : "secondary"}>
+                      {t(`products.${product.status ?? "active"}`)}
+                    </Badge>
+                  </TableCell>
                   {isAdmin && (
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button>
+                          <Button variant="ghost" className="h-8 w-8 min-h-0 p-0"><MoreHorizontal className="h-4 w-4" /></Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => navigate(`/products/${product.id}/edit`)}>{t("common.edit")}</DropdownMenuItem>

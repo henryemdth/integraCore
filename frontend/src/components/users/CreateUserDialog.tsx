@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Loader2 } from "lucide-react"
 
 interface CreateUserDialogProps {
   open: boolean
@@ -70,7 +71,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>
-            <Button type="submit" disabled={mutation.isPending}>{mutation.isPending ? t("users.create.creating") : t("users.create.title")}</Button>
+            <Button type="submit" disabled={mutation.isPending}>{mutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}{mutation.isPending ? t("users.create.creating") : t("users.create.title")}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

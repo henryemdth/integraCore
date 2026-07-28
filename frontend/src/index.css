@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -39,6 +41,9 @@
     --surface-variant: 220 80% 92%;
 
     --font-data: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+    --skeleton-from: 228 55% 93%;
+    --skeleton-to: 228 65% 92%;
   }
 }
 
@@ -50,5 +55,11 @@
     @apply bg-background text-foreground;
     margin: 0;
     font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  }
+}
+
+@layer utilities {
+  .font-data {
+    font-family: var(--font-data);
   }
 }

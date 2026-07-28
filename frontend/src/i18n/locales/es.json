@@ -13,6 +13,7 @@
   },
   "auth": {
     "signIn": "Iniciar sesión",
+    "signInDesc": "Ingresa tus credenciales para acceder al sistema",
     "signingIn": "Iniciando sesión...",
     "username": "Usuario",
     "password": "Contraseña",
@@ -21,14 +22,17 @@
     "setupDesc": "Crea tu cuenta de administrador para comenzar",
     "createAdmin": "Crear cuenta de administrador",
     "creatingAccount": "Creando cuenta...",
-    "setupFailed": "Error en la configuración"
+    "setupFailed": "Error en la configuración",
+    "brandTitle": "Gestión de Inventario y Ventas",
+    "brandDesc": "Administra tus productos, registra ventas y monitorea el rendimiento de tu negocio — todo en un solo lugar."
   },
   "sidebar": {
     "dashboard": "Panel",
     "products": "Productos",
     "sales": "Ventas",
     "users": "Usuarios",
-    "settings": "Configuración"
+    "settings": "Configuración",
+    "tagline": "Inventario y Ventas"
   },
   "products": {
     "title": "Productos",
@@ -47,6 +51,10 @@
     "sellPrice": "Precio de venta",
     "stock": "Stock",
     "lowStockThreshold": "Umbral de stock bajo",
+    "status": "Estado",
+    "statusFilter": "Todos los estados",
+    "active": "Activo",
+    "discontinued": "Descontinuado",
     "noProducts": "No se encontraron productos",
     "confirmDelete": "¿Eliminar \"{{name}}\"?",
     "deleted": "Producto eliminado",
@@ -60,6 +68,12 @@
       "categoryPlaceholder": "ej. Electrónica, Ferretería",
       "created": "Producto creado",
       "failedSave": "Error al guardar producto"
+    },
+    "stats": {
+      "total": "Total productos",
+      "totalValue": "Valor del inventario",
+      "lowStock": "Stock bajo",
+      "categories": "Categorías"
     },
     "editForm": {
       "title": "Editar producto",
@@ -112,6 +126,11 @@
     "deleted": "Venta eliminada, stock restaurado",
     "failedDelete": "Error al eliminar venta",
     "pageInfo": "Página {{page}} de {{totalPages}} ({{total}} ventas)",
+    "stats": {
+      "totalSales": "Total ventas",
+      "totalRevenue": "Ingresos totales",
+      "avgSale": "Valor promedio"
+    },
     "create": {
       "title": "Nueva venta",
       "desc": "Busca productos y agrégales a la venta",
@@ -125,6 +144,8 @@
       "processing": "Procesando...",
       "stockLabel": "Stock: {{stock}}",
       "minOneProduct": "Agrega al menos un producto a la venta",
+      "outOfStock": "Sin stock",
+      "insufficientStock": "Stock insuficiente — elimina o reduce los artículos con stock insuficiente",
       "created": "Venta creada",
       "failedCreate": "Error al crear venta"
     },
@@ -146,6 +167,11 @@
     "created": "Creado",
     "noUsers": "No se encontraron usuarios",
     "pageInfo": "Página {{page}} de {{totalPages}} ({{total}} usuarios)",
+    "stats": {
+      "total": "Total usuarios",
+      "active": "Activos",
+      "admins": "Administradores"
+    },
     "resetPassword": "Restablecer contraseña",
     "deactivate": "Desactivar",
     "activate": "Activar",
@@ -185,6 +211,11 @@
   },
   "settings": {
     "title": "Configuración",
+    "sections": {
+      "revenueTarget": "Objetivo de Ingresos",
+      "interface": "Interfaz",
+      "account": "Cuenta"
+    },
     "profit": {
       "title": "Configuración de ganancias",
       "targetConfig": "Configuración de objetivo",
@@ -224,7 +255,14 @@
   },
   "layout": {
     "changePassword": "Cambiar contraseña",
-    "logout": "Cerrar sesión"
+    "logout": "Cerrar sesión",
+    "nav": {
+      "dashboard": "Panel",
+      "products": "Productos",
+      "sales": "Ventas",
+      "users": "Usuarios",
+      "settings": "Configuración"
+    }
   },
   "dashboard": {
     "welcome": "Bienvenido, {{name}}",
@@ -234,7 +272,27 @@
     "salesCard": "Ventas",
     "salesDesc": "Registra ventas y consulta el historial",
     "usersCard": "Usuarios",
-    "usersDesc": "Administra cuentas de usuario y roles"
+    "usersDesc": "Administra cuentas de usuario y roles",
+    "kpi": {
+      "totalProducts": "Total productos",
+      "lowStock": "Stock bajo",
+      "salesToday": "Ventas hoy",
+      "revenueMonth": "Ingresos del mes",
+      "monthlyTarget": "Progreso del objetivo mensual",
+      "progressLabel": "Progreso hacia el objetivo mensual",
+      "revenueLabel": "Ingresos",
+      "noTarget": "No hay objetivo de ingresos configurado. Ve a Configuración para establecer uno.",
+      "totalUsers": "Total usuarios",
+      "revenueToday": "Ingresos hoy",
+      "todaySales": "Ventas hoy",
+      "salesCount": "ventas",
+      "recentSales": "Ventas recientes",
+      "saleId": "Venta",
+      "seller": "Vendedor",
+      "dateTime": "Fecha",
+      "total": "Total",
+      "needsAttention": "Requiere atención"
+    }
   },
   "notFound": {
     "title": "404",

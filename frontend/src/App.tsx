@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from "react-router-dom"
+import { Routes, Route } from "react-router-dom"
 import { AuthProvider } from "@/contexts/AuthContext"
 import { SocketProvider } from "@/contexts/SocketContext"
 import AuthGuard from "@/components/AuthGuard"
@@ -10,7 +10,7 @@ import ProductListPage from "@/pages/products/ProductListPage"
 import ProductFormPage from "@/pages/products/ProductFormPage"
 import SalesListPage from "@/pages/sales/SalesListPage"
 import UserListPage from "@/pages/users/UserListPage"
-import ProfitSettingsPage from "@/pages/settings/ProfitSettingsPage"
+import SettingsPage from "@/pages/settings/SettingsPage"
 import NotFoundPage from "@/pages/NotFoundPage"
 
 export default function App() {
@@ -28,7 +28,7 @@ export default function App() {
               <Route path="/products/:id/edit" element={<ProductFormPage />} />
               <Route path="/sales" element={<SalesListPage />} />
               <Route path="/users" element={<UserListPage />} />
-              <Route path="/settings" element={<ProfitSettingsPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
             </Route>
           </Route>
           <Route path="*" element={<NotFoundPage />} />

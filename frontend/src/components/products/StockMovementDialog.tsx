@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Loader2 } from "lucide-react"
 
 interface StockMovementDialogProps {
   product: Product | null
@@ -50,7 +51,11 @@ export function StockMovementDialog({ product, type, open, onOpenChange }: Stock
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{type === "in" ? t("products.stockMovement.stockInTitle") : t("products.stockMovement.stockOutTitle")} — {product?.name}</DialogTitle>
-          <DialogDescription>{t("products.stockMovement.currentStock", { sku: product?.sku, stock: product?.stock })}</DialogDescription>
+          <DialogDescription>
+            <span className="font-data">{product?.sku}</span>
+            {" · "}
+            {t("products.stockMovement.currentStock", { stock: product?.stock })}
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={(e) => { e.preventDefault(); mutation.mutate() }} className="space-y-4">
           {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
@@ -65,6 +70,7 @@ export function StockMovementDialog({ product, type, open, onOpenChange }: Stock
               onChange={(e) => setQuantity(e.target.value)}
               placeholder={type === "in" ? t("products.stockMovement.inPlaceholder") : t("products.stockMovement.outPlaceholder")}
               required
+              className="font-data"
             />
           </div>
           <div className="space-y-2">
@@ -74,7 +80,8 @@ export function StockMovementDialog({ product, type, open, onOpenChange }: Stock
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>
             <Button type="submit" variant={type === "out" ? "destructive" : "default"} disabled={mutation.isPending}>
-              {mutation.isPending ? (type === "in" ? t("products.stockMovement.addStock") + "..." : t("products.stockMovement.removeStock") + "...") : (type === "in" ? t("products.stockMovement.addStock") : t("products.stockMovement.removeStock"))}
+              {mutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {mutation.isPending ? t("common.loading") : (type === "in" ? t("products.stockMovement.addStock") : t("products.stockMovement.removeStock"))}
             </Button>
           </DialogFooter>
         </form>

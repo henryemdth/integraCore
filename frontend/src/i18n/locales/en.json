@@ -13,6 +13,7 @@
   },
   "auth": {
     "signIn": "Sign In",
+    "signInDesc": "Enter your credentials to access the system",
     "signingIn": "Signing in...",
     "username": "Username",
     "password": "Password",
@@ -21,14 +22,17 @@
     "setupDesc": "Create your admin account to get started",
     "createAdmin": "Create Admin Account",
     "creatingAccount": "Creating account...",
-    "setupFailed": "Setup failed"
+    "setupFailed": "Setup failed",
+    "brandTitle": "Inventory & Sales Management",
+    "brandDesc": "Manage your products, track sales, and monitor your business performance — all from one place."
   },
   "sidebar": {
     "dashboard": "Dashboard",
     "products": "Products",
     "sales": "Sales",
     "users": "Users",
-    "settings": "Settings"
+    "settings": "Settings",
+    "tagline": "Inventory & Sales"
   },
   "products": {
     "title": "Products",
@@ -47,6 +51,10 @@
     "sellPrice": "Sell Price",
     "stock": "Stock",
     "lowStockThreshold": "Low Stock Threshold",
+    "status": "Status",
+    "statusFilter": "All statuses",
+    "active": "Active",
+    "discontinued": "Discontinued",
     "noProducts": "No products found",
     "confirmDelete": "Delete \"{{name}}\"?",
     "deleted": "Product deleted",
@@ -60,6 +68,12 @@
       "categoryPlaceholder": "e.g. Electronics, Hardware",
       "created": "Product created",
       "failedSave": "Failed to save product"
+    },
+    "stats": {
+      "total": "Total Products",
+      "totalValue": "Inventory Value",
+      "lowStock": "Low Stock Items",
+      "categories": "Categories"
     },
     "editForm": {
       "title": "Edit Product",
@@ -112,6 +126,11 @@
     "deleted": "Sale deleted, stock restored",
     "failedDelete": "Failed to delete sale",
     "pageInfo": "Page {{page}} of {{totalPages}} ({{total}} sales)",
+    "stats": {
+      "totalSales": "Total Sales",
+      "totalRevenue": "Total Revenue",
+      "avgSale": "Avg. Sale Value"
+    },
     "create": {
       "title": "New Sale",
       "desc": "Search for products and add them to the sale",
@@ -125,6 +144,8 @@
       "processing": "Processing...",
       "stockLabel": "Stock: {{stock}}",
       "minOneProduct": "Add at least one product to the sale",
+      "outOfStock": "Out of stock",
+      "insufficientStock": "Insufficient stock — remove or reduce items with insufficient stock",
       "created": "Sale created",
       "failedCreate": "Failed to create sale"
     },
@@ -146,6 +167,11 @@
     "created": "Created",
     "noUsers": "No users found",
     "pageInfo": "Page {{page}} of {{totalPages}} ({{total}} users)",
+    "stats": {
+      "total": "Total Users",
+      "active": "Active Users",
+      "admins": "Admins"
+    },
     "resetPassword": "Reset Password",
     "deactivate": "Deactivate",
     "activate": "Activate",
@@ -185,6 +211,11 @@
   },
   "settings": {
     "title": "Settings",
+    "sections": {
+      "revenueTarget": "Revenue Target",
+      "interface": "Interface",
+      "account": "Account"
+    },
     "profit": {
       "title": "Profit Settings",
       "targetConfig": "Target Configuration",
@@ -224,7 +255,14 @@
   },
   "layout": {
     "changePassword": "Change Password",
-    "logout": "Logout"
+    "logout": "Logout",
+    "nav": {
+      "dashboard": "Dashboard",
+      "products": "Products",
+      "sales": "Sales",
+      "users": "Users",
+      "settings": "Settings"
+    }
   },
   "dashboard": {
     "welcome": "Welcome back, {{name}}",
@@ -234,7 +272,27 @@
     "salesCard": "Sales",
     "salesDesc": "Record sales and view history",
     "usersCard": "Users",
-    "usersDesc": "Manage user accounts and roles"
+    "usersDesc": "Manage user accounts and roles",
+    "kpi": {
+      "totalProducts": "Total Products",
+      "lowStock": "Low Stock",
+      "salesToday": "Sales Today",
+      "revenueMonth": "Revenue This Month",
+      "monthlyTarget": "Monthly Target Progress",
+      "progressLabel": "Progress toward monthly target",
+      "revenueLabel": "Revenue",
+      "noTarget": "No revenue target configured. Go to Settings to set one.",
+      "totalUsers": "Total Users",
+      "revenueToday": "Revenue Today",
+      "todaySales": "Sales Today",
+      "salesCount": "sales",
+      "recentSales": "Recent Sales",
+      "saleId": "Sale",
+      "seller": "Seller",
+      "dateTime": "Date",
+      "total": "Total",
+      "needsAttention": "Needs attention"
+    }
   },
   "notFound": {
     "title": "404",

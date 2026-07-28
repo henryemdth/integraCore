@@ -5,8 +5,10 @@ import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { AuthLayout } from "@/components/auth/AuthLayout"
+import { Loader2 } from "lucide-react"
 
 export default function LoginPage() {
   const [username, setUsername] = useState("")
@@ -32,11 +34,11 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-surface">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-headline-lg">integraCore</CardTitle>
-          <CardDescription>{t("auth.signIn")}</CardDescription>
+    <AuthLayout>
+      <Card className="border-0 shadow-none lg:border lg:shadow-subtle">
+        <CardHeader>
+          <CardTitle className="text-headline-md">{t("auth.signIn")}</CardTitle>
+          <CardDescription>{t("auth.signInDesc")}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -53,6 +55,7 @@ export default function LoginPage() {
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder={t("auth.username")}
                 required
+                autoComplete="username"
               />
             </div>
             <div className="space-y-2">
@@ -64,14 +67,16 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder={t("auth.password")}
                 required
+                autoComplete="current-password"
               />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
+              {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {loading ? t("auth.signingIn") : t("auth.signIn")}
             </Button>
           </form>
         </CardContent>
       </Card>
-    </div>
+    </AuthLayout>
   )
 }

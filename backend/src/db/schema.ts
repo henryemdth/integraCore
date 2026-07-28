@@ -88,6 +88,7 @@ export function runMigrations(db: Database.Database): void {
     }
     addColumnIfMissing(db, "profit_targets", "period_days", "INTEGER NOT NULL DEFAULT 15");
     addColumnIfMissing(db, "products", "sell_price", "REAL NOT NULL DEFAULT 0");
+    addColumnIfMissing(db, "products", "status", "TEXT NOT NULL DEFAULT 'active'");
   });
   run();
   console.log("[db] Migrations completed successfully");
@@ -116,6 +117,7 @@ const postgresMigrations: string[] = [
     sell_price NUMERIC NOT NULL DEFAULT 0,
     stock INTEGER NOT NULL DEFAULT 0,
     low_stock_threshold INTEGER NOT NULL DEFAULT 5,
+    status TEXT NOT NULL DEFAULT 'active',
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
   );`,

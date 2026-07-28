@@ -22,7 +22,7 @@ export function initSocket(server: HttpServer): Server {
   return io;
 }
 
-export function emitProductUpdated(product: { id: number; name: string; sku: string; price: number; sell_price: number; stock: number }) {
+export function emitProductUpdated(product: { id: number; name: string; sku: string; price: number; sell_price: number; stock: number; status: string }) {
   if (io) io.emit("product:updated", product);
 }
 
