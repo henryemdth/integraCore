@@ -11,6 +11,7 @@ import ProductFormPage from "@/pages/products/ProductFormPage"
 import SalesListPage from "@/pages/sales/SalesListPage"
 import UserListPage from "@/pages/users/UserListPage"
 import SettingsPage from "@/pages/settings/SettingsPage"
+import DiscountHistoryPage from "@/pages/discounts/DiscountHistoryPage"
 import NotFoundPage from "@/pages/NotFoundPage"
 
 export default function App() {
@@ -27,6 +28,7 @@ export default function App() {
               <Route path="/products/new" element={<ProductFormPage />} />
               <Route path="/products/:id/edit" element={<ProductFormPage />} />
               <Route path="/sales" element={<SalesListPage />} />
+              <Route path="/discounts" element={<DiscountHistoryPage />} />
               <Route path="/users" element={<UserListPage />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Route>

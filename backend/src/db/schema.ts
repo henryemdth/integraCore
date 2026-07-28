@@ -24,6 +24,7 @@ const sqliteMigrations: string[] = [
     sell_price REAL NOT NULL DEFAULT 0,
     stock INTEGER NOT NULL DEFAULT 0,
     low_stock_threshold INTEGER NOT NULL DEFAULT 5,
+    status TEXT NOT NULL DEFAULT 'active',
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   );`,
@@ -44,6 +45,8 @@ const sqliteMigrations: string[] = [
     quantity INTEGER NOT NULL,
     unit_price REAL NOT NULL,
     subtotal REAL NOT NULL,
+    discount_id INTEGER REFERENCES product_discounts(id),
+    original_price REAL NOT NULL DEFAULT 0,
     FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE CASCADE,
     FOREIGN KEY (product_id) REFERENCES products(id)
   );`,
@@ -65,12 +68,36 @@ const sqliteMigrations: string[] = [
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );`,
 
+  `CREATE TABLE IF NOT EXISTS product_discounts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id INTEGER NOT NULL,
+    discounted_price REAL NOT NULL,
+    start_date TEXT NOT NULL,
+    end_date TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active',
+    reason TEXT DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (product_id) REFERENCES products(id)
+  );`,
+
   `CREATE INDEX IF NOT EXISTS idx_products_sku ON products(sku);`,
   `CREATE INDEX IF NOT EXISTS idx_products_category ON products(category);`,
   `CREATE INDEX IF NOT EXISTS idx_sales_user_id ON sales(user_id);`,
   `CREATE INDEX IF NOT EXISTS idx_sales_created_at ON sales(created_at);`,
   `CREATE INDEX IF NOT EXISTS idx_sale_items_sale_id ON sale_items(sale_id);`,
   `CREATE INDEX IF NOT EXISTS idx_sale_items_product_id ON sale_items(product_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_product_discounts_product_id ON product_discounts(product_id);`,
+];
+
+// ─── Column Migrations (additive only, run on every startup) ────────────────
+
+const columnMigrations: { table: string; column: string; definition: string }[] = [
+  { table: "profit_targets", column: "period_days", definition: "INTEGER NOT NULL DEFAULT 15" },
+  { table: "products", column: "sell_price", definition: "REAL NOT NULL DEFAULT 0" },
+  { table: "products", column: "status", definition: "TEXT NOT NULL DEFAULT 'active'" },
+  { table: "product_discounts", column: "status", definition: "TEXT NOT NULL DEFAULT 'active'" },
+  { table: "sale_items", column: "discount_id", definition: "INTEGER" },
+  { table: "sale_items", column: "original_price", definition: "REAL NOT NULL DEFAULT 0" },
 ];
 
 function addColumnIfMissing(db: Database.Database, table: string, column: string, definition: string) {
@@ -82,19 +109,37 @@ function addColumnIfMissing(db: Database.Database, table: string, column: string
 }
 
 export function runMigrations(db: Database.Database): void {
-  const run = db.transaction(() => {
-    for (const sql of sqliteMigrations) {
+  // Each CREATE TABLE / INDEX is isolated — failure won't cascade
+  for (const sql of sqliteMigrations) {
+    try {
       db.exec(sql);
+    } catch (err) {
+      console.error("[db] Migration failed (isolated, continuing):", (err as Error).message);
     }
-    addColumnIfMissing(db, "profit_targets", "period_days", "INTEGER NOT NULL DEFAULT 15");
-    addColumnIfMissing(db, "products", "sell_price", "REAL NOT NULL DEFAULT 0");
-    addColumnIfMissing(db, "products", "status", "TEXT NOT NULL DEFAULT 'active'");
-  });
-  run();
+  }
+
+  // Each column addition is isolated
+  for (const { table, column, definition } of columnMigrations) {
+    try {
+      addColumnIfMissing(db, table, column, definition);
+    } catch (err) {
+      console.error(`[db] Column migration failed for ${table}.${column} (isolated, continuing):`, (err as Error).message);
+    }
+  }
+
   console.log("[db] Migrations completed successfully");
 }
 
 // ─── PostgreSQL DDL ─────────────────────────────────────────────────────────
+
+const postgresColumnMigrations: string[] = [
+  `ALTER TABLE profit_targets ADD COLUMN IF NOT EXISTS period_days INTEGER NOT NULL DEFAULT 15`,
+  `ALTER TABLE products ADD COLUMN IF NOT EXISTS sell_price NUMERIC NOT NULL DEFAULT 0`,
+  `ALTER TABLE products ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active'`,
+  `ALTER TABLE product_discounts ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active'`,
+  `ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS discount_id INTEGER REFERENCES product_discounts(id)`,
+  `ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS original_price NUMERIC NOT NULL DEFAULT 0`,
+];
 
 const postgresMigrations: string[] = [
   `CREATE TABLE IF NOT EXISTS users (
@@ -136,7 +181,9 @@ const postgresMigrations: string[] = [
     product_id INTEGER NOT NULL REFERENCES products(id),
     quantity INTEGER NOT NULL,
     unit_price NUMERIC NOT NULL,
-    subtotal NUMERIC NOT NULL
+    subtotal NUMERIC NOT NULL,
+    discount_id INTEGER REFERENCES product_discounts(id),
+    original_price NUMERIC NOT NULL DEFAULT 0
   );`,
 
   `CREATE TABLE IF NOT EXISTS profit_targets (
@@ -156,17 +203,40 @@ const postgresMigrations: string[] = [
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
   );`,
 
+  `CREATE TABLE IF NOT EXISTS product_discounts (
+    id SERIAL PRIMARY KEY,
+    product_id INTEGER NOT NULL REFERENCES products(id),
+    discounted_price NUMERIC NOT NULL,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active',
+    reason TEXT DEFAULT '',
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+  );`,
+
   `CREATE INDEX IF NOT EXISTS idx_products_sku ON products(sku);`,
   `CREATE INDEX IF NOT EXISTS idx_products_category ON products(category);`,
   `CREATE INDEX IF NOT EXISTS idx_sales_user_id ON sales(user_id);`,
   `CREATE INDEX IF NOT EXISTS idx_sales_created_at ON sales(created_at);`,
   `CREATE INDEX IF NOT EXISTS idx_sale_items_sale_id ON sale_items(sale_id);`,
   `CREATE INDEX IF NOT EXISTS idx_sale_items_product_id ON sale_items(product_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_product_discounts_product_id ON product_discounts(product_id);`,
 ];
 
 export async function runPostgresMigrations(adapter: DatabaseAdapter): Promise<void> {
   for (const sql of postgresMigrations) {
-    await adapter.exec(sql);
+    try {
+      await adapter.exec(sql);
+    } catch (err) {
+      console.error("[db] PostgreSQL DDL failed (isolated, continuing):", (err as Error).message);
+    }
+  }
+  for (const sql of postgresColumnMigrations) {
+    try {
+      await adapter.exec(sql);
+    } catch (err) {
+      console.error("[db] PostgreSQL column migration failed (isolated, continuing):", (err as Error).message);
+    }
   }
   console.log("[db] PostgreSQL migrations completed successfully");
 }

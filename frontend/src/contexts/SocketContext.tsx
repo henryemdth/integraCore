@@ -20,6 +20,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
     s.on("product:updated", () => {
       queryClient.invalidateQueries({ queryKey: ["products"] })
+      queryClient.invalidateQueries({ queryKey: ["discounts"] })
     })
 
     s.on("notification:new", () => {

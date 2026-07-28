@@ -47,7 +47,25 @@ export function productService(db: DatabaseAdapter) {
     const products = await db.all(
       `SELECT * FROM products ${where} ORDER BY ${sortColumn} ${order} LIMIT ? OFFSET ?`,
       [...sqlParams, limit, offset]
-    );
+    ) as any[];
+
+    const productIds = products.map((p: any) => p.id);
+    if (productIds.length > 0) {
+      const idPlaceholders = productIds.map(() => "?").join(",");
+      const activeDiscounts = await db.all(
+        `SELECT product_id, discounted_price, end_date FROM product_discounts
+         WHERE product_id IN (${idPlaceholders})
+           AND start_date <= date('now')
+           AND end_date >= date('now')`,
+        productIds
+      ) as any[];
+      const discountMap = new Map(activeDiscounts.map((d: any) => [d.product_id, d]));
+      for (const p of products) {
+        const d = discountMap.get(p.id);
+        p.discounted_price = d ? d.discounted_price : null;
+        p.discount_end_date = d ? d.end_date : null;
+      }
+    }
 
     return { products, total, page, totalPages };
   }
@@ -83,6 +101,20 @@ export function productService(db: DatabaseAdapter) {
     const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
     const products = await db.all(`SELECT * FROM products ${where} ORDER BY name ASC`) as any[];
 
+    const productIds = products.map((p: any) => p.id);
+    const discountMap = new Map<number, { discounted_price: number; end_date: string }>();
+    if (productIds.length > 0) {
+      const idPlaceholders = productIds.map(() => "?").join(",");
+      const activeDiscounts = await db.all(
+        `SELECT product_id, discounted_price, end_date FROM product_discounts
+         WHERE product_id IN (${idPlaceholders})
+           AND start_date <= date('now')
+           AND end_date >= date('now')`,
+        productIds
+      ) as any[];
+      for (const d of activeDiscounts) discountMap.set(d.product_id, d);
+    }
+
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet("Products");
     sheet.columns = [
@@ -92,6 +124,9 @@ export function productService(db: DatabaseAdapter) {
       { header: "Category", key: "category", width: 20 },
       { header: "Price", key: "price", width: 12 },
       { header: "Sell Price", key: "sell_price", width: 12 },
+      { header: "Effective Price", key: "effective_price", width: 18 },
+      { header: "Has Discount", key: "has_discount", width: 14 },
+      { header: "Discount End Date", key: "discount_end_date", width: 18 },
       { header: "Stock", key: "stock", width: 10 },
       { header: "Low Stock Threshold", key: "low_stock_threshold", width: 20 },
       { header: "Status", key: "status", width: 15 },
@@ -99,7 +134,15 @@ export function productService(db: DatabaseAdapter) {
       { header: "Updated At", key: "updated_at", width: 20 },
     ];
     sheet.getRow(1).font = { bold: true };
-    for (const p of products) sheet.addRow(p);
+    for (const p of products) {
+      const d = discountMap.get(p.id);
+      sheet.addRow({
+        ...p,
+        effective_price: d ? d.discounted_price : p.sell_price,
+        has_discount: d ? "Yes" : "No",
+        discount_end_date: d ? d.end_date : "",
+      });
+    }
 
     return workbook;
   }
@@ -164,7 +207,11 @@ export function productService(db: DatabaseAdapter) {
     );
 
     const product = await db.get("SELECT * FROM products WHERE id = ?", [result.insertId]) as any;
-    emitProductUpdated({ id: product.id, name: product.name, sku: product.sku, price: product.price, sell_price: product.sell_price, stock: product.stock, status: product.status });
+    const activeDiscount = await db.get(
+      "SELECT discounted_price FROM product_discounts WHERE product_id = ? AND status = 'active' AND start_date <= date('now') AND end_date >= date('now') LIMIT 1",
+      [product.id]
+    ) as any;
+    emitProductUpdated({ ...product, discounted_price: activeDiscount?.discounted_price ?? null });
     return product;
   }
 
@@ -196,7 +243,11 @@ export function productService(db: DatabaseAdapter) {
     );
 
     const product = await db.get("SELECT * FROM products WHERE id = ?", [id]) as any;
-    emitProductUpdated({ id: product.id, name: product.name, sku: product.sku, price: product.price, sell_price: product.sell_price, stock: product.stock, status: product.status });
+    const activeDiscount = await db.get(
+      "SELECT discounted_price FROM product_discounts WHERE product_id = ? AND status = 'active' AND start_date <= date('now') AND end_date >= date('now') LIMIT 1",
+      [id]
+    ) as any;
+    emitProductUpdated({ ...product, discounted_price: activeDiscount?.discounted_price ?? null });
     return product;
   }
 
@@ -221,7 +272,11 @@ export function productService(db: DatabaseAdapter) {
     );
 
     const updated = await db.get("SELECT * FROM products WHERE id = ?", [id]) as any;
-    emitProductUpdated({ id: updated.id, name: updated.name, sku: updated.sku, price: updated.price, sell_price: updated.sell_price, stock: updated.stock, status: updated.status });
+    const activeDiscount = await db.get(
+      "SELECT discounted_price FROM product_discounts WHERE product_id = ? AND status = 'active' AND start_date <= date('now') AND end_date >= date('now') LIMIT 1",
+      [id]
+    ) as any;
+    emitProductUpdated({ ...updated, discounted_price: activeDiscount?.discounted_price ?? null });
     return updated;
   }
 
@@ -239,7 +294,11 @@ export function productService(db: DatabaseAdapter) {
     );
 
     const updated = await db.get("SELECT * FROM products WHERE id = ?", [id]) as any;
-    emitProductUpdated({ id: updated.id, name: updated.name, sku: updated.sku, price: updated.price, sell_price: updated.sell_price, stock: updated.stock, status: updated.status });
+    const activeDiscount = await db.get(
+      "SELECT discounted_price FROM product_discounts WHERE product_id = ? AND status = 'active' AND start_date <= date('now') AND end_date >= date('now') LIMIT 1",
+      [id]
+    ) as any;
+    emitProductUpdated({ ...updated, discounted_price: activeDiscount?.discounted_price ?? null });
     return updated;
   }
 

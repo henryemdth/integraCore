@@ -31,6 +31,7 @@
     "products": "Productos",
     "sales": "Ventas",
     "users": "Usuarios",
+    "discounts": "Descuentos",
     "settings": "Configuración",
     "tagline": "Inventario y Ventas"
   },
@@ -55,6 +56,7 @@
     "statusFilter": "Todos los estados",
     "active": "Activo",
     "discontinued": "Descontinuado",
+    "effectivePrice": "Precio efectivo",
     "noProducts": "No se encontraron productos",
     "confirmDelete": "¿Eliminar \"{{name}}\"?",
     "deleted": "Producto eliminado",
@@ -138,6 +140,7 @@
       "qty": "Cant.",
       "subtotal": "Subtotal",
       "totalLabel": "Total: {{amount}}",
+      "savingsFromDiscounts": "Ahorros por descuentos: {{amount}}",
       "notes": "Notas",
       "notesPlaceholder": "Notas opcionales sobre esta venta",
       "completeSale": "Completar venta",
@@ -151,7 +154,10 @@
     },
     "detail": {
       "title": "Venta #{{id}}",
-      "notes": "Notas"
+      "notes": "Notas",
+      "originalPrice": "Precio unitario (normal)",
+      "discountApplied": "¿Descuento aplicado?",
+      "savingsFromDiscounts": "Ahorros por descuentos: {{amount}}"
     }
   },
   "users": {
@@ -311,5 +317,43 @@
   "export": {
     "exported": "Exportado {{filename}}",
     "failedExport": "Error al exportar archivo"
+  },
+  "discounts": {
+    "title": "Descuentos",
+    "history": "Historial de descuentos",
+    "createDiscount": "Aplicar descuento",
+    "discountedPrice": "Precio con descuento",
+    "startDate": "Fecha de inicio",
+    "endDate": "Fecha de fin",
+    "reason": "Motivo",
+    "reasonPlaceholder": "Motivo opcional del descuento",
+    "product": "Producto",
+    "normalPrice": "Precio normal",
+    "pctDiscount": "% Descuento",
+    "unitsSold": "Unidades vendidas",
+    "worked": "¿Funcionó?",
+    "yes": "Sí",
+    "no": "No",
+    "effectivePrice": "Precio efectivo",
+    "onSale": "¡En oferta!",
+    "active": "Activo",
+    "expired": "Expirado",
+    "noDiscounts": "No se encontraron descuentos",
+    "created": "Descuento creado",
+    "failedCreate": "Error al crear descuento",
+    "deleted": "Descuento eliminado",
+    "failedDelete": "Error al eliminar descuento",
+    "overlapError": "El rango de fechas del descuento se superpone con uno existente",
+    "export": "Exportar historial de descuentos",
+    "confirmDelete": "¿Eliminar este descuento?",
+    "confirmCancel": "¿Cancelar este descuento? Dejará de aplicarse de inmediato.",
+    "cancelled": "Cancelado",
+    "cancel": "Cancelar descuento",
+    "cancelSuccess": "Descuento cancelado",
+    "cancelFailed": "Error al cancelar descuento",
+    "status": "Estado",
+    "discountEndDate": "Fecha fin del descuento",
+    "price": "Precio",
+    "savings": "Ahorros por descuentos"
   }
 }

@@ -76,6 +76,26 @@ The architecture must allow future expansion to a cloud-based backend without re
 - No internet connection required for any of this to function
 - Server machine's local IP must be configurable/discoverable during setup
 
+### 8. Promotional Pricing (Temporary Discounts)
+- The Admin can apply a **temporary discount** to a product: a discounted price valid only within a specific date range (e.g., "Product Z at $23 from July 1 to July 7").
+- Discounts are stored as a **full history**, not just "the current discount" — every discount ever applied to a product is kept as its own record (product, discounted price, start date, end date, and optionally a reason/note). Applying a new discount never overwrites or deletes a previous one.
+- **No overlapping discounts** are allowed for the same product — overlap check is inclusive on both ends (if discount A ends 07/07, a new discount starting 07/07 for the same product conflicts). The system must reject creating a new discount whose date range overlaps with an existing active/cancelled-with-sales one for that product, to avoid ambiguity about which price applies on a given day.
+- **UI placement**: discount creation/management is a dialog opened from the product list row actions (e.g., a "Set discount" action in the row's dropdown menu) — not a separate page or a tab inside the product edit form.
+- **Price resolution at sale time**: when a sale is registered, the system checks whether today's date falls within an active discount range for that product; if so, the discounted price is used as `unit_price` for that sale item — otherwise, the normal price is used. This calculated price is what gets frozen into the sale record (consistent with the existing rule that `sale_items.unit_price` always reflects the actual price charged, never a live reference to the product's current price).
+  - `sale_items` also stores `discount_id` (nullable FK to the discount used, NULL if none) and `original_price` (the product's normal price at the time of sale, so the sale detail can always show a "was X, sold at Y" comparison regardless of what happens to the discount or product afterward).
+- **Real-time updates**: when a discount becomes active or expires (date-based, not just a manual Admin action), connected clients must reflect the updated effective price — this extends the existing real-time price/stock update requirement (see "Real-Time Updates" section) to also cover date-triggered price changes, not only manually-edited ones.
+- **Canceling vs. deleting a discount**:
+  - A discount has a `status`: `active` or `cancelled`.
+  - If a discount has **zero sales** associated with it (e.g., the Admin made a typo in the discount price and no one has bought at that price yet), it can be **deleted outright** — no trace needs to remain.
+  - If a discount **already has one or more sales** associated with it, it **cannot be deleted** — it must instead be **cancelled** (sets `status: cancelled`, stops applying immediately, but the record and its linked sales remain intact for history/reporting).
+  - Attempting to delete a discount with existing sales must be blocked with a clear explanation (e.g., "This discount can't be deleted because it already has sales. Cancel it instead to stop it from applying going forward.") — never a silent failure or a generic error.
+  - A `cancelled` discount does not count as active for the overlap-check rule — the Admin can create a new, corrected discount over the same or overlapping dates once the faulty one is cancelled.
+- **Sale summary / sale detail UI**: when a sale includes multiple products, each product with a discount shows its own discount indicator (e.g., a percentage-off badge) and its normal price struck through next to the discounted price — independent per line item, since different products in the same sale may have different discounts (or none). The sale summary includes a total "savings from discounts" line, summing the difference between normal and discounted prices across all discounted items in that sale.
+- **Inventory (Stock) export**: includes a summarized view per product — whether it currently has an active discount, the effective price today, and the discount's end date. It does NOT include the full discount history (see next point).
+- **Sales export (monthly/filtered)**: the existing sales Excel report adds columns for **Unit Price at normal rate** (i.e., `original_price`) and **Discount applied? (Yes/No)**, alongside the existing columns (Sale ID, Date, Seller, Product, SKU, Quantity, Unit Price [price actually charged], Subtotal, Total). A summary row at the end of the sheet shows total sales, total savings from discounts, and count of sales with vs. without discount.
+- **Discount history export**: a separate Excel report (or sheet) listing every discount ever applied — product, normal price, discounted price, % discount, date range, status (active/cancelled), units sold during that period, and whether it "worked" (generated sales) or not. This is for the Admin to evaluate which discounts were effective over time.
+- Discontinued products (see Inventory Module, product status) can still have discount history, but new discounts should not be creatable for a `discontinued` product.
+
 ---
 
 ## Explicitly Out of Scope (for this version)

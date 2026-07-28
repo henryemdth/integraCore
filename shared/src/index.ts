@@ -24,6 +24,8 @@ export interface Product {
   status: "active" | "discontinued";
   created_at: string;
   updated_at: string;
+  discounted_price?: number | null;
+  discount_end_date?: string | null;
 }
 
 export interface SaleItemDetail {
@@ -34,6 +36,8 @@ export interface SaleItemDetail {
   quantity: number;
   unit_price: number;
   subtotal: number;
+  discount_id: number | null;
+  original_price: number;
 }
 
 export interface SaleDetail {
@@ -44,6 +48,20 @@ export interface SaleDetail {
   notes: string;
   created_at: string;
   items: SaleItemDetail[];
+}
+
+export interface ProductDiscount {
+  id: number;
+  product_id: number;
+  discounted_price: number;
+  start_date: string;
+  end_date: string;
+  reason: string;
+  status: "active" | "cancelled";
+  product_name?: string;
+  product_sku?: string;
+  normal_price?: number;
+  created_at: string;
 }
 
 // ─── Zod Validation Schemas ───────────────────────────────────────────
@@ -115,4 +133,14 @@ export const CreateSaleSchema = z.object({
 export const UpdateUserSchema = z.object({
   full_name: z.string().min(1).optional(),
   role: z.enum(["admin", "user"]).optional(),
+});
+
+export const CreateDiscountSchema = z.object({
+  discounted_price: z.number().min(0, "Discounted price must be >= 0"),
+  start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "start_date must be YYYY-MM-DD format"),
+  end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "end_date must be YYYY-MM-DD format"),
+  reason: z.string().optional().default(""),
+}).refine((d) => d.start_date <= d.end_date, {
+  message: "start_date must be on or before end_date",
+  path: ["end_date"],
 });

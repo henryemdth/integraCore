@@ -12,7 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Separator } from "@/components/ui/separator"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { X, Search, Loader2 } from "lucide-react"
+import { X, Search, Loader2, Tag } from "lucide-react"
 import { formatCurrency } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
@@ -48,7 +48,8 @@ export function CreateSaleForm({ onSaleCreated }: CreateSaleFormProps) {
     return products.filter((p) => p.status !== "discontinued" && (p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q)) && !cart.some((c) => c.product.id === p.id)).slice(0, 10)
   }, [search, products, cart])
 
-  const total = cart.reduce((sum, item) => sum + item.product.sell_price * item.quantity, 0)
+  const total = cart.reduce((sum, item) => sum + (item.product.discounted_price ?? item.product.sell_price) * item.quantity, 0)
+  const totalSavings = cart.reduce((sum, item) => sum + (item.product.discounted_price ? (item.product.sell_price - item.product.discounted_price) * item.quantity : 0), 0)
 
   const hasInsufficientStock = cart.some((item) => item.product.stock === 0 || item.quantity > item.product.stock)
 
@@ -129,7 +130,15 @@ export function CreateSaleForm({ onSaleCreated }: CreateSaleFormProps) {
                         <code className="text-xs text-muted-foreground ml-2 font-data">{product.sku}</code>
                       </span>
                       <span className="flex items-center gap-3">
-                        <span className="text-muted-foreground font-data">{formatCurrency(product.sell_price)}</span>
+                        {product.discounted_price ? (
+                          <span className="flex items-center gap-1">
+                            <Tag className="h-3 w-3 text-amber-500" />
+                            <span className="line-through text-muted-foreground font-data">{formatCurrency(product.sell_price)}</span>
+                            <span className="font-semibold text-amber-600 font-data">{formatCurrency(product.discounted_price)}</span>
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground font-data">{formatCurrency(product.sell_price)}</span>
+                        )}
                         <span className={cn("text-body-sm font-data", outOfStock ? "text-destructive font-medium" : "text-muted-foreground")}>
                           {outOfStock ? t("sales.create.outOfStock") : t("sales.create.stockLabel", { stock: product.stock })}
                         </span>
@@ -155,13 +164,24 @@ export function CreateSaleForm({ onSaleCreated }: CreateSaleFormProps) {
                 <TableBody>
                   {cart.map((item) => {
                     const atLimit = item.quantity >= item.product.stock
+                    const effectivePrice = item.product.discounted_price ?? item.product.sell_price
                     return (
                       <TableRow key={item.product.id}>
                         <TableCell className="font-medium">
                           {item.product.name}
                           <code className="text-xs text-muted-foreground ml-2 font-data">{item.product.sku}</code>
                         </TableCell>
-                        <TableCell className="text-right font-data">{formatCurrency(item.product.sell_price)}</TableCell>
+                        <TableCell className="text-right font-data">
+                          {item.product.discounted_price ? (
+                            <span className="flex items-center justify-end gap-1">
+                              <Tag className="h-3 w-3 text-amber-500" />
+                              <span className="line-through text-muted-foreground">{formatCurrency(item.product.sell_price)}</span>
+                              <span className="font-semibold text-amber-600">{formatCurrency(item.product.discounted_price)}</span>
+                            </span>
+                          ) : (
+                            formatCurrency(item.product.sell_price)
+                          )}
+                        </TableCell>
                         <TableCell className="text-right">
                           <Input
                             type="number"
@@ -172,7 +192,7 @@ export function CreateSaleForm({ onSaleCreated }: CreateSaleFormProps) {
                             className={cn("h-8 w-16 text-right font-data", atLimit && "text-destructive")}
                           />
                         </TableCell>
-                        <TableCell className="text-right font-data font-semibold">{formatCurrency(item.product.sell_price * item.quantity)}</TableCell>
+                        <TableCell className="text-right font-data font-semibold">{formatCurrency(effectivePrice * item.quantity)}</TableCell>
                         <TableCell><Button type="button" variant="ghost" className="h-8 w-8 p-0" onClick={() => removeFromCart(item.product.id)}><X className="h-4 w-4" /></Button></TableCell>
                       </TableRow>
                     )
@@ -184,6 +204,11 @@ export function CreateSaleForm({ onSaleCreated }: CreateSaleFormProps) {
                 <Alert variant="destructive">
                   <AlertDescription>{t("sales.create.insufficientStock")}</AlertDescription>
                 </Alert>
+              )}
+              {totalSavings > 0 && (
+                <div className="flex justify-end text-sm text-muted-foreground">
+                  <span className="font-data">{t("sales.create.savingsFromDiscounts", { amount: formatCurrency(totalSavings) })}</span>
+                </div>
               )}
               <div className="flex justify-end"><span className="text-headline-sm font-data">{t("sales.create.totalLabel", { amount: formatCurrency(total) })}</span></div>
             </>

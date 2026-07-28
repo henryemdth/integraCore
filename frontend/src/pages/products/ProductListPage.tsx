@@ -17,7 +17,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { StockMovementDialog } from "@/components/products/StockMovementDialog"
 import { ImportDialog } from "@/components/products/ImportDialog"
-import { Plus, MoreHorizontal, Search, PackagePlus, PackageMinus, Download, Upload } from "lucide-react"
+import { CreateDiscountDialog } from "@/components/discounts/CreateDiscountDialog"
+import { Plus, MoreHorizontal, Search, PackagePlus, PackageMinus, Download, Upload, Tag, Percent } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export default function ProductListPage() {
@@ -36,6 +37,7 @@ export default function ProductListPage() {
   const [stockProduct, setStockProduct] = useState<Product | null>(null)
   const [stockType, setStockType] = useState<"in" | "out">("in")
   const [importOpen, setImportOpen] = useState(false)
+  const [discountProduct, setDiscountProduct] = useState<Product | null>(null)
 
   const limit = 20
   const params = { page: String(page), limit: String(limit), sort, order, ...(search && { search }), ...(category !== "all" && { category }), ...(statusFilter !== "all" && { status: statusFilter }) }
@@ -130,7 +132,7 @@ export default function ProductListPage() {
                 <TableHead className="cursor-pointer" onClick={() => handleSort("sku")}>{t("products.sku")} {sort === "sku" && (order === "ASC" ? "↑" : "↓")}</TableHead>
                 <TableHead>{t("products.category")}</TableHead>
                 <TableHead className="cursor-pointer text-right" onClick={() => handleSort("price")}>{t("products.purchasePrice")} {sort === "price" && (order === "ASC" ? "↑" : "↓")}</TableHead>
-                <TableHead className="cursor-pointer text-right" onClick={() => handleSort("sell_price")}>{t("products.sellPrice")} {sort === "sell_price" && (order === "ASC" ? "↑" : "↓")}</TableHead>
+                <TableHead className="text-right">{t("products.effectivePrice")}</TableHead>
                 <TableHead className="cursor-pointer text-right" onClick={() => handleSort("stock")}>{t("products.stock")} {sort === "stock" && (order === "ASC" ? "↑" : "↓")}</TableHead>
                 <TableHead>{t("products.status")}</TableHead>
                 {isAdmin && <TableHead className="w-[50px]">{t("common.actions")}</TableHead>}
@@ -147,7 +149,20 @@ export default function ProductListPage() {
                   <TableCell><code className="text-xs bg-muted px-1.5 py-0.5 rounded">{product.sku}</code></TableCell>
                   <TableCell>{product.category || "—"}</TableCell>
                   <TableCell className="text-right">{formatCurrency(product.price)}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(product.sell_price)}</TableCell>
+                  <TableCell className="text-right">
+                    {product.discounted_price ? (
+                      <span className="flex items-center justify-end gap-1">
+                        <Tag className="h-3.5 w-3.5 text-amber-500" />
+                        <span className="line-through text-muted-foreground mr-1">{formatCurrency(product.sell_price)}</span>
+                        <span className="font-semibold text-amber-600">{formatCurrency(product.discounted_price)}</span>
+                        {product.discount_end_date && (
+                          <span className="text-xs text-muted-foreground">(until {product.discount_end_date})</span>
+                        )}
+                      </span>
+                    ) : (
+                      <span>{formatCurrency(product.sell_price)}</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-right">
                     {product.stock <= product.low_stock_threshold ? <Badge variant="destructive">{product.stock}</Badge> : <span>{product.stock}</span>}
                   </TableCell>
@@ -167,6 +182,9 @@ export default function ProductListPage() {
                           <DropdownMenuSeparator />
                           <DropdownMenuItem onClick={() => openStock(product, "in")}><PackagePlus className="h-4 w-4 mr-2" />{t("products.stockIn")}</DropdownMenuItem>
                           <DropdownMenuItem onClick={() => openStock(product, "out")}><PackageMinus className="h-4 w-4 mr-2" />{t("products.stockOut")}</DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => navigate(`/discounts?productId=${product.id}`)}><Percent className="h-4 w-4 mr-2" />{t("discounts.history")}</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setDiscountProduct(product)}><Tag className="h-4 w-4 mr-2" />{t("discounts.createDiscount")}</DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem className="text-destructive" onClick={() => { if (confirm(t("products.confirmDelete", { name: product.name }))) deleteMutation.mutate(product.id) }}>{t("common.delete")}</DropdownMenuItem>
                         </DropdownMenuContent>
@@ -190,6 +208,7 @@ export default function ProductListPage() {
       </Card>
       <StockMovementDialog product={stockProduct} type={stockType} open={Boolean(stockProduct)} onOpenChange={(open: boolean) => { if (!open) setStockProduct(null) }} />
       <ImportDialog open={importOpen} onOpenChange={setImportOpen} />
+      <CreateDiscountDialog product={discountProduct} open={Boolean(discountProduct)} onOpenChange={(open: boolean) => { if (!open) setDiscountProduct(null) }} />
     </div>
   )
 }

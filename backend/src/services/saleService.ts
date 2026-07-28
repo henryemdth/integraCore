@@ -59,6 +59,16 @@ function buildFilterQuery(filters: {
   return { where, params };
 }
 
+async function getActiveDiscount(db: DatabaseAdapter, productId: number) {
+  const discount = await db.get(
+    `SELECT id, discounted_price FROM product_discounts
+     WHERE product_id = ? AND status = 'active' AND start_date <= date('now') AND end_date >= date('now')
+     ORDER BY start_date DESC LIMIT 1`,
+    [productId]
+  ) as any;
+  return discount || null;
+}
+
 export function saleService(db: DatabaseAdapter) {
   async function create(userId: number, items: { product_id: number; quantity: number }[], notes?: string) {
     const saleId = await db.transaction(async (tx) => {
@@ -88,16 +98,32 @@ export function saleService(db: DatabaseAdapter) {
         }
       }
 
+      const productIdsList = items.map((i) => i.product_id);
+      const discountPlaceholders = productIdsList.map(() => "?").join(",");
+      const activeDiscountsRaw = await tx.all(
+        `SELECT pd.* FROM product_discounts pd
+         WHERE pd.product_id IN (${discountPlaceholders})
+           AND pd.status = 'active'
+           AND pd.start_date <= date('now')
+           AND pd.end_date >= date('now')`,
+        productIdsList
+      ) as any[];
+      const discountMap = new Map(activeDiscountsRaw.map((d: any) => [d.product_id, d]));
+
       let total = 0;
       const saleItems = items.map((item) => {
         const product = productMap.get(item.product_id)!;
-        const subtotal = product.sell_price * item.quantity;
+        const discount = discountMap.get(item.product_id);
+        const effectivePrice = discount ? discount.discounted_price : product.sell_price;
+        const subtotal = effectivePrice * item.quantity;
         total += subtotal;
         return {
           product_id: item.product_id,
           quantity: item.quantity,
-          unit_price: product.sell_price,
+          unit_price: effectivePrice,
           subtotal,
+          discount_id: discount ? discount.id : null,
+          original_price: product.sell_price,
         };
       });
 
@@ -109,8 +135,8 @@ export function saleService(db: DatabaseAdapter) {
       const insertedSaleId = saleResult.insertId;
       for (const item of saleItems) {
         await tx.run(
-          "INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, subtotal) VALUES (?, ?, ?, ?, ?)",
-          [insertedSaleId, item.product_id, item.quantity, item.unit_price, item.subtotal]
+          "INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, subtotal, discount_id, original_price) VALUES (?, ?, ?, ?, ?, ?, ?)",
+          [insertedSaleId, item.product_id, item.quantity, item.unit_price, item.subtotal, item.discount_id, item.original_price]
         );
       }
 
@@ -129,7 +155,8 @@ export function saleService(db: DatabaseAdapter) {
     for (const item of sale!.items) {
       const product = await db.get("SELECT id, name, sku, price, sell_price, stock, status FROM products WHERE id = ?", [item.product_id]) as any;
       if (product) {
-        emitProductUpdated({ id: product.id, name: product.name, sku: product.sku, price: product.price, sell_price: product.sell_price, stock: product.stock, status: product.status });
+        const activeDiscount = await getActiveDiscount(db, product.id);
+        emitProductUpdated({ ...product, discounted_price: activeDiscount?.discounted_price ?? null });
       }
     }
 
@@ -230,11 +257,19 @@ export function saleService(db: DatabaseAdapter) {
       { header: "SKU", key: "product_sku", width: 15 },
       { header: "Quantity", key: "quantity", width: 10 },
       { header: "Unit Price", key: "unit_price", width: 12 },
+      { header: "Unit Price (Normal)", key: "original_price", width: 18 },
+      { header: "Discount Applied?", key: "discount_applied", width: 16 },
+      { header: "Savings", key: "savings", width: 10 },
       { header: "Subtotal", key: "subtotal", width: 12 },
       { header: "Total", key: "total", width: 12 },
       { header: "Notes", key: "notes", width: 25 },
     ];
     sheet.getRow(1).font = { bold: true };
+
+    let totalSales = 0;
+    let totalSavings = 0;
+    let countWithDiscount = 0;
+    let countWithoutDiscount = 0;
 
     for (const sale of sales) {
       const items = await db.all(
@@ -244,15 +279,40 @@ export function saleService(db: DatabaseAdapter) {
         [sale.id]
       ) as any[];
 
+      totalSales++;
       for (const item of items) {
+        const hasDiscount = item.discount_id != null;
+        const savings = hasDiscount ? (item.original_price - item.unit_price) * item.quantity : 0;
+        if (hasDiscount) { countWithDiscount++; } else { countWithoutDiscount++; }
+        totalSavings += savings;
+
         sheet.addRow({
           id: sale.id, created_at: sale.created_at, seller_name: sale.seller_name,
           product_name: item.product_name, product_sku: item.product_sku,
-          quantity: item.quantity, unit_price: item.unit_price, subtotal: item.subtotal,
+          quantity: item.quantity, unit_price: item.unit_price,
+          original_price: item.original_price,
+          discount_applied: hasDiscount ? "Yes" : "No",
+          savings: savings,
+          subtotal: item.subtotal,
           total: sale.total, notes: sale.notes,
         });
       }
     }
+
+    sheet.addRow({});
+    const summaryRow = sheet.addRow({
+      id: "TOTAL",
+      unit_price: "",
+      original_price: "",
+      discount_applied: "",
+      savings: totalSavings,
+      subtotal: "",
+    });
+    summaryRow.getCell(1).font = { bold: true };
+    summaryRow.getCell(2).value = `Total Sales: ${totalSales}`;
+    summaryRow.getCell(3).value = `With Discount: ${countWithDiscount}`;
+    summaryRow.getCell(4).value = `Without Discount: ${countWithoutDiscount}`;
+    summaryRow.getCell(5).value = `Total Savings: ${totalSavings}`;
 
     return workbook;
   }
@@ -277,7 +337,8 @@ export function saleService(db: DatabaseAdapter) {
     for (const item of items) {
       const product = await db.get("SELECT id, name, sku, price, sell_price, stock, status FROM products WHERE id = ?", [item.product_id]) as any;
       if (product) {
-        emitProductUpdated({ id: product.id, name: product.name, sku: product.sku, price: product.price, sell_price: product.sell_price, stock: product.stock, status: product.status });
+        const activeDiscount = await getActiveDiscount(db, product.id);
+        emitProductUpdated({ ...product, discounted_price: activeDiscount?.discounted_price ?? null });
       }
     }
 

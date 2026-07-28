@@ -1,7 +1,7 @@
 import { NavLink } from "react-router-dom"
 import { useAuth } from "@/contexts/AuthContext"
 import { useTranslation } from "react-i18next"
-import { LayoutDashboard, Package, ShoppingCart, Users, Settings, Package2, LogOut } from "lucide-react"
+import { LayoutDashboard, Package, ShoppingCart, Users, Settings, Package2, LogOut, Tag } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Avatar } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -11,6 +11,7 @@ const navItems = [
   { to: "/products", key: "sidebar.products", icon: Package, roles: ["admin", "user"] },
   { to: "/sales", key: "sidebar.sales", icon: ShoppingCart, roles: ["admin", "user"] },
   { to: "/users", key: "sidebar.users", icon: Users, roles: ["admin"] },
+  { to: "/discounts", key: "sidebar.discounts", icon: Tag, roles: ["admin"] },
   { to: "/settings", key: "sidebar.settings", icon: Settings, roles: ["admin"] },
 ]
 

@@ -19,7 +19,6 @@ export function userService(db: DatabaseAdapter) {
     }
 
     const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-    console.log(where, ' --- WHERE CLAUSE');
     const countRow = await db.get<{ count: number }>(
       `SELECT COUNT(*) as count FROM users ${where}`,
       sqlParams
