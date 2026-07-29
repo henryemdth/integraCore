@@ -18,6 +18,14 @@ export function formatCurrency(amount: number): string {
   return `${symbol} ${formatted}`
 }
 
+export function formatDate(dateStr: string): string {
+  return new Intl.DateTimeFormat(i18n.language, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  }).format(new Date(dateStr))
+}
+
 export function formatDateTime(dateStr: string): string {
   return new Intl.DateTimeFormat(i18n.language, {
     year: "numeric",

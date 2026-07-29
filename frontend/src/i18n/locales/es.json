@@ -62,6 +62,7 @@
     "deleted": "Producto eliminado",
     "failedDelete": "Error al eliminar producto",
     "pageInfo": "Página {{page}} de {{totalPages}} ({{total}} productos)",
+    "until": "hasta {{date}}",
     "createForm": {
       "title": "Crear producto",
       "desc": "Completa los detalles del producto",

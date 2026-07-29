@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Download, Trash2, Ban } from "lucide-react"
-import { formatCurrency } from "@/lib/format"
+import { formatCurrency, formatDate } from "@/lib/format"
 
 export default function DiscountHistoryPage() {
   const { t } = useTranslation()
@@ -93,16 +93,17 @@ export default function DiscountHistoryPage() {
                     <TableRow key={d.id} className={d.status === "cancelled" ? "opacity-60" : ""}>
                       <TableCell>
                         <span className="font-medium">{d.product_name}</span>
+                        <br/>
                         <code className="text-xs text-muted-foreground ml-2 font-data">{d.product_sku}</code>
                       </TableCell>
                       <TableCell className="font-data">{formatCurrency(d.normal_price)}</TableCell>
                       <TableCell className="font-data">{formatCurrency(d.discounted_price)}</TableCell>
                       <TableCell>{pct}%</TableCell>
-                      <TableCell>{d.start_date}</TableCell>
+                      <TableCell>{formatDate(d.start_date)}</TableCell>
                       <TableCell>
-                        {d.end_date}
-                        {isActive && <Badge className="ml-2" variant="success-light">{t("discounts.active")}</Badge>}
-                        {d.status === "cancelled" && <Badge className="ml-2" variant="secondary">{t("discounts.cancelled")}</Badge>}
+                        {formatDate(d.end_date)}
+                        {/* {isActive && <Badge className="ml-2" variant="success-light">{t("discounts.active")}</Badge>}
+                        {d.status === "cancelled" && <Badge className="ml-2" variant="secondary">{t("discounts.cancelled")}</Badge>} */}
                       </TableCell>
                       <TableCell>
                         {d.status === "cancelled" ? (

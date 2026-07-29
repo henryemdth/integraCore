@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next"
 import { useAuth } from "@/contexts/AuthContext"
 import { useExportExcel } from "@/hooks/useExportExcel"
 import api from "@/lib/api"
-import { formatCurrency } from "@/lib/format"
+import { formatCurrency, formatDate } from "@/lib/format"
 import type { Product } from "@integracore/shared"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -18,7 +18,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { StockMovementDialog } from "@/components/products/StockMovementDialog"
 import { ImportDialog } from "@/components/products/ImportDialog"
 import { CreateDiscountDialog } from "@/components/discounts/CreateDiscountDialog"
-import { Plus, MoreHorizontal, Search, PackagePlus, PackageMinus, Download, Upload, Tag, Percent } from "lucide-react"
+import { Plus, MoreHorizontal, Search, PackagePlus, PackageMinus, Download, Upload, Tag, Percent, Info } from "lucide-react"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 
 export default function ProductListPage() {
@@ -153,11 +154,22 @@ export default function ProductListPage() {
                     {product.discounted_price ? (
                       <span className="flex items-center justify-end gap-1">
                         <Tag className="h-3.5 w-3.5 text-amber-500" />
-                        <span className="line-through text-muted-foreground mr-1">{formatCurrency(product.sell_price)}</span>
-                        <span className="font-semibold text-amber-600">{formatCurrency(product.discounted_price)}</span>
-                        {product.discount_end_date && (
-                          <span className="text-xs text-muted-foreground">(until {product.discount_end_date})</span>
-                        )}
+                        <div className="flex flex-col items-end">
+                          <span className="line-through text-muted-foreground mr-1">{formatCurrency(product.sell_price)}</span>
+                          <span className="font-semibold text-amber-600">{formatCurrency(product.discounted_price)}</span>
+                        </div>
+                        <TooltipProvider delayDuration={200}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-3.5 w-3.5 text-muted-foreground cursor-pointer" />
+                            </TooltipTrigger>
+                            <TooltipContent side="top">
+                              {product.discount_end_date
+                                ? t("products.until", { date: formatDate(product.discount_end_date) })
+                                : t("discounts.active")}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </span>
                     ) : (
                       <span>{formatCurrency(product.sell_price)}</span>
