@@ -2,6 +2,7 @@ import type { DatabaseAdapter } from "../db/adapter.js";
 import ExcelJS from "exceljs";
 import { AppError } from "./authService.js";
 import { emitProductUpdated } from "../socket/index.js";
+import { nowString } from "@integracore/shared";
 
 export function productService(db: DatabaseAdapter) {
   async function list(params: {
@@ -52,12 +53,14 @@ export function productService(db: DatabaseAdapter) {
     const productIds = products.map((p: any) => p.id);
     if (productIds.length > 0) {
       const idPlaceholders = productIds.map(() => "?").join(",");
+      const now = nowString();
       const activeDiscounts = await db.all(
         `SELECT product_id, discounted_price, end_date FROM product_discounts
          WHERE product_id IN (${idPlaceholders})
-           AND start_date <= date('now')
-           AND end_date >= date('now')`,
-        productIds
+           AND status = 'active'
+           AND start_date <= ?
+           AND end_date >= ?`,
+        [...productIds, now, now]
       ) as any[];
       const discountMap = new Map(activeDiscounts.map((d: any) => [d.product_id, d]));
       for (const p of products) {
@@ -105,12 +108,14 @@ export function productService(db: DatabaseAdapter) {
     const discountMap = new Map<number, { discounted_price: number; end_date: string }>();
     if (productIds.length > 0) {
       const idPlaceholders = productIds.map(() => "?").join(",");
+      const now = nowString();
       const activeDiscounts = await db.all(
         `SELECT product_id, discounted_price, end_date FROM product_discounts
          WHERE product_id IN (${idPlaceholders})
-           AND start_date <= date('now')
-           AND end_date >= date('now')`,
-        productIds
+           AND status = 'active'
+           AND start_date <= ?
+           AND end_date >= ?`,
+        [...productIds, now, now]
       ) as any[];
       for (const d of activeDiscounts) discountMap.set(d.product_id, d);
     }
@@ -140,7 +145,7 @@ export function productService(db: DatabaseAdapter) {
         ...p,
         effective_price: d ? d.discounted_price : p.sell_price,
         has_discount: d ? "Yes" : "No",
-        discount_end_date: d ? d.end_date : "",
+        discount_end_date: d ? (d.end_date || "").slice(0, 10) : "",
       });
     }
 
@@ -207,9 +212,10 @@ export function productService(db: DatabaseAdapter) {
     );
 
     const product = await db.get("SELECT * FROM products WHERE id = ?", [result.insertId]) as any;
+    const now = nowString();
     const activeDiscount = await db.get(
-      "SELECT discounted_price FROM product_discounts WHERE product_id = ? AND status = 'active' AND start_date <= date('now') AND end_date >= date('now') LIMIT 1",
-      [product.id]
+      "SELECT discounted_price FROM product_discounts WHERE product_id = ? AND status = 'active' AND start_date <= ? AND end_date >= ? LIMIT 1",
+      [product.id, now, now]
     ) as any;
     emitProductUpdated({ ...product, discounted_price: activeDiscount?.discounted_price ?? null });
     return product;
@@ -243,9 +249,10 @@ export function productService(db: DatabaseAdapter) {
     );
 
     const product = await db.get("SELECT * FROM products WHERE id = ?", [id]) as any;
+    const now = nowString();
     const activeDiscount = await db.get(
-      "SELECT discounted_price FROM product_discounts WHERE product_id = ? AND status = 'active' AND start_date <= date('now') AND end_date >= date('now') LIMIT 1",
-      [id]
+      "SELECT discounted_price FROM product_discounts WHERE product_id = ? AND status = 'active' AND start_date <= ? AND end_date >= ? LIMIT 1",
+      [id, now, now]
     ) as any;
     emitProductUpdated({ ...product, discounted_price: activeDiscount?.discounted_price ?? null });
     return product;
@@ -272,9 +279,10 @@ export function productService(db: DatabaseAdapter) {
     );
 
     const updated = await db.get("SELECT * FROM products WHERE id = ?", [id]) as any;
+    const now = nowString();
     const activeDiscount = await db.get(
-      "SELECT discounted_price FROM product_discounts WHERE product_id = ? AND status = 'active' AND start_date <= date('now') AND end_date >= date('now') LIMIT 1",
-      [id]
+      "SELECT discounted_price FROM product_discounts WHERE product_id = ? AND status = 'active' AND start_date <= ? AND end_date >= ? LIMIT 1",
+      [id, now, now]
     ) as any;
     emitProductUpdated({ ...updated, discounted_price: activeDiscount?.discounted_price ?? null });
     return updated;
@@ -294,9 +302,10 @@ export function productService(db: DatabaseAdapter) {
     );
 
     const updated = await db.get("SELECT * FROM products WHERE id = ?", [id]) as any;
+    const now = nowString();
     const activeDiscount = await db.get(
-      "SELECT discounted_price FROM product_discounts WHERE product_id = ? AND status = 'active' AND start_date <= date('now') AND end_date >= date('now') LIMIT 1",
-      [id]
+      "SELECT discounted_price FROM product_discounts WHERE product_id = ? AND status = 'active' AND start_date <= ? AND end_date >= ? LIMIT 1",
+      [id, now, now]
     ) as any;
     emitProductUpdated({ ...updated, discounted_price: activeDiscount?.discounted_price ?? null });
     return updated;

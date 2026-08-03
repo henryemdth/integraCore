@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { createTestDb, seedTestProduct } from "./test-helper.js";
 import type { SqliteAdapter } from "./db/sqlite.js";
 import { discountService } from "./services/discountService.js";
+import { todayDateString, nextDayDateString } from "@integracore/shared";
 
 vi.mock("../socket/index.js", () => ({
   emitProductUpdated: vi.fn(),
@@ -212,7 +213,7 @@ describe("discountService", () => {
 
     it("getActive returns discount when active today", async () => {
       const product = await seedTestProduct(db);
-      const today = new Date().toISOString().slice(0, 10);
+      const today = todayDateString();
       await service.create(product.id, {
         discounted_price: 10,
         start_date: today,
@@ -222,6 +223,46 @@ describe("discountService", () => {
       const active = await service.getActive(product.id);
       expect(active).toBeDefined();
       expect(active!.id).toBeGreaterThan(0);
+    });
+
+    it("stores start and end dates as full-day timestamps", async () => {
+      const product = await seedTestProduct(db);
+      const discount = await service.create(product.id, {
+        discounted_price: 10,
+        start_date: "2026-08-10",
+        end_date: "2026-08-20",
+      });
+
+      expect(discount.start_date).toBe("2026-08-10 00:00:00.000");
+      expect(discount.end_date).toBe("2026-08-20 23:59:59.999");
+    });
+
+    it("getActive ignores cancelled discount even within date range", async () => {
+      const product = await seedTestProduct(db);
+      const today = todayDateString();
+      const discount = await service.create(product.id, {
+        discounted_price: 10,
+        start_date: today,
+        end_date: today,
+      });
+
+      await service.cancel(discount.id);
+
+      const active = await service.getActive(product.id);
+      expect(active).toBeUndefined();
+    });
+
+    it("getActive returns undefined for scheduled (future) discount", async () => {
+      const product = await seedTestProduct(db);
+      const tomorrow = nextDayDateString(todayDateString());
+      await service.create(product.id, {
+        discounted_price: 10,
+        start_date: tomorrow,
+        end_date: tomorrow,
+      });
+
+      const active = await service.getActive(product.id);
+      expect(active).toBeUndefined();
     });
   });
 
@@ -245,6 +286,50 @@ describe("discountService", () => {
       expect(all).toHaveLength(2);
       expect(all[0].product_name).toBeDefined();
       expect(all[0].product_sku).toBeDefined();
+    });
+  });
+
+  describe("overlap (inclusive boundaries)", () => {
+    it("rejects discount starting on the same day an active one ends", async () => {
+      const product = await seedTestProduct(db);
+
+      await service.create(product.id, {
+        discounted_price: 10,
+        start_date: "2026-01-01",
+        end_date: "2026-01-31",
+      });
+
+      await expect(service.create(product.id, {
+        discounted_price: 12,
+        start_date: "2026-01-31",
+        end_date: "2026-02-15",
+      })).rejects.toThrow("Discount date range overlaps");
+    });
+  });
+
+  describe("checkDateTriggers", () => {
+    it("reports discount starting today as activated and one ending today as expired", async () => {
+      const p1 = await seedTestProduct(db, { sku: "P1" });
+      const p2 = await seedTestProduct(db, { sku: "P2", name: "Other" });
+      const today = todayDateString();
+
+      await service.create(p1.id, { discounted_price: 10, start_date: today, end_date: today });
+      await service.create(p2.id, { discounted_price: 12, start_date: today, end_date: today });
+
+      const result = await service.checkDateTriggers();
+      expect(result.activated).toBeGreaterThanOrEqual(1);
+      expect(result.expired).toBeGreaterThanOrEqual(1);
+    });
+
+    it("does not report discounts outside today as activated", async () => {
+      const product = await seedTestProduct(db);
+      const tomorrow = nextDayDateString(todayDateString());
+
+      await service.create(product.id, { discounted_price: 10, start_date: "2000-01-01", end_date: tomorrow });
+
+      const result = await service.checkDateTriggers();
+      expect(result.activated).toBe(0);
+      expect(result.expired).toBe(0);
     });
   });
 });

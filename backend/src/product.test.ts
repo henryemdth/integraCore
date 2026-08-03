@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { createTestDb, seedTestProduct, seedTestUser, seedTestSale } from "./test-helper.js";
 import type { SqliteAdapter } from "./db/sqlite.js";
 import { productService } from "./services/productService.js";
+import { discountService } from "./services/discountService.js";
+import { todayDateString, nextDayDateString, startOfDay, endOfDay } from "@integracore/shared";
 
 vi.mock("../socket/index.js", () => ({
   emitProductUpdated: vi.fn(),
@@ -159,17 +161,51 @@ describe("productService", () => {
 
     it("attaches active discount info to products", async () => {
       const product = await seedTestProduct(db, { sku: "DISC" });
-      const today = new Date().toISOString().slice(0, 10);
+      const today = todayDateString();
 
       await db.run(
-        "INSERT INTO product_discounts (product_id, discounted_price, start_date, end_date) VALUES (?, ?, ?, ?)",
-        [product.id, 8, today, today]
+        "INSERT INTO product_discounts (product_id, discounted_price, start_date, end_date, status) VALUES (?, ?, ?, ?, 'active')",
+        [product.id, 8, startOfDay(today), endOfDay(today)]
       );
 
       const result = await service.list({ page: 1, limit: 100, search: "", category: "", status: "all", sort: "name", order: "ASC" });
 
       const p = result.products.find((x: any) => x.id === product.id);
       expect(p.discounted_price).toBe(8);
+    });
+
+    it("does not attach a cancelled discount even within its date range", async () => {
+      const product = await seedTestProduct(db, { sku: "CANCELLED" });
+      const today = todayDateString();
+
+      const created = await discountService(db).create(product.id, {
+        discounted_price: 8,
+        start_date: today,
+        end_date: today,
+      });
+      await discountService(db).cancel(created.id);
+
+      const result = await service.list({ page: 1, limit: 100, search: "", category: "", status: "all", sort: "name", order: "ASC" });
+
+      const p = result.products.find((x: any) => x.id === product.id);
+      expect(p.discounted_price).toBeNull();
+      expect(p.discount_end_date).toBeNull();
+    });
+
+    it("does not attach a scheduled (future) discount", async () => {
+      const product = await seedTestProduct(db, { sku: "FUTURE" });
+      const tomorrow = nextDayDateString(todayDateString());
+
+      await discountService(db).create(product.id, {
+        discounted_price: 8,
+        start_date: tomorrow,
+        end_date: tomorrow,
+      });
+
+      const result = await service.list({ page: 1, limit: 100, search: "", category: "", status: "all", sort: "name", order: "ASC" });
+
+      const p = result.products.find((x: any) => x.id === product.id);
+      expect(p.discounted_price).toBeNull();
     });
   });
 

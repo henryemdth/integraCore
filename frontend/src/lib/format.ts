@@ -19,11 +19,14 @@ export function formatCurrency(amount: number): string {
 }
 
 export function formatDate(dateStr: string): string {
+  const [datePart] = String(dateStr).split(" ")
+  const [y, m, d] = datePart.split("-").map(Number)
+  const date = new Date(y, (m || 1) - 1, d || 1)
   return new Intl.DateTimeFormat(i18n.language, {
     year: "numeric",
     month: "short",
     day: "numeric",
-  }).format(new Date(dateStr))
+  }).format(date)
 }
 
 export function formatDateTime(dateStr: string): string {

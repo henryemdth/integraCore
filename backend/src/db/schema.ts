@@ -127,6 +127,25 @@ export function runMigrations(db: Database.Database): void {
     }
   }
 
+  // Data backfill: normalize legacy discount ranges (YYYY-MM-DD) to full-day
+  // wall-clock timestamps. Guarded so it is idempotent across restarts and
+  // also heals old-format backups restored into a fresh install.
+  try {
+    const backfilled = db
+      .prepare(
+        `UPDATE product_discounts
+         SET start_date = start_date || ' 00:00:00.000',
+             end_date = end_date || ' 23:59:59.999'
+         WHERE start_date NOT LIKE '% %' OR end_date NOT LIKE '% %'`
+      )
+      .run();
+    if (backfilled.changes > 0) {
+      console.log(`[db] Normalized ${backfilled.changes} discount date range(s) to full-day timestamps`);
+    }
+  } catch (err) {
+    console.error("[db] Discount date backfill failed (isolated, continuing):", (err as Error).message);
+  }
+
   console.log("[db] Migrations completed successfully");
 }
 
@@ -207,12 +226,18 @@ const postgresMigrations: string[] = [
     id SERIAL PRIMARY KEY,
     product_id INTEGER NOT NULL REFERENCES products(id),
     discounted_price NUMERIC NOT NULL,
-    start_date DATE NOT NULL,
-    end_date DATE NOT NULL,
+    start_date TIMESTAMP NOT NULL,
+    end_date TIMESTAMP NOT NULL,
     status TEXT NOT NULL DEFAULT 'active',
     reason TEXT DEFAULT '',
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
   );`,
+
+  // Data migration for pre-existing DATE columns: convert the end date to the
+  // last instant of the day (guarded/idempotent), then widen to TIMESTAMP.
+  `UPDATE product_discounts SET end_date = end_date + time '23:59:59.999' WHERE end_date::text NOT LIKE '% %'`,
+  `ALTER TABLE product_discounts ALTER COLUMN start_date TYPE TIMESTAMP`,
+  `ALTER TABLE product_discounts ALTER COLUMN end_date TYPE TIMESTAMP`,
 
   `CREATE INDEX IF NOT EXISTS idx_products_sku ON products(sku);`,
   `CREATE INDEX IF NOT EXISTS idx_products_category ON products(category);`,

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { createTestDb, seedTestProduct, seedTestUser } from "./test-helper.js";
 import type { SqliteAdapter } from "./db/sqlite.js";
 import { saleService } from "./services/saleService.js";
+import { todayDateString, startOfDay, endOfDay } from "@integracore/shared";
 
 vi.mock("../socket/index.js", () => ({
   emitProductUpdated: vi.fn(),
@@ -39,11 +40,11 @@ describe("saleService", () => {
     it("applies active discount when creating sale", async () => {
       const user = await seedTestUser(db);
       const product = await seedTestProduct(db, { sell_price: 20, stock: 50 });
-      const today = new Date().toISOString().slice(0, 10);
+      const today = todayDateString();
 
       await db.run(
         "INSERT INTO product_discounts (product_id, discounted_price, start_date, end_date, status) VALUES (?, ?, ?, ?, 'active')",
-        [product.id, 15, today, today]
+        [product.id, 15, startOfDay(today), endOfDay(today)]
       );
 
       const result = await service.create(user.id, [{ product_id: product.id, quantity: 3 }]);
@@ -58,7 +59,7 @@ describe("saleService", () => {
 
       await db.run(
         "INSERT INTO product_discounts (product_id, discounted_price, start_date, end_date, status) VALUES (?, ?, ?, ?, 'active')",
-        [product.id, 15, "2025-01-01", "2025-01-31"]
+        [product.id, 15, startOfDay("2025-01-01"), endOfDay("2025-01-31")]
       );
 
       const result = await service.create(user.id, [{ product_id: product.id, quantity: 1 }]);

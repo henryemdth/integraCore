@@ -2,6 +2,7 @@ import type { DatabaseAdapter } from "../db/adapter.js";
 import ExcelJS from "exceljs";
 import { AppError } from "./authService.js";
 import { emitProductUpdated } from "../socket/index.js";
+import { nowString } from "@integracore/shared";
 
 async function buildSaleDetail(db: DatabaseAdapter, saleId: number) {
   const sale = await db.get(
@@ -60,11 +61,12 @@ function buildFilterQuery(filters: {
 }
 
 async function getActiveDiscount(db: DatabaseAdapter, productId: number) {
+  const now = nowString();
   const discount = await db.get(
     `SELECT id, discounted_price FROM product_discounts
-     WHERE product_id = ? AND status = 'active' AND start_date <= date('now') AND end_date >= date('now')
+     WHERE product_id = ? AND status = 'active' AND start_date <= ? AND end_date >= ?
      ORDER BY start_date DESC LIMIT 1`,
-    [productId]
+    [productId, now, now]
   ) as any;
   return discount || null;
 }
@@ -100,13 +102,14 @@ export function saleService(db: DatabaseAdapter) {
 
       const productIdsList = items.map((i) => i.product_id);
       const discountPlaceholders = productIdsList.map(() => "?").join(",");
+      const now = nowString();
       const activeDiscountsRaw = await tx.all(
         `SELECT pd.* FROM product_discounts pd
          WHERE pd.product_id IN (${discountPlaceholders})
            AND pd.status = 'active'
-           AND pd.start_date <= date('now')
-           AND pd.end_date >= date('now')`,
-        productIdsList
+           AND pd.start_date <= ?
+           AND pd.end_date >= ?`,
+        [...productIdsList, now, now]
       ) as any[];
       const discountMap = new Map(activeDiscountsRaw.map((d: any) => [d.product_id, d]));
 

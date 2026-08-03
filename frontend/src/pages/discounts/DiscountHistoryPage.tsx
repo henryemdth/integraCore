@@ -8,19 +8,27 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Download, Trash2, Ban } from "lucide-react"
 import { formatCurrency, formatDate } from "@/lib/format"
+import { nowString } from "@integracore/shared"
+import { useState } from "react"
+
+type DiscountRow = ProductDiscount & { normal_price: number; units_sold?: number }
+
+type PendingAction = { type: "cancel" | "delete"; discount: DiscountRow } | null
 
 export default function DiscountHistoryPage() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { exportToExcel } = useExportExcel()
+  const [pendingAction, setPendingAction] = useState<PendingAction>(null)
 
   const { data: discounts = [], isLoading } = useQuery({
     queryKey: ["discounts", "all"],
     queryFn: async () => {
       const res = await api.get("/api/discounts")
-      return res.data.discounts as (ProductDiscount & { normal_price: number; units_sold?: number })[]
+      return res.data.discounts as DiscountRow[]
     },
   })
 
@@ -51,7 +59,17 @@ export default function DiscountHistoryPage() {
     exportToExcel("/api/discounts/export", {}, "discount-history.xlsx")
   }
 
-  const now = new Date().toISOString().slice(0, 10)
+  const now = nowString()
+
+  const handleConfirm = () => {
+    if (!pendingAction) return
+    if (pendingAction.type === "cancel") {
+      cancelMutation.mutate(pendingAction.discount.id)
+    } else {
+      deleteMutation.mutate(pendingAction.discount.id)
+    }
+    setPendingAction(null)
+  }
 
   return (
     <div className="space-y-4">
@@ -88,6 +106,7 @@ export default function DiscountHistoryPage() {
                 {discounts.map((d) => {
                   const pct = d.normal_price > 0 ? Math.round((1 - d.discounted_price / d.normal_price) * 100) : 0
                   const isActive = d.status === "active" && d.start_date <= now && d.end_date >= now
+                  const isScheduled = d.status === "active" && d.start_date > now
                   const unitsSold = d.units_sold ?? 0
                   return (
                     <TableRow key={d.id} className={d.status === "cancelled" ? "opacity-60" : ""}>
@@ -108,6 +127,8 @@ export default function DiscountHistoryPage() {
                           <Badge variant="secondary">{t("discounts.cancelled")}</Badge>
                         ) : isActive ? (
                           <Badge variant="success-light">{t("discounts.active")}</Badge>
+                        ) : isScheduled ? (
+                          <Badge variant="outline">{t("discounts.scheduled")}</Badge>
                         ) : (
                           <Badge variant="outline">{t("discounts.expired")}</Badge>
                         )}
@@ -119,7 +140,7 @@ export default function DiscountHistoryPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => { if (confirm(t("discounts.confirmCancel"))) cancelMutation.mutate(d.id) }}
+                            onClick={() => setPendingAction({ type: "cancel", discount: d })}
                           >
                             <Ban className="h-4 w-4 text-amber-500" />
                           </Button>
@@ -127,7 +148,7 @@ export default function DiscountHistoryPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => { if (confirm(t("discounts.confirmDelete"))) deleteMutation.mutate(d.id) }}
+                          onClick={() => setPendingAction({ type: "delete", discount: d })}
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
@@ -140,6 +161,16 @@ export default function DiscountHistoryPage() {
           )}
         </CardContent>
       </Card>
+      <ConfirmDialog
+        open={pendingAction !== null}
+        onOpenChange={(open) => { if (!open) setPendingAction(null) }}
+        title={pendingAction?.type === "cancel" ? t("discounts.confirmCancelTitle") : t("discounts.confirmDeleteTitle")}
+        description={pendingAction?.type === "cancel" ? t("discounts.confirmCancel") : t("discounts.confirmDelete")}
+        confirmLabel={pendingAction?.type === "cancel" ? t("discounts.cancel") : t("common.delete")}
+        destructive={pendingAction?.type === "delete"}
+        pending={pendingAction?.type === "cancel" ? cancelMutation.isPending : deleteMutation.isPending}
+        onConfirm={handleConfirm}
+      />
     </div>
   )
 }

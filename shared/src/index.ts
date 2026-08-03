@@ -1,5 +1,47 @@
 import { z } from "zod";
 
+// ─── Date Helpers ─────────────────────────────────────────────────────
+// Discount ranges are stored as full-day wall-clock timestamps (local time):
+//   start_date = "YYYY-MM-DD 00:00:00.000"
+//   end_date   = "YYYY-MM-DD 23:59:59.999"
+// All comparisons use the same YYYY-MM-DD HH:MM:SS.SSS format so a plain
+// lexicographic string compare behaves as chronological ordering. Centralized
+// here so backend (Node) and frontend (browser) always agree on "today".
+
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+/** Local calendar date as YYYY-MM-DD (no time component). */
+export function todayDateString(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
+/** Local now as YYYY-MM-DD HH:MM:SS.SSS (full instant). */
+export function nowString(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}.${String(d.getMilliseconds()).padStart(3, "0")}`;
+}
+
+/** Expands a YYYY-MM-DD date to the first instant of that day (inclusive). */
+export function startOfDay(dateStr: string): string {
+  return `${dateStr} 00:00:00.000`;
+}
+
+/** Expands a YYYY-MM-DD date to the last instant of that day (inclusive). */
+export function endOfDay(dateStr: string): string {
+  return `${dateStr} 23:59:59.999`;
+}
+
+/** Returns the day after the given YYYY-MM-DD date, also YYYY-MM-DD. */
+export function nextDayDateString(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const date = new Date(y, (m || 1) - 1, d || 1);
+  date.setDate(date.getDate() + 1);
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+}
+
 // ─── Entity Interfaces ────────────────────────────────────────────────
 
 export interface User {
