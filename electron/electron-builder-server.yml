@@ -14,23 +14,27 @@ extraMetadata:
   main: dist/main/server.js
 
 extraResources:
-  - from: ../backend/dist
-    to: backend/dist
+  - from: "../backend/dist"
+    to: "backend/dist"
     filter:
       - "**/*"
-  - from: ../backend/node_modules
-    to: backend/node_modules
+  - from: "../backend/node_modules"
+    to: "backend/node_modules"
     filter:
       - "**/*"
-  - from: ../frontend/dist
-    to: frontend/dist
+      - "!**/*.d.ts"
+      - "!**/*.map"
+      - "!**/node_modules/.bin"
+  - from: "../frontend/dist"
+    to: "frontend/dist"
     filter:
       - "**/*"
 
 win:
   target:
     - target: nsis
-      arch: [x64]
+      arch:
+        - x64
   icon: build/icon.ico
 
 nsis:

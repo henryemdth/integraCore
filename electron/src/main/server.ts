@@ -5,7 +5,10 @@ import { fork, ChildProcess } from "child_process"
 let backendProcess: ChildProcess | null = null
 
 function getResourcesPath(): string {
-  return process.resourcesPath || path.join(__dirname, "..", "..", "..")
+  if (app.isPackaged) {
+    return process.resourcesPath
+  }
+  return path.resolve(__dirname, "..", "..", "..")
 }
 
 function getFrontendPath(): string {

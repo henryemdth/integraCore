@@ -1,0 +1,51 @@
+name: Build Windows Server
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'electron/**'
+
+jobs:
+  build-server:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Create .env for Backend
+        shell: bash
+        run: |
+          echo "${{ secrets.ENV_SERVER_BE }}" > backend/.env
+
+      - name: Create .env for Frontend (Server)
+        shell: bash
+        run: |
+          echo "${{ secrets.ENV_SERVER_FE }}" > frontend/.env
+
+      - name: Build Monorepo (BE & FE)
+        run: npm run build
+
+      - name: Build Server Installer with Electron Builder
+        run: npx electron-builder --win --config electron/electron-builder-server.yml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Server Executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: IntegraCore-Server-Setup
+          path: electron/dist-server/*.exe

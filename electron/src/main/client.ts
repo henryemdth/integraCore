@@ -1,15 +1,21 @@
-import { app, BrowserWindow, ipcMain, dialog } from "electron"
+import { app, BrowserWindow, ipcMain } from "electron"
 import path from "path"
 import fs from "fs"
 import http from "http"
+
+function getResourcesPath(): string {
+  if (app.isPackaged) {
+    return process.resourcesPath
+  }
+  return path.resolve(__dirname, "..", "..", "..")
+}
 
 function getConfigPath(): string {
   return path.join(app.getPath("userData"), "config.json")
 }
 
 function getFrontendPath(): string {
-  const resourcesPath = process.resourcesPath || path.join(__dirname, "..", "..", "..")
-  return path.join(resourcesPath, "frontend", "dist", "index.html")
+  return path.join(getResourcesPath(), "frontend", "dist", "index.html")
 }
 
 function loadConfig(): { serverUrl?: string } {
@@ -32,36 +38,22 @@ function saveConfig(config: { serverUrl?: string }): void {
 
 function testConnection(url: string): Promise<boolean> {
   return new Promise((resolve) => {
-    const req = http.get(`${url}/api/health`, (res) => {
+    let formattedUrl = url.trim()
+    if (!formattedUrl.startsWith("http://") && !formattedUrl.startsWith("https://")) {
+      formattedUrl = `http://${formattedUrl}`
+    }
+
+    const req = http.get(`${formattedUrl}/api/health`, (res) => {
       resolve(res.statusCode === 200)
     })
+
     req.on("error", () => resolve(false))
-    req.setTimeout(5000, () => {
+    req.setTimeout(4000, () => {
       req.destroy()
       resolve(false)
     })
     req.end()
   })
-}
-
-async function showConnectionDialog(): Promise<string | null> {
-  const config = loadConfig()
-  const defaultUrl = config.serverUrl || "http://"
-
-  const { response } = await dialog.showMessageBox({
-    type: "question",
-    buttons: ["Connect", "Cancel"],
-    title: "integraCore Client",
-    message: "Connect to Server",
-    detail: `Enter the server machine's IP address and port.\nExample: http://192.168.1.100:3001`,
-    checkboxLabel: "Remember this address",
-    checkboxChecked: true,
-  })
-
-  if (response === 0) {
-    return defaultUrl
-  }
-  return null
 }
 
 function setupIpc(): void {
@@ -81,6 +73,10 @@ function setupIpc(): void {
 }
 
 async function createWindow(): Promise<void> {
+  const preloadPath = app.isPackaged
+    ? path.join(app.getAppPath(), "dist", "preload.js")
+    : path.join(__dirname, "..", "preload.js")
+
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -88,44 +84,23 @@ async function createWindow(): Promise<void> {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, "..", "preload.js"),
-      additionalArguments: [],
+      preload: preloadPath,
+      additionalArguments: ["--platform=client"],
     },
   })
 
   const frontendPath = getFrontendPath()
+  console.log(`[client] Cargando frontend desde: ${frontendPath}`)
   win.loadFile(frontendPath)
 }
 
 app.whenReady().then(async () => {
   setupIpc()
-
-  const config = loadConfig()
-  if (!config.serverUrl) {
-    const url = await showConnectionDialog()
-    if (url) {
-      const connected = await testConnection(url)
-      if (connected) {
-        const { checkboxChecked } = await dialog.showMessageBox({
-          type: "info",
-          title: "Connected",
-          message: "Successfully connected to server.",
-          checkboxLabel: "Remember this address",
-          checkboxChecked: true,
-        })
-        if (checkboxChecked) {
-          saveConfig({ serverUrl: url })
-        }
-      }
-    } else {
-      app.quit()
-      return
-    }
-  }
-
-  createWindow()
+  await createWindow()
 })
 
 app.on("window-all-closed", () => {
-  app.quit()
+  if (process.platform !== "darwin") {
+    app.quit()
+  }
 })

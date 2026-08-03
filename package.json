@@ -1,5 +1,9 @@
 {
   "name": "integracore",
+  "author": {
+    "name": "hv-develop"
+  },
+  "description": "IntegraCore is a program for managing your business",
   "version": "0.1.0",
   "private": true,
   "workspaces": [

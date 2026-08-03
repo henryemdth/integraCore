@@ -1,5 +1,5 @@
 {
-  "name": "@integracore/electron",
+  "name": "integracoreElectron",
   "version": "0.1.0",
   "private": true,
   "main": "dist/main/server.js",
@@ -8,9 +8,6 @@
     "build": "tsc",
     "build:server": "npm run build && npx electron-builder --config electron-builder-server.yml",
     "build:client": "npm run build && npx electron-builder --config electron-builder-client.yml"
-  },
-  "dependencies": {
-    "electron": "^35.2.1"
   },
   "devDependencies": {
     "@types/node": "^22.15.3",
