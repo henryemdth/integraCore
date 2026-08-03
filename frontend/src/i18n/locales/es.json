@@ -2,6 +2,9 @@
   "common": {
     "loading": "Cargando...",
     "error": "Ocurrió un error",
+    "unexpectedError": "Algo salió mal. Inténtalo de nuevo.",
+    "loadError": "No se pudieron cargar estos datos.",
+    "retry": "Reintentar",
     "or": "o",
     "save": "Guardar",
     "cancel": "Cancelar",
@@ -136,6 +139,7 @@
     "create": {
       "title": "Nueva venta",
       "addProduct": "Agregar producto",
+      "searchProduct": "Buscar producto por nombre o SKU...",
       "qty": "Cant.",
       "subtotal": "Subtotal",
       "totalLabel": "Total: {{amount}}",

@@ -1,47 +1,16 @@
 import { config } from "./config.js"
-import express from "express"
-import cors from "cors"
 import { createServer } from "http"
 import fs from "fs"
 import { initDatabase } from "./db/index.js"
 import { initSocket } from "./socket/index.js"
-import { errorHandler } from "./middleware/errorHandler.js"
-import authRoutes from "./routes/auth.js"
-import productRoutes from "./routes/products.js"
-import salesRoutes from "./routes/sales.js"
-import usersRoutes from "./routes/users.js"
-import profitRoutes from "./routes/profit.js"
-import notificationRoutes from "./routes/notifications.js"
-import discountRoutes from "./routes/discounts.js"
-import dashboardRoutes from "./routes/dashboard.js"
-import systemRoutes from "./routes/system.js"
-import backupRoutes from "./routes/backup.js"
+import { createApp } from "./app.js"
 import { startProfitCron } from "./cron/profitCheck.js"
 import { startDiscountCron } from "./cron/discountCheck.js"
 
-const app = express()
+const app = createApp()
 const server = createServer(app)
 
 initSocket(server)
-app.use(cors({ origin: config.corsOrigin }))
-app.use(express.json({ limit: "10mb" }))
-
-app.get("/api/health", (_req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() })
-})
-
-app.use("/api/auth", authRoutes)
-app.use("/api/products", productRoutes)
-app.use("/api/sales", salesRoutes)
-app.use("/api/users", usersRoutes)
-app.use("/api/profit", profitRoutes)
-app.use("/api/notifications", notificationRoutes)
-app.use("/api/dashboard", dashboardRoutes)
-app.use("/api/system", systemRoutes)
-app.use("/api/backup", backupRoutes)
-app.use("/api", discountRoutes)
-
-app.use(errorHandler)
 
 async function main() {
   fs.mkdirSync(config.dataDir, { recursive: true })
@@ -67,6 +36,16 @@ async function main() {
   server.listen(config.port, "0.0.0.0", () => {
     console.log(`[backend] Running on http://0.0.0.0:${config.port}`)
   })
+
+  process.on("unhandledRejection", (reason) => {
+    console.error("[unhandledRejection]", reason);
+    // do not exit — log only, so one bad promise doesn't take down the whole server
+  });
+
+  process.on("uncaughtException", (err) => {
+    console.error("[uncaughtException]", err);
+    // log and let existing graceful shutdown / process manager decide restart policy
+  });
 
   function shutdown(signal: string) {
     console.log(`\n[backend] ${signal} received, shutting down...`)

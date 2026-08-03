@@ -2,6 +2,9 @@
   "common": {
     "loading": "Loading...",
     "error": "An error occurred",
+    "unexpectedError": "Something went wrong. Please try again.",
+    "loadError": "Couldn't load this data.",
+    "retry": "Retry",
     "or": "or",
     "save": "Save",
     "cancel": "Cancel",
@@ -136,6 +139,7 @@
     "create": {
       "title": "New Sale",
       "addProduct": "Add Product",
+      "searchProduct": "Search product by name or SKU...",
       "qty": "Qty",
       "subtotal": "Subtotal",
       "totalLabel": "Total: {{amount}}",

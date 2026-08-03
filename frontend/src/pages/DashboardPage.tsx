@@ -9,11 +9,12 @@ import { Progress } from "@/components/ui/progress"
 import { Package, ShoppingCart, TrendingUp, Users, AlertTriangle } from "lucide-react"
 import { Link } from "react-router-dom"
 import { formatDateTime } from "@/lib/format"
+import { QueryErrorState } from "@/components/ui/query-error"
 
 export default function DashboardPage() {
   const { user, isAdmin } = useAuth()
   const { t } = useTranslation()
-  const { data, isLoading } = useDashboardSummary()
+  const { data, isLoading, isError, refetch } = useDashboardSummary()
 
   return (
     <div className="space-y-6">
@@ -22,6 +23,10 @@ export default function DashboardPage() {
         <p className="text-body-md text-muted-foreground">{t("dashboard.subtitle")}</p>
       </div>
 
+      {isError ? (
+        <QueryErrorState onRetry={refetch} />
+      ) : (
+      <>
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         <StatCard
           label={t("dashboard.kpi.totalProducts")}
@@ -156,6 +161,8 @@ export default function DashboardPage() {
             </Table>
           </CardContent>
         </Card>
+      )}
+      </>
       )}
     </div>
   )

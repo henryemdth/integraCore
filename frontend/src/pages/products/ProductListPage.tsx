@@ -18,6 +18,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { StockMovementDialog } from "@/components/products/StockMovementDialog"
 import { ImportDialog } from "@/components/products/ImportDialog"
 import { CreateDiscountDialog } from "@/components/discounts/CreateDiscountDialog"
+import { QueryErrorState } from "@/components/ui/query-error"
 import { Plus, MoreHorizontal, Search, PackagePlus, PackageMinus, Download, Upload, Tag, Percent, Info } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
@@ -43,7 +44,7 @@ export default function ProductListPage() {
   const limit = 20
   const params = { page: String(page), limit: String(limit), sort, order, ...(search && { search }), ...(category !== "all" && { category }), ...(statusFilter !== "all" && { status: statusFilter }) }
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["products", params],
     queryFn: async () => {
       const res = await api.get(`/api/products?${new URLSearchParams(params)}`)
@@ -140,7 +141,9 @@ export default function ProductListPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading ? (
+              {isError ? (
+                <TableRow><TableCell colSpan={colCount} className="py-4"><QueryErrorState onRetry={refetch} /></TableCell></TableRow>
+              ) : isLoading ? (
                 <TableRow><TableCell colSpan={colCount} className="text-center py-8 text-muted-foreground">{t("common.loading")}</TableCell></TableRow>
               ) : products.length === 0 ? (
                 <TableRow><TableCell colSpan={colCount} className="text-center py-8 text-muted-foreground">{t("products.noProducts")}</TableCell></TableRow>

@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
+import { QueryErrorState } from "@/components/ui/query-error"
 import { Download, Trash2, Ban } from "lucide-react"
 import { formatCurrency, formatDate } from "@/lib/format"
 import { nowString } from "@integracore/shared"
@@ -24,7 +25,7 @@ export default function DiscountHistoryPage() {
   const { exportToExcel } = useExportExcel()
   const [pendingAction, setPendingAction] = useState<PendingAction>(null)
 
-  const { data: discounts = [], isLoading } = useQuery({
+  const { data: discounts = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["discounts", "all"],
     queryFn: async () => {
       const res = await api.get("/api/discounts")
@@ -84,6 +85,8 @@ export default function DiscountHistoryPage() {
         <CardContent className="pt-6">
           {isLoading ? (
             <div className="text-center py-8 text-muted-foreground">{t("common.loading")}</div>
+          ) : isError ? (
+            <QueryErrorState onRetry={refetch} />
           ) : discounts.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">{t("discounts.noDiscounts")}</div>
           ) : (

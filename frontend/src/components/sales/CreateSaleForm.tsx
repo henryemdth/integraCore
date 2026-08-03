@@ -96,7 +96,7 @@ export function CreateSaleForm() {
             <Label>{t("sales.create.addProduct")}</Label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder={t("sales.products.search")} value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+              <Input placeholder={t("sales.create.searchProduct")} value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
             </div>
             {filteredProducts.length > 0 && (
               <div className="border border-border rounded-md max-h-40 overflow-y-auto">

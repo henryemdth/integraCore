@@ -18,6 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { SaleDetailDialog } from "@/components/sales/SaleDetailDialog"
 import { CreateSaleForm } from "@/components/sales/CreateSaleForm"
 import { StatCard } from "@/components/StatCard"
+import { QueryErrorState } from "@/components/ui/query-error"
 import { Eye, Trash2, Download, ShoppingCart, TrendingUp } from "lucide-react"
 
 interface UserListItem { id: number; full_name: string; username: string }
@@ -43,7 +44,7 @@ export default function SalesListPage() {
   if (dateFrom) filterParams.date_from = dateFrom
   if (dateTo) filterParams.date_to = dateTo
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["sales", filterParams],
     queryFn: async () => {
       const res = await api.get(`/api/sales?${new URLSearchParams(filterParams)}`)
@@ -159,7 +160,9 @@ export default function SalesListPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {isLoading ? (
+                  {isError ? (
+                    <TableRow><TableCell colSpan={6} className="py-4"><QueryErrorState onRetry={refetch} /></TableCell></TableRow>
+                  ) : isLoading ? (
                     Array.from({ length: 5 }).map((_, i) => (
                       <TableRow key={i}>
                         <TableCell><Skeleton className="h-4 w-10" /></TableCell>

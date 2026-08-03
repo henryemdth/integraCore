@@ -15,6 +15,7 @@ import { CreateUserDialog } from "@/components/users/CreateUserDialog"
 import { EditUserDialog } from "@/components/users/EditUserDialog"
 import { ResetPasswordDialog } from "@/components/users/ResetPasswordDialog"
 import { StatCard } from "@/components/StatCard"
+import { QueryErrorState } from "@/components/ui/query-error"
 import { Plus, MoreHorizontal, Users, UserCheck, Shield } from "lucide-react"
 import { formatDateTime } from "@/lib/format"
 
@@ -31,7 +32,7 @@ export default function UserListPage() {
   const params: Record<string, string> = { page: String(page), limit: String(limit) }
   if (filter !== "all") params.active = filter
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["users", params],
     queryFn: async () => {
       const res = await api.get(`/api/users?${new URLSearchParams(params)}`)
@@ -111,7 +112,9 @@ export default function UserListPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading ? (
+              {isError ? (
+                <TableRow><TableCell colSpan={6} className="py-4"><QueryErrorState onRetry={refetch} /></TableCell></TableRow>
+              ) : isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={i}>
                     <TableCell><Skeleton className="h-4 w-24" /></TableCell>
