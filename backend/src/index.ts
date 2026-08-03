@@ -2,6 +2,7 @@ import { config } from "./config.js"
 import express from "express"
 import cors from "cors"
 import { createServer } from "http"
+import fs from "fs"
 import { initDatabase } from "./db/index.js"
 import { initSocket } from "./socket/index.js"
 import { errorHandler } from "./middleware/errorHandler.js"
@@ -12,6 +13,9 @@ import usersRoutes from "./routes/users.js"
 import profitRoutes from "./routes/profit.js"
 import notificationRoutes from "./routes/notifications.js"
 import discountRoutes from "./routes/discounts.js"
+import dashboardRoutes from "./routes/dashboard.js"
+import systemRoutes from "./routes/system.js"
+import backupRoutes from "./routes/backup.js"
 import { startProfitCron } from "./cron/profitCheck.js"
 import { startDiscountCron } from "./cron/discountCheck.js"
 
@@ -32,11 +36,17 @@ app.use("/api/sales", salesRoutes)
 app.use("/api/users", usersRoutes)
 app.use("/api/profit", profitRoutes)
 app.use("/api/notifications", notificationRoutes)
+app.use("/api/dashboard", dashboardRoutes)
+app.use("/api/system", systemRoutes)
+app.use("/api/backup", backupRoutes)
 app.use("/api", discountRoutes)
 
 app.use(errorHandler)
 
 async function main() {
+  fs.mkdirSync(config.dataDir, { recursive: true })
+  fs.mkdirSync(config.backupDir, { recursive: true })
+
   const { adapter } = await initDatabase()
   startProfitCron(adapter)
   startDiscountCron(adapter)

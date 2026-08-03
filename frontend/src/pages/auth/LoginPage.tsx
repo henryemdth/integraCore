@@ -1,7 +1,8 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { useAuth } from "@/contexts/AuthContext"
 import { useTranslation } from "react-i18next"
+import api from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -15,9 +16,31 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const [checking, setChecking] = useState(true)
   const { login } = useAuth()
   const navigate = useNavigate()
   const { t } = useTranslation()
+
+  useEffect(() => {
+    api
+      .get("/api/auth/setup-status")
+      .then((res) => {
+        if (res.data.needsSetup) {
+          navigate("/setup")
+        }
+      })
+      .finally(() => setChecking(false))
+  }, [navigate])
+
+  if (checking) {
+    return (
+      <AuthLayout>
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      </AuthLayout>
+    )
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

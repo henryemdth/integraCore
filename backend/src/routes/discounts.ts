@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { getAdapter } from "../db/index.js";
 import { authenticate, requireRole } from "../middleware/auth.js";
+import { writeLockGuard } from "../middleware/writeLock.js";
 import { validate } from "../middleware/validate.js";
 import { AppError } from "../services/authService.js";
 import { CreateDiscountSchema } from "@integracore/shared";
@@ -21,21 +22,21 @@ router.get("/products/:productId/discounts", authenticate, requireRole("admin"),
   res.json({ discounts });
 });
 
-router.post("/products/:productId/discounts", authenticate, requireRole("admin"), validate(CreateDiscountSchema), async (req: Request, res: Response) => {
+router.post("/products/:productId/discounts", authenticate, requireRole("admin"), writeLockGuard, validate(CreateDiscountSchema), async (req: Request, res: Response) => {
   const db = getAdapter();
   const svc = discountService(db);
   const discount = await svc.create(parseId(req.params.productId as string), req.body);
   res.status(201).json({ discount });
 });
 
-router.patch("/discounts/:id/cancel", authenticate, requireRole("admin"), async (req: Request, res: Response) => {
+router.patch("/discounts/:id/cancel", authenticate, requireRole("admin"), writeLockGuard, async (req: Request, res: Response) => {
   const db = getAdapter();
   const svc = discountService(db);
   const result = await svc.cancel(parseId(req.params.id as string));
   res.json(result);
 });
 
-router.delete("/discounts/:id", authenticate, requireRole("admin"), async (req: Request, res: Response) => {
+router.delete("/discounts/:id", authenticate, requireRole("admin"), writeLockGuard, async (req: Request, res: Response) => {
   const db = getAdapter();
   const svc = discountService(db);
   const result = await svc.remove(parseId(req.params.id as string));

@@ -6,4 +6,7 @@ data/
 .env.*
 MEMORY.md
 DESIGN.md
+coverage/
+
+.roo
 

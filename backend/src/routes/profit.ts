@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { getAdapter } from "../db/index.js";
 import { authenticate, requireRole } from "../middleware/auth.js";
+import { writeLockGuard } from "../middleware/writeLock.js";
 import { profitService } from "../services/profitService.js";
 
 const router = Router();
@@ -11,7 +12,7 @@ router.get("/target", authenticate, requireRole("admin"), async (_req: Request, 
   res.json({ target: await svc.getTarget() });
 });
 
-router.put("/target", authenticate, requireRole("admin"), async (req: Request, res: Response) => {
+router.put("/target", authenticate, requireRole("admin"), writeLockGuard, async (req: Request, res: Response) => {
   const { target_amount, period_days } = req.body;
   if (target_amount === undefined || target_amount < 0) {
     res.status(400).json({ error: "target_amount must be >= 0" });
@@ -27,7 +28,7 @@ router.put("/target", authenticate, requireRole("admin"), async (req: Request, r
   res.json({ target });
 });
 
-router.get("/check", authenticate, requireRole("admin"), async (req: Request, res: Response) => {
+router.get("/check", authenticate, requireRole("admin"), async (_req: Request, res: Response) => {
   const db = getAdapter();
   const svc = profitService(db);
   const result = await svc.checkProfit();

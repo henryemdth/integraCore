@@ -1,6 +1,8 @@
 {
   "common": {
     "loading": "Cargando...",
+    "error": "Ocurrió un error",
+    "or": "o",
     "save": "Guardar",
     "cancel": "Cancelar",
     "delete": "Eliminar",
@@ -23,6 +25,10 @@
     "createAdmin": "Crear cuenta de administrador",
     "creatingAccount": "Creando cuenta...",
     "setupFailed": "Error en la configuración",
+    "startFresh": "Empezar desde cero — Crear cuenta admin",
+    "restoreFromBackup": "Restaurar desde respaldo",
+    "restoring": "Restaurando respaldo...",
+    "fallbackToFresh": "La base de datos restaurada no tenía usuarios. Debes crear una cuenta de administrador para continuar.",
     "brandTitle": "Gestión de Inventario y Ventas",
     "brandDesc": "Administra tus productos, registra ventas y monitorea el rendimiento de tu negocio — todo en un solo lugar."
   },
@@ -69,14 +75,7 @@
       "namePlaceholder": "Nombre del producto",
       "skuPlaceholder": "Unidad de mantenimiento de stock",
       "categoryPlaceholder": "ej. Electrónica, Ferretería",
-      "created": "Producto creado",
       "failedSave": "Error al guardar producto"
-    },
-    "stats": {
-      "total": "Total productos",
-      "totalValue": "Valor del inventario",
-      "lowStock": "Stock bajo",
-      "categories": "Categorías"
     },
     "editForm": {
       "title": "Editar producto",
@@ -136,7 +135,6 @@
     },
     "create": {
       "title": "Nueva venta",
-      "desc": "Busca productos y agrégales a la venta",
       "addProduct": "Agregar producto",
       "qty": "Cant.",
       "subtotal": "Subtotal",
@@ -221,10 +219,11 @@
     "sections": {
       "revenueTarget": "Objetivo de Ingresos",
       "interface": "Interfaz",
-      "account": "Cuenta"
+      "account": "Cuenta",
+      "data": "Datos",
+      "connection": "Conexión al Servidor"
     },
     "profit": {
-      "title": "Configuración de ganancias",
       "targetConfig": "Configuración de objetivo",
       "targetDesc": "Establece tu objetivo de ingresos y período de verificación",
       "revenueTarget": "Objetivo de ingresos",
@@ -253,6 +252,29 @@
     "currency": {
       "title": "Moneda",
       "label": "Símbolo de moneda para la interfaz"
+    },
+    "backup": {
+      "title": "Respaldo y Restauración",
+      "desc": "Exporta un respaldo de tu base de datos o restaura desde un respaldo anterior. Todos los datos actuales serán reemplazados al restaurar.",
+      "exportBtn": "Exportar respaldo",
+      "exporting": "Exportando...",
+      "exported": "Respaldo exportado",
+      "failedExport": "Error al exportar respaldo",
+      "restoreBtn": "Restaurar respaldo",
+      "restoring": "Restaurando...",
+      "restoreSuccess": "Base de datos restaurada exitosamente",
+      "failedRestore": "Error al restaurar base de datos",
+      "confirmRestore": "ADVERTENCIA: Todos los datos actuales (productos, ventas, usuarios, descuentos) serán reemplazados. Esto no se puede deshacer. ¿Continuar?"
+    },
+    "connection": {
+      "title": "Conexión al Servidor",
+      "desc": "Configura la dirección del servidor al que se conecta este cliente.",
+      "serverUrl": "URL del Servidor",
+      "test": "Probar conexión",
+      "testOk": "Conexión exitosa",
+      "testFail": "Conexión fallida",
+      "save": "Guardar dirección",
+      "saved": "Dirección del servidor guardada"
     }
   },
   "notifications": {
@@ -274,12 +296,6 @@
   "dashboard": {
     "welcome": "Bienvenido, {{name}}",
     "subtitle": "Esto es lo que pasa con tu negocio hoy.",
-    "productsCard": "Productos",
-    "productsDesc": "Administra inventario, niveles de stock y precios",
-    "salesCard": "Ventas",
-    "salesDesc": "Registra ventas y consulta el historial",
-    "usersCard": "Usuarios",
-    "usersDesc": "Administra cuentas de usuario y roles",
     "kpi": {
       "totalProducts": "Total productos",
       "lowStock": "Stock bajo",
@@ -320,7 +336,6 @@
     "failedExport": "Error al exportar archivo"
   },
   "discounts": {
-    "title": "Descuentos",
     "history": "Historial de descuentos",
     "createDiscount": "Aplicar descuento",
     "discountedPrice": "Precio con descuento",
@@ -335,8 +350,6 @@
     "worked": "¿Funcionó?",
     "yes": "Sí",
     "no": "No",
-    "effectivePrice": "Precio efectivo",
-    "onSale": "¡En oferta!",
     "active": "Activo",
     "expired": "Expirado",
     "noDiscounts": "No se encontraron descuentos",
@@ -344,17 +357,12 @@
     "failedCreate": "Error al crear descuento",
     "deleted": "Descuento eliminado",
     "failedDelete": "Error al eliminar descuento",
-    "overlapError": "El rango de fechas del descuento se superpone con uno existente",
     "export": "Exportar historial de descuentos",
     "confirmDelete": "¿Eliminar este descuento?",
     "confirmCancel": "¿Cancelar este descuento? Dejará de aplicarse de inmediato.",
     "cancelled": "Cancelado",
-    "cancel": "Cancelar descuento",
     "cancelSuccess": "Descuento cancelado",
     "cancelFailed": "Error al cancelar descuento",
-    "status": "Estado",
-    "discountEndDate": "Fecha fin del descuento",
-    "price": "Precio",
-    "savings": "Ahorros por descuentos"
+    "status": "Estado"
   }
 }

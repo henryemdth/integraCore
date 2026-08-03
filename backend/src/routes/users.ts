@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { getAdapter } from "../db/index.js";
 import { authenticate, requireRole } from "../middleware/auth.js";
+import { writeLockGuard } from "../middleware/writeLock.js";
 import { validate } from "../middleware/validate.js";
 import { UpdateUserSchema, AdminResetPasswordSchema } from "@integracore/shared";
 import { userService } from "../services/userService.js";
@@ -25,28 +26,28 @@ router.get("/:id", authenticate, requireRole("admin"), async (req: Request, res:
   res.json({ user });
 });
 
-router.put("/:id", authenticate, requireRole("admin"), validate(UpdateUserSchema), async (req: Request, res: Response) => {
+router.put("/:id", authenticate, requireRole("admin"), writeLockGuard, validate(UpdateUserSchema), async (req: Request, res: Response) => {
   const db = getAdapter();
   const svc = userService(db);
   const user = await svc.update(Number(req.params.id), req.body, req.user!.id);
   res.json({ user });
 });
 
-router.patch("/:id/deactivate", authenticate, requireRole("admin"), async (req: Request, res: Response) => {
+router.patch("/:id/deactivate", authenticate, requireRole("admin"), writeLockGuard, async (req: Request, res: Response) => {
   const db = getAdapter();
   const svc = userService(db);
   const user = await svc.deactivate(Number(req.params.id), req.user!.id);
   res.json({ user });
 });
 
-router.patch("/:id/activate", authenticate, requireRole("admin"), async (req: Request, res: Response) => {
+router.patch("/:id/activate", authenticate, requireRole("admin"), writeLockGuard, async (req: Request, res: Response) => {
   const db = getAdapter();
   const svc = userService(db);
   const user = await svc.activate(Number(req.params.id));
   res.json({ user });
 });
 
-router.put("/:id/password", authenticate, requireRole("admin"), validate(AdminResetPasswordSchema), async (req: Request, res: Response) => {
+router.put("/:id/password", authenticate, requireRole("admin"), writeLockGuard, validate(AdminResetPasswordSchema), async (req: Request, res: Response) => {
   const db = getAdapter();
   const svc = userService(db);
   const result = await svc.resetPassword(Number(req.params.id), req.body.password);

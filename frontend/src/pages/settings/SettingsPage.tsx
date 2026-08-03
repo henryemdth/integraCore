@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import api from "@/lib/api"
@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Progress } from "@/components/ui/progress"
 import { ChangePasswordDialog } from "@/components/users/ChangePasswordDialog"
-import { Save, TrendingUp, TrendingDown, Globe, DollarSign, Shield } from "lucide-react"
+import { Save, TrendingUp, TrendingDown, Globe, DollarSign, Shield, Download, Upload, Database, Loader2, Wifi, CheckCircle2, XCircle } from "lucide-react"
 
 export default function SettingsPage() {
   const queryClient = useQueryClient()
@@ -21,6 +21,36 @@ export default function SettingsPage() {
   const [periodDays, setPeriodDays] = useState("")
   const [currency, setCurrency] = useState(() => getCurrencySymbol())
   const [pwdOpen, setPwdOpen] = useState(false)
+  const [isSqlite, setIsSqlite] = useState(false)
+  const [backupLoading, setBackupLoading] = useState(false)
+  const [restoreLoading, setRestoreLoading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const isClient = window.electronAPI?.platform === "client"
+  const [serverUrl, setServerUrl] = useState("")
+  const [connectionStatus, setConnectionStatus] = useState<"unknown" | "ok" | "fail">("unknown")
+  const [testingConnection, setTestingConnection] = useState(false)
+
+  const { data: systemInfo } = useQuery({
+    queryKey: ["system-info"],
+    queryFn: async () => {
+      const res = await api.get("/api/system/info")
+      return res.data
+    },
+  })
+
+  useEffect(() => {
+    if (systemInfo) {
+      setIsSqlite(systemInfo.dbDriver === "sqlite")
+    }
+  }, [systemInfo])
+
+  useEffect(() => {
+    if (isClient && window.electronAPI?.getBackendUrl) {
+      window.electronAPI.getBackendUrl().then((url: string) => {
+        setServerUrl(url)
+      })
+    }
+  }, [isClient])
 
   const { data: target, isLoading: targetLoading } = useQuery({
     queryKey: ["profit-target"],
@@ -229,6 +259,171 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Data Section — SQLite only */}
+      {isSqlite && (
+        <div className="space-y-3">
+          <h3 className="text-label-caps text-muted-foreground">{t("settings.sections.data")}</h3>
+          <Card>
+            <CardContent className="p-6 pt-6">
+              <div className="flex items-start justify-between gap-4">
+                <div className="space-y-3 flex-1">
+                  <div className="flex items-center gap-2">
+                    <Database className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-body-md font-medium">{t("settings.backup.title")}</span>
+                  </div>
+                  <p className="text-body-sm text-muted-foreground">{t("settings.backup.desc")}</p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="outline"
+                      disabled={backupLoading}
+                      onClick={async () => {
+                        setBackupLoading(true)
+                        try {
+                          const res = await api.get("/api/backup/export", { responseType: "blob" })
+                          const blob = new Blob([res.data], { type: "application/x-sqlite3" })
+                          const disposition = res.headers["content-disposition"] || ""
+                          const match = disposition.match(/filename="?(.+?)"?$/)
+                          const fileName = match?.[1] || `backup-${new Date().toISOString().split("T")[0]}.sqlite`
+                          const url = URL.createObjectURL(blob)
+                          const a = document.createElement("a")
+                          a.href = url
+                          a.download = fileName
+                          a.click()
+                          URL.revokeObjectURL(url)
+                          toast.success(t("settings.backup.exported"))
+                        } catch (err: any) {
+                          toast.error(err.response?.data?.error || t("settings.backup.failedExport"))
+                        } finally {
+                          setBackupLoading(false)
+                        }
+                      }}
+                    >
+                      {backupLoading ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4 mr-2" />
+                      )}
+                      {backupLoading ? t("settings.backup.exporting") : t("settings.backup.exportBtn")}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      disabled={restoreLoading}
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      {restoreLoading ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Upload className="h-4 w-4 mr-2" />
+                      )}
+                      {restoreLoading ? t("settings.backup.restoring") : t("settings.backup.restoreBtn")}
+                    </Button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".sqlite,.db"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0]
+                        if (!file) return
+                        if (!confirm(t("settings.backup.confirmRestore"))) {
+                          e.target.value = ""
+                          return
+                        }
+                        setRestoreLoading(true)
+                        try {
+                          const buf = await file.arrayBuffer()
+                          const base64 = btoa(new Uint8Array(buf).reduce((data, byte) => data + String.fromCharCode(byte), ""))
+                          await api.post("/api/backup/restore", { file: base64 })
+                          toast.success(t("settings.backup.restoreSuccess"))
+                          queryClient.invalidateQueries()
+                        } catch (err: any) {
+                          toast.error(err.response?.data?.error || t("settings.backup.failedRestore"))
+                        } finally {
+                          setRestoreLoading(false)
+                          e.target.value = ""
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Connection Section — Client only */}
+      {isClient && (
+        <div className="space-y-3">
+          <h3 className="text-label-caps text-muted-foreground">{t("settings.sections.connection")}</h3>
+          <Card>
+            <CardContent className="p-6 pt-6">
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Wifi className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-body-md font-medium">{t("settings.connection.title")}</span>
+                </div>
+                <p className="text-body-sm text-muted-foreground">{t("settings.connection.desc")}</p>
+                <div className="space-y-2">
+                  <Label htmlFor="serverUrl">{t("settings.connection.serverUrl")}</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="serverUrl"
+                      value={serverUrl}
+                      onChange={(e) => { setServerUrl(e.target.value); setConnectionStatus("unknown") }}
+                      placeholder="http://192.168.1.100:3001"
+                      className="flex-1 font-data"
+                    />
+                    <Button
+                      variant="outline"
+                      disabled={testingConnection || !serverUrl}
+                      onClick={async () => {
+                        setTestingConnection(true)
+                        setConnectionStatus("unknown")
+                        try {
+                          if (window.electronAPI?.testConnection) {
+                            const ok = await window.electronAPI.testConnection(serverUrl)
+                            setConnectionStatus(ok ? "ok" : "fail")
+                            if (ok) toast.success(t("settings.connection.testOk"))
+                            else toast.error(t("settings.connection.testFail"))
+                          }
+                        } catch {
+                          setConnectionStatus("fail")
+                          toast.error(t("settings.connection.testFail"))
+                        } finally {
+                          setTestingConnection(false)
+                        }
+                      }}
+                    >
+                      {testingConnection ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : connectionStatus === "ok" ? (
+                        <CheckCircle2 className="h-4 w-4 mr-2 text-success" />
+                      ) : connectionStatus === "fail" ? (
+                        <XCircle className="h-4 w-4 mr-2 text-destructive" />
+                      ) : null}
+                      {t("settings.connection.test")}
+                    </Button>
+                  </div>
+                </div>
+                <Button
+                  onClick={async () => {
+                    if (window.electronAPI?.setBackendUrl) {
+                      await window.electronAPI.setBackendUrl(serverUrl)
+                      toast.success(t("settings.connection.saved"))
+                    }
+                  }}
+                  disabled={!serverUrl}
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  {t("settings.connection.save")}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <ChangePasswordDialog open={pwdOpen} onOpenChange={setPwdOpen} />
     </div>

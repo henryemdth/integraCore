@@ -9,6 +9,7 @@ import { runMigrations, runPostgresMigrations } from "./schema.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 let adapter: DatabaseAdapter | null = null;
+let rawDb: Database.Database | null = null;
 
 /** Returns the database adapter (async-capable). */
 export function getAdapter(): DatabaseAdapter {
@@ -16,6 +17,15 @@ export function getAdapter(): DatabaseAdapter {
     throw new Error("Database not initialized. Call initDatabase() first.");
   }
   return adapter;
+}
+
+export function replaceAdapter(newDb: Database.Database): void {
+  if (adapter instanceof SqliteAdapter) {
+    (adapter as SqliteAdapter).replaceConnection(newDb);
+    rawDb = newDb;
+  } else {
+    throw new Error("replaceAdapter is only supported for SQLite adapters");
+  }
 }
 
 export async function initDatabase(): Promise<{ adapter: DatabaseAdapter }> {
@@ -29,7 +39,7 @@ export async function initDatabase(): Promise<{ adapter: DatabaseAdapter }> {
 
   // SQLite (default)
   const dbPath = config.dbPath || path.join(__dirname, "../../data/integracore.db");
-  const rawDb = new Database(dbPath);
+  rawDb = new Database(dbPath);
   rawDb.pragma("journal_mode = WAL");
   rawDb.pragma("foreign_keys = ON");
   adapter = new SqliteAdapter(rawDb);

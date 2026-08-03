@@ -9,5 +9,6 @@ export interface DatabaseAdapter {
   run(sql: string, params?: any[]): Promise<RunResult>;
   exec(sql: string): Promise<void>;
   transaction<T>(fn: (tx: DatabaseAdapter) => Promise<T>): Promise<T>;
+  raw(): any;
   close(): Promise<void>;
 }

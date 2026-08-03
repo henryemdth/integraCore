@@ -1,5 +1,4 @@
 import type { DatabaseAdapter } from "../db/adapter.js";
-import { AppError } from "./authService.js";
 import { emitNotification } from "../socket/index.js";
 
 export function profitService(db: DatabaseAdapter) {

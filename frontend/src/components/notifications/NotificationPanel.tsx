@@ -5,11 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { formatDateTime } from "@/lib/format"
 import { CheckCheck, Bell } from "lucide-react"
 
-interface Props {
-  onClose: () => void
-}
-
-export default function NotificationPanel({ onClose }: Props) {
+export default function NotificationPanel() {
   const { t } = useTranslation()
   const { data: notifications = [], isLoading } = useNotifications()
   const markRead = useMarkNotificationRead()

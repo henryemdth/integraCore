@@ -26,7 +26,6 @@ function getInitials(name: string): string {
 
 interface SidebarProps {
   collapsed: boolean
-  onToggle: () => void
 }
 
 export default function Sidebar({ collapsed }: SidebarProps) {

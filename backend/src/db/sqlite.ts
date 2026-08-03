@@ -36,6 +36,14 @@ export class SqliteAdapter implements DatabaseAdapter {
     }
   }
 
+  raw(): any {
+    return this.db;
+  }
+
+  replaceConnection(db: Database.Database): void {
+    this.db = db;
+  }
+
   async close(): Promise<void> {
     this.db.close();
   }

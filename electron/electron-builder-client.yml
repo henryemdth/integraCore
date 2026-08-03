@@ -1,0 +1,39 @@
+appId: com.integracore.client
+productName: integraCore Client
+copyright: Copyright © 2026
+
+directories:
+  output: dist-client
+  buildResources: build
+
+files:
+  - dist/main/client.js
+  - dist/preload.js
+
+extraMetadata:
+  main: dist/main/client.js
+
+extraResources:
+  - from: ../frontend/dist
+    to: frontend/dist
+    filter:
+      - "**/*"
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: build/icon.ico
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: integraCore Client
+  uninstallDisplayName: integraCore Client
+
+asar: true
+asarUnpack: []
+compression: normal
+removePackageScripts: true

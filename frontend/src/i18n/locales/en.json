@@ -1,6 +1,8 @@
 {
   "common": {
     "loading": "Loading...",
+    "error": "An error occurred",
+    "or": "or",
     "save": "Save",
     "cancel": "Cancel",
     "delete": "Delete",
@@ -23,6 +25,10 @@
     "createAdmin": "Create Admin Account",
     "creatingAccount": "Creating account...",
     "setupFailed": "Setup failed",
+    "startFresh": "Start Fresh — Create Admin Account",
+    "restoreFromBackup": "Restore from Backup",
+    "restoring": "Restoring backup...",
+    "fallbackToFresh": "The restored database had no users. You'll need to create an admin account to continue.",
     "brandTitle": "Inventory & Sales Management",
     "brandDesc": "Manage your products, track sales, and monitor your business performance — all from one place."
   },
@@ -69,14 +75,7 @@
       "namePlaceholder": "Product name",
       "skuPlaceholder": "Stock Keeping Unit",
       "categoryPlaceholder": "e.g. Electronics, Hardware",
-      "created": "Product created",
       "failedSave": "Failed to save product"
-    },
-    "stats": {
-      "total": "Total Products",
-      "totalValue": "Inventory Value",
-      "lowStock": "Low Stock Items",
-      "categories": "Categories"
     },
     "editForm": {
       "title": "Edit Product",
@@ -136,7 +135,6 @@
     },
     "create": {
       "title": "New Sale",
-      "desc": "Search for products and add them to the sale",
       "addProduct": "Add Product",
       "qty": "Qty",
       "subtotal": "Subtotal",
@@ -221,10 +219,11 @@
     "sections": {
       "revenueTarget": "Revenue Target",
       "interface": "Interface",
-      "account": "Account"
+      "account": "Account",
+      "data": "Data",
+      "connection": "Server Connection"
     },
     "profit": {
-      "title": "Profit Settings",
       "targetConfig": "Target Configuration",
       "targetDesc": "Set your revenue target and check period",
       "revenueTarget": "Revenue Target",
@@ -253,6 +252,29 @@
     "currency": {
       "title": "Currency",
       "label": "Currency symbol for the interface"
+    },
+    "backup": {
+      "title": "Database Backup & Restore",
+      "desc": "Export a backup of your database or restore from a previous backup. All current data will be replaced on restore.",
+      "exportBtn": "Export Backup",
+      "exporting": "Exporting...",
+      "exported": "Backup exported",
+      "failedExport": "Failed to export backup",
+      "restoreBtn": "Restore from Backup",
+      "restoring": "Restoring...",
+      "restoreSuccess": "Database restored successfully",
+      "failedRestore": "Failed to restore database",
+      "confirmRestore": "WARNING: All current data (products, sales, users, discounts) will be replaced. This cannot be undone. Continue?"
+    },
+    "connection": {
+      "title": "Server Connection",
+      "desc": "Configure the server address this client connects to.",
+      "serverUrl": "Server URL",
+      "test": "Test Connection",
+      "testOk": "Connection successful",
+      "testFail": "Connection failed",
+      "save": "Save Address",
+      "saved": "Server address saved"
     }
   },
   "notifications": {
@@ -274,12 +296,6 @@
   "dashboard": {
     "welcome": "Welcome back, {{name}}",
     "subtitle": "Here's what's happening with your business today.",
-    "productsCard": "Products",
-    "productsDesc": "Manage inventory, stock levels, and pricing",
-    "salesCard": "Sales",
-    "salesDesc": "Record sales and view history",
-    "usersCard": "Users",
-    "usersDesc": "Manage user accounts and roles",
     "kpi": {
       "totalProducts": "Total Products",
       "lowStock": "Low Stock",
@@ -320,7 +336,6 @@
     "failedExport": "Failed to export file"
   },
   "discounts": {
-    "title": "Discounts",
     "history": "Discount History",
     "createDiscount": "Set Discount",
     "discountedPrice": "Discounted Price",
@@ -335,8 +350,6 @@
     "worked": "Worked?",
     "yes": "Yes",
     "no": "No",
-    "effectivePrice": "Effective Price",
-    "onSale": "On Sale!",
     "active": "Active",
     "expired": "Expired",
     "noDiscounts": "No discounts found",
@@ -344,17 +357,12 @@
     "failedCreate": "Failed to create discount",
     "deleted": "Discount deleted",
     "failedDelete": "Failed to delete discount",
-    "overlapError": "Discount date range overlaps with an existing discount",
     "export": "Export Discount History",
     "confirmDelete": "Delete this discount?",
     "confirmCancel": "Cancel this discount? It will stop applying immediately.",
     "cancelled": "Cancelled",
-    "cancel": "Cancel Discount",
     "cancelSuccess": "Discount cancelled",
     "cancelFailed": "Failed to cancel discount",
-    "status": "Status",
-    "discountEndDate": "Discount End Date",
-    "price": "Price",
-    "savings": "Savings from discounts"
+    "status": "Status"
   }
 }

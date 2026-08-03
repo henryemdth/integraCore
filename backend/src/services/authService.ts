@@ -11,13 +11,13 @@ export class AppError extends Error {
 
 export function authService(db: DatabaseAdapter) {
   async function getSetupStatus() {
-    const count = await db.get<{ count: number }>("SELECT COUNT(*) as count FROM users");
-    return count!.count === 0;
+    const row = await db.get("SELECT 1 FROM users LIMIT 1");
+    return row === undefined;
   }
 
   async function setup(username: string, password: string, fullName: string) {
-    const count = await db.get<{ count: number }>("SELECT COUNT(*) as count FROM users");
-    if (count!.count > 0) throw new AppError(400, "Setup already completed");
+    const anyUser = await db.get("SELECT 1 FROM users LIMIT 1");
+    if (anyUser) throw new AppError(400, "Setup already completed");
 
     const existing = await db.get("SELECT id FROM users WHERE username = ?", [username]);
     if (existing) throw new AppError(409, "Username already exists");

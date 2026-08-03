@@ -1,0 +1,47 @@
+appId: com.integracore.server
+productName: integraCore Server
+copyright: Copyright © 2026
+
+directories:
+  output: dist-server
+  buildResources: build
+
+files:
+  - dist/main/server.js
+  - dist/preload.js
+
+extraMetadata:
+  main: dist/main/server.js
+
+extraResources:
+  - from: ../backend/dist
+    to: backend/dist
+    filter:
+      - "**/*"
+  - from: ../backend/node_modules
+    to: backend/node_modules
+    filter:
+      - "**/*"
+  - from: ../frontend/dist
+    to: frontend/dist
+    filter:
+      - "**/*"
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: build/icon.ico
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: integraCore Server
+  uninstallDisplayName: integraCore Server
+
+asar: true
+asarUnpack: []
+compression: normal
+removePackageScripts: true

@@ -35,7 +35,7 @@ export default function NotificationBell() {
           </Badge>
         )}
       </Button>
-      {open && <NotificationPanel onClose={() => setOpen(false)} />}
+      {open && <NotificationPanel />}
     </div>
   )
 }

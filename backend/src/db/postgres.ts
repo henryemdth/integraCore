@@ -40,6 +40,21 @@ export class PostgresAdapter implements DatabaseAdapter {
       "(NOW() - (${DAYS_PARAM}::int * interval '1 day'))"
     );
 
+    // date('now') → CURRENT_DATE
+    converted = converted.replace(/date\('now'\)/g, "CURRENT_DATE");
+
+    // strftime('%Y-%m', 'now') → TO_CHAR(CURRENT_DATE, 'YYYY-MM')
+    converted = converted.replace(
+      /strftime\('%Y-%m',\s*'now'\)/g,
+      "TO_CHAR(CURRENT_DATE, 'YYYY-MM')"
+    );
+
+    // strftime('%Y-%m', column) → TO_CHAR(column, 'YYYY-MM')
+    converted = converted.replace(
+      /strftime\('%Y-%m',\s*([a-zA-Z_][a-zA-Z0-9_.]*)\)/g,
+      "TO_CHAR($1, 'YYYY-MM')"
+    );
+
     // Now convert ? placeholders to $N, and ${DAYS_PARAM} marker to $N
     let result = "";
     let paramIndex = 0;
@@ -121,6 +136,9 @@ export class PostgresAdapter implements DatabaseAdapter {
       async transaction<T>(_fn: (tx: DatabaseAdapter) => Promise<T>): Promise<T> {
         throw new Error("Nested transactions are not supported");
       },
+      raw(): any {
+        throw new Error("raw() is not available on a transaction adapter");
+      },
       async close(): Promise<void> {
         // No-op: transaction adapter does not own the connection
       },
@@ -167,6 +185,10 @@ export class PostgresAdapter implements DatabaseAdapter {
     } finally {
       client.release();
     }
+  }
+
+  raw(): any {
+    return this.pool;
   }
 
   async close(): Promise<void> {

@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { getAdapter } from "../db/index.js";
 import { authenticate, requireRole } from "../middleware/auth.js";
+import { writeLockGuard } from "../middleware/writeLock.js";
 import { validate } from "../middleware/validate.js";
 import { CreateProductSchema, UpdateProductSchema, StockMovementSchema } from "@integracore/shared";
 import { productService } from "../services/productService.js";
@@ -48,7 +49,7 @@ router.get("/export", authenticate, async (req: Request, res: Response) => {
   res.end();
 });
 
-router.post("/import", authenticate, requireRole("admin"), async (req: Request, res: Response) => {
+router.post("/import", authenticate, requireRole("admin"), writeLockGuard, async (req: Request, res: Response) => {
   const { file } = req.body as { file?: string };
   if (!file) {
     res.status(400).json({ error: "No file provided. Send base64-encoded .xlsx in 'file' field." });
@@ -60,35 +61,35 @@ router.post("/import", authenticate, requireRole("admin"), async (req: Request, 
   res.json(result);
 });
 
-router.post("/", authenticate, requireRole("admin"), validate(CreateProductSchema), async (req: Request, res: Response) => {
+router.post("/", authenticate, requireRole("admin"), writeLockGuard, validate(CreateProductSchema), async (req: Request, res: Response) => {
   const db = getAdapter();
   const svc = productService(db);
   const product = await svc.create(req.body);
   res.status(201).json({ product });
 });
 
-router.put("/:id", authenticate, requireRole("admin"), validate(UpdateProductSchema), async (req: Request, res: Response) => {
+router.put("/:id", authenticate, requireRole("admin"), writeLockGuard, validate(UpdateProductSchema), async (req: Request, res: Response) => {
   const db = getAdapter();
   const svc = productService(db);
   const product = await svc.update(Number(req.params.id), req.body);
   res.json({ product });
 });
 
-router.delete("/:id", authenticate, requireRole("admin"), async (req: Request, res: Response) => {
+router.delete("/:id", authenticate, requireRole("admin"), writeLockGuard, async (req: Request, res: Response) => {
   const db = getAdapter();
   const svc = productService(db);
   const result = await svc.remove(Number(req.params.id));
   res.json(result);
 });
 
-router.post("/:id/stock-in", authenticate, requireRole("admin"), validate(StockMovementSchema), async (req: Request, res: Response) => {
+router.post("/:id/stock-in", authenticate, requireRole("admin"), writeLockGuard, validate(StockMovementSchema), async (req: Request, res: Response) => {
   const db = getAdapter();
   const svc = productService(db);
   const product = await svc.stockIn(Number(req.params.id), req.body.quantity);
   res.json({ product });
 });
 
-router.post("/:id/stock-out", authenticate, requireRole("admin"), validate(StockMovementSchema), async (req: Request, res: Response) => {
+router.post("/:id/stock-out", authenticate, requireRole("admin"), writeLockGuard, validate(StockMovementSchema), async (req: Request, res: Response) => {
   const db = getAdapter();
   const svc = productService(db);
   const product = await svc.stockOut(Number(req.params.id), req.body.quantity);

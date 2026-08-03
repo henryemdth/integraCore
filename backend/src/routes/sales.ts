@@ -1,13 +1,14 @@
 import { Router, Request, Response } from "express";
 import { getAdapter } from "../db/index.js";
 import { authenticate, requireRole } from "../middleware/auth.js";
+import { writeLockGuard } from "../middleware/writeLock.js";
 import { validate } from "../middleware/validate.js";
 import { CreateSaleSchema } from "@integracore/shared";
 import { saleService } from "../services/saleService.js";
 
 const router = Router();
 
-router.post("/", authenticate, validate(CreateSaleSchema), async (req: Request, res: Response) => {
+router.post("/", authenticate, writeLockGuard, validate(CreateSaleSchema), async (req: Request, res: Response) => {
   const db = getAdapter();
   const svc = saleService(db);
   const result = await svc.create(req.user!.id, req.body.items, req.body.notes);
@@ -54,7 +55,7 @@ router.get("/:id", authenticate, async (req: Request, res: Response) => {
   res.json(result);
 });
 
-router.delete("/:id", authenticate, requireRole("admin"), async (req: Request, res: Response) => {
+router.delete("/:id", authenticate, requireRole("admin"), writeLockGuard, async (req: Request, res: Response) => {
   const db = getAdapter();
   const svc = saleService(db);
   const result = await svc.remove(Number(req.params.id));

@@ -1,9 +1,12 @@
 import "dotenv/config";
+import path from "path";
 
 const corsOrigins = (process.env.CORS_ORIGIN ||"")
   .split(",")
   .map(url => url.trim().replace(/\/$/, ""))
   .filter(Boolean);
+
+const dataDir = process.env.DATA_DIR || path.resolve("data");
 
 export const config = {
   port: parseInt(process.env.PORT || "3001", 10),
@@ -13,8 +16,12 @@ export const config = {
   // Database driver: "sqlite" or "postgresql"
   dbDriver: (process.env.DB_DRIVER || "sqlite") as "sqlite" | "postgresql",
 
+  // Paths
+  dataDir,
+  backupDir: path.join(dataDir, "backups"),
+
   // SQLite
-  dbPath: process.env.DB_PATH || "",
+  dbPath: process.env.DB_PATH || path.join(dataDir, "integracore.db"),
 
   // PostgreSQL
   pg: {

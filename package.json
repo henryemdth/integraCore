@@ -12,6 +12,9 @@
     "dev-fe": "concurrently -n frontend -c green \"npm run dev -w frontend\"",
     "dev:electron": "concurrently -n backend,frontend,electron -c blue,green,yellow \"npm run dev -w backend\" \"npm run dev -w frontend\" \"npm run dev -w electron\"",
     "build": "npm run build -w shared && npm run build -w backend && npm run build -w frontend",
+    "build:electron": "npm run build -w shared && npm run build -w frontend && cd electron && npm run build",
+    "dist:server": "npm run build && cd electron && npm run build:server",
+    "dist:client": "npm run build -w shared && npm run build -w frontend && cd electron && npm run build:client",
     "start": "npm run start -w backend"
   },
   "devDependencies": {

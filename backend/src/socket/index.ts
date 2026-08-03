@@ -29,3 +29,7 @@ export function emitProductUpdated(product: { id: number; name: string; sku: str
 export function emitNotification(notification: { id: number; type: string; message: string }) {
   if (io) io.emit("notification:new", notification);
 }
+
+export function emitDbRestored() {
+  if (io) io.emit("db:restored", { timestamp: new Date().toISOString() });
+}

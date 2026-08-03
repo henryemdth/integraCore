@@ -102,8 +102,6 @@ export default function DiscountHistoryPage() {
                       <TableCell>{formatDate(d.start_date)}</TableCell>
                       <TableCell>
                         {formatDate(d.end_date)}
-                        {/* {isActive && <Badge className="ml-2" variant="success-light">{t("discounts.active")}</Badge>}
-                        {d.status === "cancelled" && <Badge className="ml-2" variant="secondary">{t("discounts.cancelled")}</Badge>} */}
                       </TableCell>
                       <TableCell>
                         {d.status === "cancelled" ? (

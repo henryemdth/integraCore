@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react"
+import { useState, useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import api from "@/lib/api"
@@ -18,11 +18,7 @@ import { cn } from "@/lib/utils"
 
 interface CartItem { product: Product; quantity: number }
 
-interface CreateSaleFormProps {
-  onSaleCreated?: () => void
-}
-
-export function CreateSaleForm({ onSaleCreated }: CreateSaleFormProps) {
+export function CreateSaleForm() {
   const { t } = useTranslation()
   const [search, setSearch] = useState("")
   const [cart, setCart] = useState<CartItem[]>([])
@@ -34,13 +30,6 @@ export function CreateSaleForm({ onSaleCreated }: CreateSaleFormProps) {
     queryKey: ["products", "list-all"],
     queryFn: async () => { const res = await api.get("/api/products?limit=100"); return res.data.products as Product[] },
   })
-
-  useEffect(() => {
-    setCart([])
-    setNotes("")
-    setError("")
-    setSearch("")
-  }, [])
 
   const filteredProducts = useMemo(() => {
     if (!search) return []
@@ -87,7 +76,6 @@ export function CreateSaleForm({ onSaleCreated }: CreateSaleFormProps) {
       setNotes("")
       setError("")
       setSearch("")
-      onSaleCreated?.()
     },
     onError: (err: any) => {
       const msg = err.message || err.response?.data?.error || t("sales.create.failedCreate")
