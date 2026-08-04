@@ -15,6 +15,7 @@ export default defineConfig(({ mode }) => {
         "@": path.resolve(__dirname, "src"),
       },
     },
+    base: "./",
     server: {
       port: 5173,
       proxy: {

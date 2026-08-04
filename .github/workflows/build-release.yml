@@ -30,9 +30,9 @@ jobs:
         run: echo "${{ secrets.ENV_CLIENT_FE }}" > frontend/.env
 
       - name: Build Client
-        run: |
-          npm run build:electron
-          npx electron-builder --win --config electron-builder-client.yml --projectDir electron --publish never
+        run: npm run dist:client
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create .env for Server Backend & Frontend
         shell: bash
@@ -41,9 +41,9 @@ jobs:
           echo "${{ secrets.ENV_SERVER_FE }}" > frontend/.env
 
       - name: Build Server
-        run: |
-          npm run build:electron
-          npx electron-builder --win --config electron-builder-server.yml --projectDir electron --publish never
+        run: npm run dist:server
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4

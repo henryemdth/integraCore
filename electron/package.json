@@ -4,10 +4,10 @@
   "private": true,
   "main": "dist/main/server.js",
   "scripts": {
-    "dev": "tsx watch src/main/server.ts",
+    "dev": "npm run build && electron .",
     "build": "tsc",
-    "build:server": "npm run build && npx electron-builder --config electron-builder-server.yml",
-    "build:client": "npm run build && npx electron-builder --config electron-builder-client.yml"
+    "build:server": "npm run build && npx electron-builder --config electron-builder-server.yml --publish never",
+    "build:client": "npm run build && npx electron-builder --config electron-builder-client.yml --publish never"
   },
   "devDependencies": {
     "@types/node": "^22.15.3",

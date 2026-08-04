@@ -1,5 +1,11 @@
-import "dotenv/config";
 import path from "path";
+
+try {
+  const dotenv = await import("dotenv");
+  dotenv.config();
+} catch {
+  console.warn("dotenv package not found, skipping .env loading");
+}
 
 const corsOrigins = (process.env.CORS_ORIGIN ||"")
   .split(",")

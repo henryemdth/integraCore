@@ -15,6 +15,10 @@ function getFrontendPath(): string {
   return path.join(getResourcesPath(), "frontend", "dist", "index.html")
 }
 
+function getFrontendUrl(): string {
+  return process.env.DEV_FRONTEND_URL || "http://localhost:5173"
+}
+
 function getBackendEntry(): string {
   return path.join(getResourcesPath(), "backend", "dist", "index.js")
 }
@@ -116,16 +120,24 @@ async function createWindow(): Promise<void> {
     },
   })
 
-  const frontendPath = getFrontendPath()
-  win.loadFile(frontendPath)
+  if (app.isPackaged) {
+    const frontendPath = getFrontendPath()
+    win.loadFile(frontendPath)
+  } else {
+    win.loadURL(getFrontendUrl())
+  }
 }
 
 app.whenReady().then(async () => {
-  try {
-    await startBackend()
-    console.log("[server] Backend is ready")
-  } catch (err) {
-    console.error("[server] Failed to start backend:", err)
+  if (app.isPackaged) {
+    try {
+      await startBackend()
+      console.log("[server] Backend is ready")
+    } catch (err) {
+      console.error("[server] Failed to start backend:", err)
+    }
+  } else {
+    console.log("[server] Dev mode: using external backend on http://localhost:3001")
   }
 
   createWindow()

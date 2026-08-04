@@ -30,6 +30,8 @@ extraResources:
       - "!**/*.d.ts"
       - "!**/*.map"
       - "!**/node_modules/.bin"
+  - from: "../backend/package.json"
+    to: "backend/package.json"
   - from: "../frontend/dist"
     to: "frontend/dist"
     filter:

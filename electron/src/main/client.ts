@@ -91,7 +91,11 @@ async function createWindow(): Promise<void> {
 
   const frontendPath = getFrontendPath()
   console.log(`[client] Cargando frontend desde: ${frontendPath}`)
-  win.loadFile(frontendPath)
+  if (app.isPackaged) {
+    win.loadFile(frontendPath)
+  } else {
+    win.loadURL(process.env.DEV_FRONTEND_URL || "http://localhost:5173")
+  }
 }
 
 app.whenReady().then(async () => {
