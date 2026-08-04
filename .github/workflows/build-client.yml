@@ -19,7 +19,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Install dependencies
@@ -34,7 +34,7 @@ jobs:
         run: npm run build
 
       - name: Build Client Installer with Electron Builder
-        run: npx electron-builder --win --config electron/electron-builder-client.yml
+        run: npx electron-builder --win --config electron-builder-client.yml --projectDir electron
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
