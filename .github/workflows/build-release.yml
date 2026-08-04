@@ -1,0 +1,64 @@
+name: Build & Release Client + Server
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Create .env for Client Frontend
+        shell: bash
+        run: echo "${{ secrets.ENV_CLIENT_FE }}" > frontend/.env
+
+      - name: Build Client
+        run: |
+          npm run build:electron
+          npx electron-builder --win --config electron-builder-client.yml --projectDir electron --publish never
+
+      - name: Create .env for Server Backend & Frontend
+        shell: bash
+        run: |
+          echo "${{ secrets.ENV_SERVER_BE }}" > backend/.env
+          echo "${{ secrets.ENV_SERVER_FE }}" > frontend/.env
+
+      - name: Build Server
+        run: |
+          npm run build:electron
+          npx electron-builder --win --config electron-builder-server.yml --projectDir electron --publish never
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: installers
+          path: |
+            electron/dist-client/*.exe
+            electron/dist-server/*.exe
+
+      - name: Publish to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            electron/dist-client/*.exe
+            electron/dist-server/*.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
