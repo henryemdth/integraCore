@@ -1,18 +1,16 @@
 name: Build Windows Server
 
 on:
-  workflow_dispatch:
   push:
-    branches: [ main ]
-    paths:
-      - 'backend/**'
-      - 'frontend/**'
-      - 'electron/**'
+    tags:
+      - 'v*'
+  workflow_dispatch:
 
 jobs:
   build-server:
     runs-on: windows-latest
-
+    permissions:
+      contents: write
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -40,7 +38,7 @@ jobs:
         run: npm run build:electron
 
       - name: Build Server Installer with Electron Builder
-        run: npx electron-builder --win --config electron-builder-server.yml --projectDir electron
+        run: npx electron-builder --win --config electron-builder-server.yml --projectDir electron --publish always
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

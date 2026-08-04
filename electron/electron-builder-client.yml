@@ -1,7 +1,11 @@
 appId: com.integracore.client
 productName: integraCore Client
 copyright: Copyright © 2026
-publish: null
+publish:
+  provider: github
+  owner: henryemdth
+  repo: integraCore
+  releaseType: release
 
 directories:
   output: dist-client

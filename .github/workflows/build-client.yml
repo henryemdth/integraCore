@@ -1,17 +1,16 @@
 name: Build Windows Client
 
 on:
-  workflow_dispatch:
   push:
-    branches: [ main ]
-    paths:
-      - 'frontend/**'
-      - 'electron/**'
+    tags:
+      - 'v*'
+  workflow_dispatch:
 
 jobs:
   build-client:
     runs-on: windows-latest
-
+    permissions:
+      contents: write
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -34,7 +33,7 @@ jobs:
         run: npm run build:electron
 
       - name: Build Client Installer with Electron Builder
-        run: npx electron-builder --win --config electron-builder-client.yml --projectDir electron
+        run: npx electron-builder --win --config electron-builder-client.yml --projectDir electron --publish always
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
