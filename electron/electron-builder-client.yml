@@ -1,6 +1,7 @@
 appId: com.integracore.client
 productName: integraCore Client
 copyright: Copyright © 2026
+publish: null
 
 directories:
   output: dist-client

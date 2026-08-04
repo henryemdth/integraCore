@@ -37,7 +37,7 @@ jobs:
           echo "${{ secrets.ENV_SERVER_FE }}" > frontend/.env
 
       - name: Build Monorepo (BE & FE)
-        run: npm run build
+        run: npm run build:electron
 
       - name: Build Server Installer with Electron Builder
         run: npx electron-builder --win --config electron-builder-server.yml --projectDir electron

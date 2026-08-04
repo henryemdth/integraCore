@@ -1,6 +1,7 @@
 appId: com.integracore.server
 productName: integraCore Server
 copyright: Copyright © 2026
+publish: null
 
 directories:
   output: dist-server

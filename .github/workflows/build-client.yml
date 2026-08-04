@@ -31,7 +31,7 @@ jobs:
           echo "${{ secrets.ENV_CLIENT_FE }}" > frontend/.env
 
       - name: Build Frontend & Electron Client
-        run: npm run build
+        run: npm run build:electron
 
       - name: Build Client Installer with Electron Builder
         run: npx electron-builder --win --config electron-builder-client.yml --projectDir electron
