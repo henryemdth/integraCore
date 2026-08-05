@@ -20,7 +20,7 @@ function getFrontendUrl(): string {
 }
 
 function getBackendEntry(): string {
-  return path.join(getResourcesPath(), "backend", "dist", "index.js")
+  return path.join(getResourcesPath(), "backend", "dist", "index.cjs")
 }
 
 function getDataDir(): string {

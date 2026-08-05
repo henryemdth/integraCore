@@ -23,15 +23,15 @@ extraResources:
     to: "backend/dist"
     filter:
       - "**/*"
-    filter:
-      - "**/*"
       - "!**/*.d.ts"
       - "!**/*.map"
       - "!**/node_modules/.bin"
   - from: "../backend/package.json"
     to: "backend/package.json"
-  - from: "../backend/node_modules/better-sqlite3"
+  - from: "../node_modules/better-sqlite3"
     to: "backend/node_modules/better-sqlite3"
+    filter:
+      - "**/*"
   - from: "../frontend/dist"
     to: "frontend/dist"
     filter:
