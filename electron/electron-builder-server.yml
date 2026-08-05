@@ -23,8 +23,6 @@ extraResources:
     to: "backend/dist"
     filter:
       - "**/*"
-  - from: "../backend/node_modules"
-    to: "backend/node_modules"
     filter:
       - "**/*"
       - "!**/*.d.ts"
@@ -32,6 +30,8 @@ extraResources:
       - "!**/node_modules/.bin"
   - from: "../backend/package.json"
     to: "backend/package.json"
+  - from: "../backend/node_modules/better-sqlite3"
+    to: "backend/node_modules/better-sqlite3"
   - from: "../frontend/dist"
     to: "frontend/dist"
     filter:
