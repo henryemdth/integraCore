@@ -39,7 +39,7 @@ async function startBackend(): Promise<void> {
         DATA_DIR: dataDir,
         DB_DRIVER: "sqlite",
         JWT_SECRET: process.env.JWT_SECRET || "integracore-server-secret",
-        CORS_ORIGIN: "http://localhost:3001",
+        CORS_ORIGIN: "*",
         NODE_ENV: "production",
       },
       stdio: ["pipe", "pipe", "pipe", "ipc"],

@@ -8,12 +8,17 @@ const corsOrigins = (process.env.CORS_ORIGIN ||"")
   .map(url => url.trim().replace(/\/$/, ""))
   .filter(Boolean);
 
+// "*" must stay a string so express-cors treats it as the wildcard
+// (an array ["*"] would be treated as an exact-match list and reject
+// origins like the "null" origin of a packaged Electron file:// page).
+const corsOrigin = corsOrigins.includes("*") ? "*" : (corsOrigins || "http://localhost:5173");
+
 const dataDir = process.env.DATA_DIR || path.resolve("data");
 
 export const config = {
   port: parseInt(process.env.PORT || "3001", 10),
   jwtSecret: process.env.JWT_SECRET || "dev-secret-change-in-production",
-  corsOrigin: corsOrigins || "http://localhost:5173",
+  corsOrigin,
 
   // Database driver: "sqlite" or "postgresql"
   dbDriver: (process.env.DB_DRIVER || "sqlite") as "sqlite" | "postgresql",

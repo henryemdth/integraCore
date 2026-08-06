@@ -4,7 +4,7 @@
     "name": "hv-develop"
   },
   "description": "IntegraCore is a program for managing your business",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "workspaces": [
     "backend",
@@ -19,6 +19,7 @@
     "build:shared": "npm run build -w shared",
     "build:frontend": "npm run build -w frontend",
     "build:backend": "npm run build -w backend",
+    "build:api": "npm run build:shared && npm run build:backend && npm run bundle -w backend",
     "build:server-all": "npm run build:shared && npm run build:backend && npm run build:frontend",
     "build:client-all": "npm run build:shared && npm run build:frontend",
     "dist:server": "npm run build:server-all && cd backend && npm run bundle && cd ../electron && npm run build:server",

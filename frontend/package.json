@@ -1,6 +1,6 @@
 {
   "name": "@integracore/frontend",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -31,7 +31,7 @@
     "tailwind-merge": "^3.2.0"
   },
   "devDependencies": {
-    "@integracore/shared": "0.1.0",
+    "@integracore/shared": "0.2.0",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
     "@vitejs/plugin-react": "^4.4.1",
