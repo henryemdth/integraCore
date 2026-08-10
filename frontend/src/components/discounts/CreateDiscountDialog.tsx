@@ -56,6 +56,7 @@ export function CreateDiscountDialog({ product, open, onOpenChange }: CreateDisc
     e.preventDefault()
     setError("")
     if (!product) return
+    if (product.status === "discontinued") { setError(t("discounts.discontinuedBlocked")); return }
     const price = parseFloat(discountedPrice)
     if (!discountedPrice || price < 0) { setError("Discounted price must be >= 0"); return }
     if (product && price >= product.sell_price) { setError("Discounted price must be less than sell price"); return }
@@ -76,6 +77,16 @@ export function CreateDiscountDialog({ product, open, onOpenChange }: CreateDisc
             {t("products.sellPrice")}: {product?.sell_price}
           </DialogDescription>
         </DialogHeader>
+        {product?.status === "discontinued" ? (
+          <div className="space-y-4">
+            <Alert variant="destructive">
+              <AlertDescription>{t("discounts.discontinuedBlocked")}</AlertDescription>
+            </Alert>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>
+            </DialogFooter>
+          </div>
+        ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
           <div className="grid grid-cols-2 gap-4">
@@ -131,6 +142,7 @@ export function CreateDiscountDialog({ product, open, onOpenChange }: CreateDisc
             </Button>
           </DialogFooter>
         </form>
+        )}
       </DialogContent>
     </Dialog>
   )

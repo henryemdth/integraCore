@@ -16,6 +16,7 @@ import { EditUserDialog } from "@/components/users/EditUserDialog"
 import { ResetPasswordDialog } from "@/components/users/ResetPasswordDialog"
 import { StatCard } from "@/components/StatCard"
 import { QueryErrorState } from "@/components/ui/query-error"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Plus, MoreHorizontal, Users, UserCheck, Shield } from "lucide-react"
 import { formatDateTime } from "@/lib/format"
 
@@ -27,6 +28,7 @@ export default function UserListPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [editUser, setEditUser] = useState<User | null>(null)
   const [resetPwdUser, setResetPwdUser] = useState<User | null>(null)
+  const [confirmDeactivateUser, setConfirmDeactivateUser] = useState<User | null>(null)
 
   const limit = 10
   const params: Record<string, string> = { page: String(page), limit: String(limit) }
@@ -144,7 +146,7 @@ export default function UserListPage() {
                         <DropdownMenuItem onClick={() => setResetPwdUser(user)}>{t("users.resetPassword")}</DropdownMenuItem>
                         <DropdownMenuSeparator />
                         {user.active ? (
-                          <DropdownMenuItem className="text-destructive" onClick={() => { if (confirm(t("users.confirmDeactivate", { name: user.full_name }))) deactivateMutation.mutate(user.id) }}>{t("users.deactivate")}</DropdownMenuItem>
+                          <DropdownMenuItem className="text-destructive" onClick={() => setConfirmDeactivateUser(user)}>{t("users.deactivate")}</DropdownMenuItem>
                         ) : (
                           <DropdownMenuItem onClick={() => activateMutation.mutate(user.id)}>{t("users.activate")}</DropdownMenuItem>
                         )}
@@ -169,6 +171,16 @@ export default function UserListPage() {
       <CreateUserDialog open={createOpen} onOpenChange={setCreateOpen} />
       <EditUserDialog user={editUser} open={Boolean(editUser)} onOpenChange={(o: boolean) => { if (!o) setEditUser(null) }} />
       <ResetPasswordDialog user={resetPwdUser} open={Boolean(resetPwdUser)} onOpenChange={(o: boolean) => { if (!o) setResetPwdUser(null) }} />
+      <ConfirmDialog
+        open={confirmDeactivateUser !== null}
+        onOpenChange={(open: boolean) => { if (!open) setConfirmDeactivateUser(null) }}
+        title={t("users.confirmDeactivateTitle")}
+        description={confirmDeactivateUser ? t("users.confirmDeactivate", { name: confirmDeactivateUser.full_name }) : undefined}
+        confirmLabel={t("users.deactivate")}
+        destructive
+        pending={deactivateMutation.isPending}
+        onConfirm={() => { if (confirmDeactivateUser) { deactivateMutation.mutate(confirmDeactivateUser.id); setConfirmDeactivateUser(null) } }}
+      />
     </div>
   )
 }

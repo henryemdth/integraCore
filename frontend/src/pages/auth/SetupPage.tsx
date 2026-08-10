@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AuthLayout } from "@/components/auth/AuthLayout"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Loader2, Upload } from "lucide-react"
 
 type SetupMode = "choose" | "start-fresh" | "restore"
@@ -18,9 +19,11 @@ export default function SetupPage() {
   const [fullName, setFullName] = useState("")
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const [restoreLoading, setRestoreLoading] = useState(false)
+  const [pendingRestoreFile, setPendingRestoreFile] = useState<File | null>(null)
   const [checking, setChecking] = useState(true)
   const [isSqlite, setIsSqlite] = useState(true)
   const { setup, user } = useAuth()
@@ -53,6 +56,10 @@ export default function SetupPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
+    if (password !== confirmPassword) {
+      setError(t("auth.passwordMismatch"))
+      return
+    }
     setLoading(true)
     try {
       await setup(username, password, fullName)
@@ -143,11 +150,7 @@ export default function SetupPage() {
                   onChange={(e) => {
                     const file = e.target.files?.[0]
                     if (file) {
-                      if (!confirm(t("settings.backup.confirmRestore"))) {
-                        e.target.value = ""
-                        return
-                      }
-                      handleRestore(file)
+                      setPendingRestoreFile(file)
                     }
                     e.target.value = ""
                   }}
@@ -229,13 +232,36 @@ export default function SetupPage() {
                 autoComplete="new-password"
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword" className="text-label-caps">{t("auth.confirmPassword")}</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder={t("auth.confirmPassword")}
+                required
+                minLength={6}
+                autoComplete="new-password"
+              />
+            </div>
             <Button type="submit" className="w-full" disabled={loading}>
               {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {loading ? t("auth.creatingAccount") : t("auth.createAdmin")}
             </Button>
           </form>
-        </CardContent>
-      </Card>
-    </AuthLayout>
-  )
-}
+          </CardContent>
+        </Card>
+        <ConfirmDialog
+          open={pendingRestoreFile !== null}
+          onOpenChange={(open: boolean) => { if (!open) setPendingRestoreFile(null) }}
+          title={t("settings.backup.confirmRestoreTitle")}
+          description={t("settings.backup.confirmRestore")}
+          confirmLabel={t("settings.backup.restoreBtn")}
+          destructive
+          pending={restoreLoading}
+          onConfirm={() => { const file = pendingRestoreFile; setPendingRestoreFile(null); if (file) handleRestore(file) }}
+        />
+      </AuthLayout>
+    )
+  }

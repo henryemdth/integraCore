@@ -19,6 +19,7 @@ import { SaleDetailDialog } from "@/components/sales/SaleDetailDialog"
 import { CreateSaleForm } from "@/components/sales/CreateSaleForm"
 import { StatCard } from "@/components/StatCard"
 import { QueryErrorState } from "@/components/ui/query-error"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Eye, Trash2, Download, ShoppingCart, TrendingUp } from "lucide-react"
 
 interface UserListItem { id: number; full_name: string; username: string }
@@ -36,6 +37,7 @@ export default function SalesListPage() {
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
   const [detailSale, setDetailSale] = useState<SaleDetail | null>(null)
+  const [confirmDeleteSaleId, setConfirmDeleteSaleId] = useState<number | null>(null)
 
   const limit = 10
   const filterParams: Record<string, string> = { page: String(page), limit: String(limit) }
@@ -187,7 +189,7 @@ export default function SalesListPage() {
                           <Button variant="ghost" className="h-8 w-8 p-0" onClick={() => setDetailSale(sale)}><Eye className="h-4 w-4" /></Button>
                           {isAdmin && (
                             <Button variant="ghost" className="h-8 w-8 p-0 text-destructive"
-                              onClick={() => { if (confirm(t("sales.confirmDelete", { id: sale.id }))) deleteMutation.mutate(sale.id) }}>
+                              onClick={() => setConfirmDeleteSaleId(sale.id)}>
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           )}
@@ -211,6 +213,16 @@ export default function SalesListPage() {
         </TabsContent>
       </Tabs>
       <SaleDetailDialog sale={detailSale} open={Boolean(detailSale)} onOpenChange={(o) => { if (!o) setDetailSale(null) }} />
+      <ConfirmDialog
+        open={confirmDeleteSaleId !== null}
+        onOpenChange={(open: boolean) => { if (!open) setConfirmDeleteSaleId(null) }}
+        title={t("sales.confirmDeleteTitle")}
+        description={confirmDeleteSaleId !== null ? t("sales.confirmDelete", { id: confirmDeleteSaleId }) : undefined}
+        confirmLabel={t("common.delete")}
+        destructive
+        pending={deleteMutation.isPending}
+        onConfirm={() => { if (confirmDeleteSaleId !== null) { deleteMutation.mutate(confirmDeleteSaleId); setConfirmDeleteSaleId(null) } }}
+      />
     </div>
   )
 }

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
-import api from "@/lib/api"
+import api, { setBackendUrl } from "@/lib/api"
 import { formatCurrency, getCurrencySymbol } from "@/lib/format"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Progress } from "@/components/ui/progress"
 import { ChangePasswordDialog } from "@/components/users/ChangePasswordDialog"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Save, TrendingUp, TrendingDown, Globe, DollarSign, Shield, Download, Upload, Database, Loader2, Wifi, CheckCircle2, XCircle } from "lucide-react"
 
 export default function SettingsPage() {
@@ -24,6 +25,7 @@ export default function SettingsPage() {
   const [isSqlite, setIsSqlite] = useState(false)
   const [backupLoading, setBackupLoading] = useState(false)
   const [restoreLoading, setRestoreLoading] = useState(false)
+  const [pendingRestoreFile, setPendingRestoreFile] = useState<File | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const isClient = window.electronAPI?.platform === "client"
   const [serverUrl, setServerUrl] = useState("")
@@ -51,6 +53,22 @@ export default function SettingsPage() {
       })
     }
   }, [isClient])
+
+  const handleRestore = async (file: File) => {
+    setRestoreLoading(true)
+    try {
+      const buf = await file.arrayBuffer()
+      const base64 = btoa(new Uint8Array(buf).reduce((data, byte) => data + String.fromCharCode(byte), ""))
+      await api.post("/api/backup/restore", { file: base64 })
+      toast.success(t("settings.backup.restoreSuccess"))
+      queryClient.invalidateQueries()
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || t("settings.backup.failedRestore"))
+    } finally {
+      setRestoreLoading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ""
+    }
+  }
 
   const { data: target, isLoading: targetLoading } = useQuery({
     queryKey: ["profit-target"],
@@ -326,23 +344,8 @@ export default function SettingsPage() {
                       onChange={async (e) => {
                         const file = e.target.files?.[0]
                         if (!file) return
-                        if (!confirm(t("settings.backup.confirmRestore"))) {
-                          e.target.value = ""
-                          return
-                        }
-                        setRestoreLoading(true)
-                        try {
-                          const buf = await file.arrayBuffer()
-                          const base64 = btoa(new Uint8Array(buf).reduce((data, byte) => data + String.fromCharCode(byte), ""))
-                          await api.post("/api/backup/restore", { file: base64 })
-                          toast.success(t("settings.backup.restoreSuccess"))
-                          queryClient.invalidateQueries()
-                        } catch (err: any) {
-                          toast.error(err.response?.data?.error || t("settings.backup.failedRestore"))
-                        } finally {
-                          setRestoreLoading(false)
-                          e.target.value = ""
-                        }
+                        setPendingRestoreFile(file)
+                        e.target.value = ""
                       }}
                     />
                   </div>
@@ -411,6 +414,9 @@ export default function SettingsPage() {
                   onClick={async () => {
                     if (window.electronAPI?.setBackendUrl) {
                       await window.electronAPI.setBackendUrl(serverUrl)
+                      // Apply immediately: re-targets the axios base URL and
+                      // reconnects the socket without a reload.
+                      setBackendUrl(serverUrl)
                       toast.success(t("settings.connection.saved"))
                     }
                   }}
@@ -426,6 +432,16 @@ export default function SettingsPage() {
       )}
 
       <ChangePasswordDialog open={pwdOpen} onOpenChange={setPwdOpen} />
+      <ConfirmDialog
+        open={pendingRestoreFile !== null}
+        onOpenChange={(open: boolean) => { if (!open) setPendingRestoreFile(null) }}
+        title={t("settings.backup.confirmRestoreTitle")}
+        description={t("settings.backup.confirmRestore")}
+        confirmLabel={t("settings.backup.restoreBtn")}
+        destructive
+        pending={restoreLoading}
+        onConfirm={() => { const file = pendingRestoreFile; setPendingRestoreFile(null); if (file) handleRestore(file) }}
+      />
     </div>
   )
 }

@@ -6,6 +6,7 @@ import { initSocket } from "./socket/index.js"
 import { createApp } from "./app.js"
 import { startProfitCron } from "./cron/profitCheck.js"
 import { startDiscountCron } from "./cron/discountCheck.js"
+import { startLowStockCron, runLowStockCheck } from "./cron/lowStockCheck.js"
 
 const app = createApp()
 const server = createServer(app)
@@ -19,6 +20,14 @@ async function main() {
   const { adapter } = await initDatabase()
   startProfitCron(adapter)
   startDiscountCron(adapter)
+  startLowStockCron(adapter)
+
+  // Run low-stock check immediately on startup
+  try {
+    await runLowStockCheck(adapter);
+  } catch (err) {
+    console.error("[startup] Low stock check failed:", err);
+  }
 
   // Run discount date-trigger check immediately on startup
   try {

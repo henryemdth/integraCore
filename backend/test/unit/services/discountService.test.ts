@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { createTestDb, seedTestProduct } from "./test-helper.js";
-import type { SqliteAdapter } from "./db/sqlite.js";
-import { discountService } from "./services/discountService.js";
+import { createTestDb, seedTestProduct } from "../../helpers/test-helper.js";
+import type { SqliteAdapter } from "../../../src/db/sqlite.js";
+import { discountService } from "../../../src/services/discountService.js";
 import { todayDateString, nextDayDateString } from "@integracore/shared";
 
-vi.mock("../socket/index.js", () => ({
+vi.mock("../../../src/socket/index.js", () => ({
   emitProductUpdated: vi.fn(),
   emitNotification: vi.fn(),
   emitDbRestored: vi.fn(),

@@ -31,17 +31,24 @@ async function startBackend(): Promise<void> {
   const entry = getBackendEntry()
   const dataDir = getDataDir()
 
+  const backendEnv: NodeJS.ProcessEnv = {
+    ...process.env,
+    PORT: "3001",
+    DATA_DIR: dataDir,
+    DB_DRIVER: "sqlite",
+    // "*" lets the packaged frontend (loaded from file://, Origin "null")
+    // reach its own local backend. Tighten via env for cloud/Postgres.
+    CORS_ORIGIN: "*",
+    NODE_ENV: "production",
+  }
+  // When set, honor an explicit JWT_SECRET; otherwise the backend generates
+  // and persists a per-install secret under DATA_DIR/.jwt-secret. Never pass a
+  // shared hardcoded fallback.
+  if (process.env.JWT_SECRET) backendEnv.JWT_SECRET = process.env.JWT_SECRET
+
   return new Promise((resolve, reject) => {
     backendProcess = fork(entry, [], {
-      env: {
-        ...process.env,
-        PORT: "3001",
-        DATA_DIR: dataDir,
-        DB_DRIVER: "sqlite",
-        JWT_SECRET: process.env.JWT_SECRET || "integracore-server-secret",
-        CORS_ORIGIN: "*",
-        NODE_ENV: "production",
-      },
+      env: backendEnv,
       stdio: ["pipe", "pipe", "pipe", "ipc"],
     })
 

@@ -1,55 +1,43 @@
-import { useEffect, type ReactNode } from "react"
-import { io, Socket } from "socket.io-client"
+import { useEffect, useState, type ReactNode } from "react"
+import { io } from "socket.io-client"
 import { useQueryClient } from "@tanstack/react-query"
-import { getBackendUrl } from "@/lib/api"
-
-let socket: Socket | null = null
-
-function getSocketUrl(): string {
-  const electron = window.electronAPI
-  if (electron?.backendUrl) {
-    return electron.backendUrl
-  }
-  if (import.meta.env.DEV) {
-    return "http://localhost:3001"
-  }
-  const url = getBackendUrl()
-  if (url) return url
-  return window.location.origin
-}
-
-function getSocket(): Socket {
-  if (!socket) {
-    socket = io(getSocketUrl(), { autoConnect: true })
-  }
-  return socket
-}
+import { useAuth } from "@/contexts/AuthContext"
+import { getBackendUrl, subscribeBackendUrl } from "@/lib/api"
 
 export function SocketProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth()
   const queryClient = useQueryClient()
+  const [backendUrl, setBackendUrl] = useState(getBackendUrl())
 
   useEffect(() => {
-    const s = getSocket()
+    return subscribeBackendUrl(setBackendUrl)
+  }, [])
 
-    s.on("product:updated", () => {
+  useEffect(() => {
+    // Only connect once a user is authenticated; pass the JWT so the server
+    // accepts the socket (it rejects unauthenticated handshakes).
+    if (!user) return
+
+    const token = localStorage.getItem("token")
+    const socket = io(backendUrl, { autoConnect: true, auth: { token } })
+
+    socket.on("product:updated", () => {
       queryClient.invalidateQueries({ queryKey: ["products"] })
       queryClient.invalidateQueries({ queryKey: ["discounts"] })
     })
 
-    s.on("notification:new", () => {
+    socket.on("notification:new", () => {
       queryClient.invalidateQueries({ queryKey: ["notifications"] })
     })
 
-    s.on("db:restored", () => {
+    socket.on("db:restored", () => {
       queryClient.invalidateQueries()
     })
 
     return () => {
-      s.off("product:updated")
-      s.off("notification:new")
-      s.off("db:restored")
+      socket.disconnect()
     }
-  }, [queryClient])
+  }, [user, backendUrl, queryClient])
 
   return <>{children}</>
 }

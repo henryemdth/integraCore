@@ -18,6 +18,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { StockMovementDialog } from "@/components/products/StockMovementDialog"
 import { ImportDialog } from "@/components/products/ImportDialog"
 import { CreateDiscountDialog } from "@/components/discounts/CreateDiscountDialog"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { QueryErrorState } from "@/components/ui/query-error"
 import { Plus, MoreHorizontal, Search, PackagePlus, PackageMinus, Download, Upload, Tag, Percent, Info } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -40,6 +41,7 @@ export default function ProductListPage() {
   const [stockType, setStockType] = useState<"in" | "out">("in")
   const [importOpen, setImportOpen] = useState(false)
   const [discountProduct, setDiscountProduct] = useState<Product | null>(null)
+  const [confirmDeleteProduct, setConfirmDeleteProduct] = useState<Product | null>(null)
 
   const limit = 20
   const params = { page: String(page), limit: String(limit), sort, order, ...(search && { search }), ...(category !== "all" && { category }), ...(statusFilter !== "all" && { status: statusFilter }) }
@@ -201,7 +203,7 @@ export default function ProductListPage() {
                           <DropdownMenuItem onClick={() => navigate(`/discounts?productId=${product.id}`)}><Percent className="h-4 w-4 mr-2" />{t("discounts.history")}</DropdownMenuItem>
                           <DropdownMenuItem onClick={() => setDiscountProduct(product)}><Tag className="h-4 w-4 mr-2" />{t("discounts.createDiscount")}</DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-destructive" onClick={() => { if (confirm(t("products.confirmDelete", { name: product.name }))) deleteMutation.mutate(product.id) }}>{t("common.delete")}</DropdownMenuItem>
+                          <DropdownMenuItem className="text-destructive" onClick={() => setConfirmDeleteProduct(product)}>{t("common.delete")}</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -224,6 +226,16 @@ export default function ProductListPage() {
       <StockMovementDialog product={stockProduct} type={stockType} open={Boolean(stockProduct)} onOpenChange={(open: boolean) => { if (!open) setStockProduct(null) }} />
       <ImportDialog open={importOpen} onOpenChange={setImportOpen} />
       <CreateDiscountDialog product={discountProduct} open={Boolean(discountProduct)} onOpenChange={(open: boolean) => { if (!open) setDiscountProduct(null) }} />
+      <ConfirmDialog
+        open={confirmDeleteProduct !== null}
+        onOpenChange={(open: boolean) => { if (!open) setConfirmDeleteProduct(null) }}
+        title={t("products.confirmDeleteTitle")}
+        description={confirmDeleteProduct ? t("products.confirmDelete", { name: confirmDeleteProduct.name }) : undefined}
+        confirmLabel={t("common.delete")}
+        destructive
+        pending={deleteMutation.isPending}
+        onConfirm={() => { if (confirmDeleteProduct) { deleteMutation.mutate(confirmDeleteProduct.id); setConfirmDeleteProduct(null) } }}
+      />
     </div>
   )
 }

@@ -6,9 +6,9 @@ import type { Express } from "express";
 vi.stubEnv("DB_DRIVER", "sqlite");
 vi.stubEnv("DB_PATH", ":memory:");
 
-const { createApp } = await import("./app.js");
-const { initDatabase, getAdapter } = await import("./db/index.js");
-const { seedTestUser, seedTestProduct } = await import("./test-helper.js");
+const { createApp } = await import("../../src/app.js");
+const { initDatabase, getAdapter } = await import("../../src/db/index.js");
+const { seedTestUser, seedTestProduct } = await import("../helpers/test-helper.js");
 
 let app: Express;
 let adminToken: string;
@@ -17,7 +17,7 @@ beforeAll(async () => {
   await initDatabase();
   await seedTestUser(getAdapter(), { username: "admin", password: "password123" });
 
-  const { authService } = await import("./services/authService.js");
+  const { authService } = await import("../../src/services/authService.js");
   const login = await authService(getAdapter()).login("admin", "password123");
   adminToken = login.token;
 
@@ -46,7 +46,7 @@ describe("HTTP error handling — async gap regression (FIX.md §1)", () => {
   });
 
   it("non-admin cannot list users (403)", async () => {
-    const { authService } = await import("./services/authService.js");
+    const { authService } = await import("../../src/services/authService.js");
 
     const register = await request(app)
       .post("/api/auth/register")

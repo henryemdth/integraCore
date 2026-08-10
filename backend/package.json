@@ -9,6 +9,7 @@
     "build": "tsc",
     "bundle": "tsup",
     "start": "node dist/index.cjs",
+    "typecheck:test": "tsc -p tsconfig.test.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"

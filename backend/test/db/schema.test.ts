@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import Database from "better-sqlite3";
-import { runMigrations } from "./db/schema.js";
+import { runMigrations } from "../../src/db/schema.js";
 
 describe("schema migrations", () => {
   it("backfills legacy date-only discount ranges to full-day timestamps", () => {

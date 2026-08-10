@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { config } from "../config.js";
+import { getAdapter } from "../db/index.js";
 
 interface JwtPayload {
   id: number;
@@ -8,7 +9,7 @@ interface JwtPayload {
   role: "admin" | "user";
 }
 
-export function authenticate(req: Request, res: Response, next: NextFunction): void {
+export async function authenticate(req: Request, res: Response, next: NextFunction): Promise<void> {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -20,7 +21,26 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
 
   try {
     const decoded = jwt.verify(token, config.jwtSecret) as JwtPayload;
-    req.user = { id: decoded.id, username: decoded.username, role: decoded.role };
+
+    // Re-validate the user on every request so deactivated accounts lose
+    // access immediately and role changes apply without waiting for the
+    // 24h token to expire.
+    const db = getAdapter();
+    const user = await db.get(
+      "SELECT id, username, role, active FROM users WHERE id = ?",
+      [decoded.id]
+    ) as { id: number; username: string; role: "admin" | "user"; active: number | boolean } | undefined;
+
+    if (!user) {
+      res.status(401).json({ error: "Invalid token" });
+      return;
+    }
+    if (!user.active) {
+      res.status(401).json({ error: "Account is deactivated" });
+      return;
+    }
+
+    req.user = { id: user.id, username: user.username, role: user.role };
     next();
   } catch {
     res.status(401).json({ error: "Invalid token" });

@@ -12,10 +12,22 @@ export function dashboardService(db: DatabaseAdapter) {
     );
     const lowStockCount = lowStockRow?.total ?? 0;
 
+    // sales.created_at is stored in UTC (datetime('now') default), but the
+    // dashboard counts "today" in local wall-clock terms. Compute the UTC
+    // instants of local midnight boundaries so late-evening sales (e.g. local
+    // 22:00 in a UTC-4 timezone) land on the correct day. String params keep
+    // this driver-agnostic (Neon/Postgres default session TZ is UTC).
+    const now = new Date();
+    const localMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const fmtUtc = (d: Date) => d.toISOString().slice(0, 19).replace("T", " ");
+    const dayStart = fmtUtc(localMidnight);
+    const tomorrowStart = fmtUtc(new Date(localMidnight.getTime() + 86400000));
+
     const todaySalesRow = await db.get<{ total: number; revenue: number }>(
       `SELECT COUNT(*) as total, COALESCE(SUM(total), 0) as revenue
        FROM sales
-       WHERE date(created_at) = date('now')`
+       WHERE created_at >= ? AND created_at < ?`,
+      [dayStart, tomorrowStart]
     );
     const totalSalesToday = todaySalesRow?.total ?? 0;
     const revenueToday = todaySalesRow?.revenue ?? 0;
@@ -34,7 +46,8 @@ export function dashboardService(db: DatabaseAdapter) {
     const targetPercentage = targetAmount > 0 ? Math.min(Math.round((revenueThisMonth / targetAmount) * 100), 999) : 0;
 
     const usersRow = await db.get<{ total: number }>(
-      "SELECT COUNT(*) as total FROM users WHERE active = 1"
+      "SELECT COUNT(*) as total FROM users WHERE active = ?",
+      [true]
     );
     const totalUsers = usersRow?.total ?? 0;
 

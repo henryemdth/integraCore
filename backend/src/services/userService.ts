@@ -12,10 +12,10 @@ export function userService(db: DatabaseAdapter) {
 
     if (active === "active") {
       conditions.push("active = ?");
-      sqlParams.push(1);
+      sqlParams.push(true);
     } else if (active === "inactive") {
       conditions.push("active = ?");
-      sqlParams.push(0);
+      sqlParams.push(false);
     }
 
     const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
@@ -82,7 +82,7 @@ export function userService(db: DatabaseAdapter) {
     if (existing.role === "admin") {
       const activeAdminCount = await db.get<{ count: number }>(
         "SELECT COUNT(*) as count FROM users WHERE role = 'admin' AND active = ?",
-        [1]
+        [true]
       );
       if (activeAdminCount!.count <= 1) {
         throw new AppError(400, "Cannot deactivate the last active admin");
@@ -91,7 +91,7 @@ export function userService(db: DatabaseAdapter) {
 
     await db.run(
       "UPDATE users SET active = ?, updated_at = datetime('now') WHERE id = ?",
-      [0, id]
+      [false, id]
     );
 
     return await db.get(
@@ -106,7 +106,7 @@ export function userService(db: DatabaseAdapter) {
 
     await db.run(
       "UPDATE users SET active = ?, updated_at = datetime('now') WHERE id = ?",
-      [1, id]
+      [true, id]
     );
 
     return await db.get(

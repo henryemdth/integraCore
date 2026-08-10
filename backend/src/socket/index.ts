@@ -1,8 +1,16 @@
 import { Server as HttpServer } from "http";
 import { Server } from "socket.io";
+import jwt from "jsonwebtoken";
 import { config } from "../config.js";
+import { getAdapter } from "../db/index.js";
 
 let io: Server;
+
+interface JwtPayload {
+  id: number;
+  username: string;
+  role: "admin" | "user";
+}
 
 export function initSocket(server: HttpServer): Server {
   io = new Server(server, {
@@ -10,6 +18,29 @@ export function initSocket(server: HttpServer): Server {
       origin: config.corsOrigin,
       methods: ["GET", "POST"],
     },
+  });
+
+  // Require a valid, active user JWT before accepting any socket. Prevents
+  // unauthenticated LAN peers from connecting and receiving price/stock
+  // broadcasts.
+  io.use(async (socket, next) => {
+    const token = (socket.handshake.auth as { token?: string } | undefined)?.token;
+    if (!token) return next(new Error("Not authenticated"));
+
+    try {
+      const decoded = jwt.verify(token, config.jwtSecret) as JwtPayload;
+      const db = getAdapter();
+      const user = await db.get(
+        "SELECT id, username, role, active FROM users WHERE id = ?",
+        [decoded.id]
+      ) as { id: number; username: string; role: "admin" | "user"; active: number | boolean } | undefined;
+
+      if (!user || !user.active) return next(new Error("Not authenticated"));
+      (socket as any).data.user = { id: user.id, username: user.username, role: user.role };
+      next();
+    } catch {
+      next(new Error("Not authenticated"));
+    }
   });
 
   io.on("connection", (socket) => {

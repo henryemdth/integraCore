@@ -4,16 +4,24 @@ import type { DatabaseAdapter, RunResult } from "./adapter.js";
 export class SqliteAdapter implements DatabaseAdapter {
   constructor(private db: Database.Database) {}
 
+  // better-sqlite3 can only bind numbers, strings, bigints, buffers and null —
+  // JS booleans throw. Services pass booleans for boolean columns (e.g.
+  // `active`) so Postgres works; normalize here so SQLite accepts them too.
+  private normalizeParams(params?: any[]): any[] {
+    if (!params) return [];
+    return params.map((p) => (typeof p === "boolean" ? (p ? 1 : 0) : p));
+  }
+
   async get<T = any>(sql: string, params?: any[]): Promise<T | undefined> {
-    return this.db.prepare(sql).get(...(params ?? [])) as T | undefined;
+    return this.db.prepare(sql).get(...this.normalizeParams(params)) as T | undefined;
   }
 
   async all<T = any>(sql: string, params?: any[]): Promise<T[]> {
-    return this.db.prepare(sql).all(...(params ?? [])) as T[];
+    return this.db.prepare(sql).all(...this.normalizeParams(params)) as T[];
   }
 
   async run(sql: string, params?: any[]): Promise<RunResult> {
-    const result = this.db.prepare(sql).run(...(params ?? []));
+    const result = this.db.prepare(sql).run(...this.normalizeParams(params));
     return {
       insertId: Number(result.lastInsertRowid),
       changes: result.changes,

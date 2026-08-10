@@ -1,8 +1,8 @@
 import Database from "better-sqlite3";
-import { SqliteAdapter } from "./db/sqlite.js";
-import { runMigrations } from "./db/schema.js";
+import { SqliteAdapter } from "../../src/db/sqlite.js";
+import { runMigrations } from "../../src/db/schema.js";
 import bcrypt from "bcryptjs";
-import type { DatabaseAdapter } from "./db/adapter.js";
+import type { DatabaseAdapter } from "../../src/db/adapter.js";
 
 export function createTestDb(): { db: SqliteAdapter; raw: Database.Database } {
   const raw = new Database(":memory:");
