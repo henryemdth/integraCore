@@ -1,4 +1,5 @@
 import axios from "axios"
+import { goToLogin } from "./navigation"
 
 declare global {
   interface Window {
@@ -65,7 +66,7 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem("token")
-      window.location.hash = "/login"
+      goToLogin()
     }
     return Promise.reject(error)
   }

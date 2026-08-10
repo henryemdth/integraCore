@@ -7,6 +7,9 @@ export default defineConfig(({ mode }) => {
 
   const env = loadEnv(mode, process.cwd(), "");
   const BACKEND_URL = env.VITE_BACKEND_URL || "http://localhost:3001";
+  // "./" is required for the packaged Electron file:// load. Web/cloud builds
+  // set VITE_BASE=/ so absolute asset paths survive BrowserRouter deep links.
+  const base = env.VITE_BASE || "./";
 
   // Strict CSP injected only into the production bundle. Skipped in dev
   // because @vitejs/plugin-react injects an inline react-refresh preamble
@@ -33,7 +36,7 @@ export default defineConfig(({ mode }) => {
         "@": path.resolve(__dirname, "src"),
       },
     },
-    base: "./",
+    base,
     server: {
       port: 5173,
       proxy: {
