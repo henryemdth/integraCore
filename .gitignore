@@ -9,6 +9,7 @@ data/
 MEMORY.md
 DESIGN.md
 coverage/
+*.tsbuildinfo
 
 .roo
 

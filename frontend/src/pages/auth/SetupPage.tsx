@@ -12,7 +12,7 @@ import { AuthLayout } from "@/components/auth/AuthLayout"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Loader2, Upload } from "lucide-react"
 
-type SetupMode = "choose" | "start-fresh" | "restore"
+type SetupMode = "choose" | "start-fresh"
 
 export default function SetupPage() {
   const [mode, setMode] = useState<SetupMode>("choose")
@@ -77,7 +77,7 @@ export default function SetupPage() {
     try {
       const buf = await file.arrayBuffer()
       const base64 = btoa(new Uint8Array(buf).reduce((data, byte) => data + String.fromCharCode(byte), ""))
-      await api.post("/api/backup/restore", { file: base64 })
+      await api.post("/api/backup/restore", { file: base64 }, { timeout: 60000 })
       const status = await api.get("/api/auth/setup-status")
       if (status.data.needsSetup) {
         setMode("start-fresh")
@@ -101,9 +101,9 @@ export default function SetupPage() {
     )
   }
 
-  if (mode === "choose") {
-    return (
-      <AuthLayout>
+  return (
+    <AuthLayout>
+      {mode === "choose" && (
         <Card className="border-0 shadow-none lg:border lg:shadow-subtle">
           <CardHeader>
             <CardTitle className="text-headline-md">{t("auth.createAdmin")}</CardTitle>
@@ -159,109 +159,88 @@ export default function SetupPage() {
             )}
           </CardContent>
         </Card>
-      </AuthLayout>
-    )
-  }
+      )}
 
-  if (mode === "restore") {
-    return (
-      <AuthLayout>
+      {mode === "start-fresh" && (
         <Card className="border-0 shadow-none lg:border lg:shadow-subtle">
-          <CardContent className="pt-6 space-y-4">
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            <p className="text-body-sm text-muted-foreground">{t("auth.fallbackToFresh")}</p>
-            <Button onClick={() => setMode("start-fresh")} className="w-full">
-              {t("auth.createAdmin")}
-            </Button>
+          <CardHeader>
+            <CardTitle className="text-headline-md">{t("auth.createAdmin")}</CardTitle>
+            <CardDescription>{t("auth.setupDesc")}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="fullName" className="text-label-caps">{t("auth.fullName")}</Label>
+                <Input
+                  id="fullName"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder={t("auth.fullName")}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="username" className="text-label-caps">{t("auth.username")}</Label>
+                <Input
+                  id="username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder={t("users.create.min3chars")}
+                  required
+                  minLength={3}
+                  autoComplete="username"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-label-caps">{t("auth.password")}</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={t("users.create.min6chars")}
+                  required
+                  minLength={6}
+                  autoComplete="new-password"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword" className="text-label-caps">{t("auth.confirmPassword")}</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder={t("auth.confirmPassword")}
+                  required
+                  minLength={6}
+                  autoComplete="new-password"
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                {loading ? t("auth.creatingAccount") : t("auth.createAdmin")}
+              </Button>
+            </form>
           </CardContent>
         </Card>
-      </AuthLayout>
-    )
-  }
+      )}
 
-  return (
-    <AuthLayout>
-      <Card className="border-0 shadow-none lg:border lg:shadow-subtle">
-        <CardHeader>
-          <CardTitle className="text-headline-md">{t("auth.createAdmin")}</CardTitle>
-          <CardDescription>{t("auth.setupDesc")}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="fullName" className="text-label-caps">{t("auth.fullName")}</Label>
-              <Input
-                id="fullName"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder={t("auth.fullName")}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="username" className="text-label-caps">{t("auth.username")}</Label>
-              <Input
-                id="username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder={t("users.create.min3chars")}
-                required
-                minLength={3}
-                autoComplete="username"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-label-caps">{t("auth.password")}</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder={t("users.create.min6chars")}
-                required
-                minLength={6}
-                autoComplete="new-password"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword" className="text-label-caps">{t("auth.confirmPassword")}</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder={t("auth.confirmPassword")}
-                required
-                minLength={6}
-                autoComplete="new-password"
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              {loading ? t("auth.creatingAccount") : t("auth.createAdmin")}
-            </Button>
-          </form>
-          </CardContent>
-        </Card>
-        <ConfirmDialog
-          open={pendingRestoreFile !== null}
-          onOpenChange={(open: boolean) => { if (!open) setPendingRestoreFile(null) }}
-          title={t("settings.backup.confirmRestoreTitle")}
-          description={t("settings.backup.confirmRestore")}
-          confirmLabel={t("settings.backup.restoreBtn")}
-          destructive
-          pending={restoreLoading}
-          onConfirm={() => { const file = pendingRestoreFile; setPendingRestoreFile(null); if (file) handleRestore(file) }}
-        />
-      </AuthLayout>
-    )
-  }
+      <ConfirmDialog
+        open={pendingRestoreFile !== null}
+        onOpenChange={(open: boolean) => { if (!open) setPendingRestoreFile(null) }}
+        title={t("settings.backup.confirmRestoreTitle")}
+        description={t("settings.backup.confirmRestore")}
+        confirmLabel={t("settings.backup.restoreBtn")}
+        destructive
+        pending={restoreLoading}
+        onConfirm={() => { const file = pendingRestoreFile; setPendingRestoreFile(null); if (file) handleRestore(file) }}
+      />
+    </AuthLayout>
+  )
+}

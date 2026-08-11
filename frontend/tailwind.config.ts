@@ -39,9 +39,6 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        // action: {
-        //   blue: "hsl(var(--action-blue))",
-        // },
         success: {
           DEFAULT: "hsl(var(--success-green))",
           foreground: "hsl(0 0% 100%)",
@@ -92,7 +89,6 @@ const config: Config = {
         "body-md": ["0.875rem", { lineHeight: "1.25rem" }],
         "body-sm": ["0.75rem", { lineHeight: "1rem" }],
         "data-lg": ["1.125rem", { lineHeight: "1.5rem", fontWeight: "600" }],
-        "data-md": ["0.875rem", { lineHeight: "1.25rem", fontWeight: "500" }],
         "label-caps": ["0.6875rem", { lineHeight: "1rem", fontWeight: "700", letterSpacing: "0.05em" }],
       },
       boxShadow: {

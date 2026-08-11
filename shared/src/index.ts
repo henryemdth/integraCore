@@ -42,6 +42,19 @@ export function nextDayDateString(dateStr: string): string {
   return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
 }
 
+export function formatDateString(dateStr: string): string {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  
+  if (isNaN(d.getTime())) return "";
+
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+
+  return `${day}/${month}/${year}`;
+}
+
 // ─── Entity Interfaces ────────────────────────────────────────────────
 
 export interface User {
@@ -70,7 +83,7 @@ export interface Product {
   discount_end_date?: string | null;
 }
 
-export interface SaleItemDetail {
+interface SaleItemDetail {
   id: number;
   product_id: number;
   product_name: string;

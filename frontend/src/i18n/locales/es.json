@@ -33,7 +33,6 @@
     "startFresh": "Empezar desde cero — Crear cuenta admin",
     "restoreFromBackup": "Restaurar desde respaldo",
     "restoring": "Restaurando respaldo...",
-    "fallbackToFresh": "La base de datos restaurada no tenía usuarios. Debes crear una cuenta de administrador para continuar.",
     "brandTitle": "Gestión de Inventario y Ventas",
     "brandDesc": "Administra tus productos, registra ventas y monitorea el rendimiento de tu negocio — todo en un solo lugar."
   },
@@ -203,6 +202,7 @@
       "roleSeller": "Vendedor",
       "roleAdmin": "Administrador",
       "created": "Usuario creado",
+      "creating": "Creando...",
       "failedCreate": "Error al crear usuario"
     },
     "edit": {
@@ -210,7 +210,11 @@
       "desc": "Actualiza los datos de {{username}}",
       "selfRoleHint": "No puedes cambiar tu propio rol",
       "saved": "Usuario actualizado",
+      "saving": "Guardando...",
       "failedSave": "Error al actualizar usuario"
+    },
+    "auth": {
+      "password": "Contraseña"
     },
     "resetPwd": {
       "title": "Restablecer contraseña",
@@ -294,14 +298,7 @@
   },
   "layout": {
     "changePassword": "Cambiar contraseña",
-    "logout": "Cerrar sesión",
-    "nav": {
-      "dashboard": "Panel",
-      "products": "Productos",
-      "sales": "Ventas",
-      "users": "Usuarios",
-      "settings": "Configuración"
-    }
+    "logout": "Cerrar sesión"
   },
   "dashboard": {
     "welcome": "Bienvenido, {{name}}",

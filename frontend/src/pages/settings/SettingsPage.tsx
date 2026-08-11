@@ -59,9 +59,15 @@ export default function SettingsPage() {
     try {
       const buf = await file.arrayBuffer()
       const base64 = btoa(new Uint8Array(buf).reduce((data, byte) => data + String.fromCharCode(byte), ""))
-      await api.post("/api/backup/restore", { file: base64 })
+      await api.post("/api/backup/restore", { file: base64 }, { timeout: 60000 })
       toast.success(t("settings.backup.restoreSuccess"))
-      queryClient.invalidateQueries()
+      // The restored DB may have different users/roles/passwords — always
+      // require re-authentication against the restored data, regardless of
+      // whether the current user id happens to still exist.
+      localStorage.removeItem("token")
+      // Everything may have changed (users, prices, sales): a full reload is the
+      // only safe state. Without a token the app redirects to /login.
+      setTimeout(() => window.location.reload(), 1500)
     } catch (err: any) {
       toast.error(err.response?.data?.error || t("settings.backup.failedRestore"))
     } finally {

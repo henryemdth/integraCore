@@ -9,7 +9,6 @@ publish:
 
 directories:
   output: dist-server
-  buildResources: build
 
 files:
   - dist/main/server.js
@@ -42,7 +41,6 @@ win:
     - target: nsis
       arch:
         - x64
-  icon: build/icon.ico
 
 nsis:
   oneClick: false

@@ -18,7 +18,10 @@ export function createApp() {
   const app = express();
 
   app.use(cors({ origin: config.corsOrigin }))
-  app.use(express.json({ limit: "10mb" }))
+  // Backup/restore and product import send the file as base64 in JSON, which
+  // inflates the payload ~33%. Keep the limit generous so a real business DB
+  // can be restored without hitting a 413.
+  app.use(express.json({ limit: "50mb" }))
 
   app.get("/api/health", (_req, res) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() })

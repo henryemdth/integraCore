@@ -52,7 +52,6 @@
     --ring: 217 90% 60%;
     --radius: 0.5rem;
 
-    --action-blue: 217 90% 60%;
     --success-green: 154 100% 21%;
     --warning-amber: 33 100% 50%;
     --error-crimson: 0 83% 41%;
@@ -66,9 +65,6 @@
     --surface-variant: 220 80% 92%;
 
     --font-data: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
-
-    --skeleton-from: 228 55% 93%;
-    --skeleton-to: 228 65% 92%;
   }
 }
 

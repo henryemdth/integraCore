@@ -3,6 +3,8 @@ import path from "path"
 import { fork, ChildProcess } from "child_process"
 
 let backendProcess: ChildProcess | null = null
+let stopping = false
+let restartAttempts = 0
 
 function getResourcesPath(): string {
   if (app.isPackaged) {
@@ -62,12 +64,16 @@ async function startBackend(): Promise<void> {
 
     backendProcess.on("error", (err) => {
       console.error("[backend] Failed to start:", err)
+      backendProcess = null
       reject(err)
     })
 
     backendProcess.on("exit", (code) => {
       console.log(`[backend] Exited with code ${code}`)
       backendProcess = null
+      // A failed backend (e.g. a DB operation gone wrong mid-restore) must not
+      // leave the app dead-silent: restart it with backoff.
+      if (!stopping) scheduleBackendRestart()
     })
 
     const maxRetries = 30
@@ -103,7 +109,24 @@ async function startBackend(): Promise<void> {
   })
 }
 
+function scheduleBackendRestart(): void {
+  const delay = Math.min(1000 * Math.pow(2, restartAttempts), 30000)
+  restartAttempts++
+  console.log(`[server] Restarting backend in ${delay}ms (attempt ${restartAttempts})`)
+  setTimeout(async () => {
+    if (stopping) return
+    try {
+      await startBackend()
+      restartAttempts = 0
+      console.log("[server] Backend restarted and ready")
+    } catch (err) {
+      console.error("[server] Backend restart failed, will retry:", err)
+    }
+  }, delay)
+}
+
 function stopBackend(): void {
+  stopping = true
   if (backendProcess) {
     backendProcess.kill("SIGTERM")
     setTimeout(() => {
@@ -137,12 +160,15 @@ async function createWindow(): Promise<void> {
 
 app.whenReady().then(async () => {
   if (app.isPackaged) {
-    try {
-      await startBackend()
-      console.log("[server] Backend is ready")
-    } catch (err) {
-      console.error("[server] Failed to start backend:", err)
-    }
+    startBackend()
+      .then(() => {
+        restartAttempts = 0
+        console.log("[server] Backend is ready")
+      })
+      .catch((err) => {
+        console.error("[server] Failed to start backend:", err)
+        scheduleBackendRestart()
+      })
   } else {
     console.log("[server] Dev mode: using external backend on http://localhost:3001")
   }

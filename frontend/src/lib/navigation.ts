@@ -7,7 +7,7 @@ export function setNavigateFn(fn: (path: string) => void): void {
   navigateFn = fn
 }
 
-export function navigate(path: string): void {
+function navigate(path: string): void {
   if (navigateFn) {
     navigateFn(path)
   } else {
