@@ -47,7 +47,7 @@ export function dashboardService(db: DatabaseAdapter) {
 
     const usersRow = await db.get<{ total: number }>(
       "SELECT COUNT(*) as total FROM users WHERE active = ?",
-      [true]
+      [1]
     );
     const totalUsers = usersRow?.total ?? 0;
 
