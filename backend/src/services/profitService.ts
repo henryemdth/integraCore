@@ -1,4 +1,5 @@
 import type { DatabaseAdapter } from "../db/adapter.js";
+import { nowString } from "@integracore/shared";
 import { emitNotification } from "../socket/index.js";
 
 export function profitService(db: DatabaseAdapter) {
@@ -63,9 +64,13 @@ export function profitService(db: DatabaseAdapter) {
   }
 
   async function createNotification(type: string, message: string) {
+    // Explicit local wall-clock timestamp (same convention as discount
+    // ranges) instead of the column's datetime('now') UTC default — day-based
+    // dedup queries compare against local calendar days, and PG display would
+    // otherwise render UTC times as if they were local.
     const result = await db.run(
-      "INSERT INTO notifications (type, message) VALUES (?, ?)",
-      [type, message]
+      "INSERT INTO notifications (type, message, created_at) VALUES (?, ?, ?)",
+      [type, message, nowString()]
     );
 
     const notification = {

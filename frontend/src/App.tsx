@@ -41,9 +41,13 @@ export default function App() {
               <Route path="/products/new" element={<ProductFormPage />} />
               <Route path="/products/:id/edit" element={<ProductFormPage />} />
               <Route path="/sales" element={<SalesListPage />} />
-              <Route path="/discounts" element={<DiscountHistoryPage />} />
-              <Route path="/users" element={<UserListPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
+            </Route>
+            <Route element={<AuthGuard roles={["admin"]} />}>
+              <Route element={<Layout />}>
+                <Route path="/discounts" element={<DiscountHistoryPage />} />
+                <Route path="/users" element={<UserListPage />} />
+                <Route path="/settings" element={<SettingsPage />} />
+              </Route>
             </Route>
           </Route>
           <Route path="*" element={<NotFoundPage />} />

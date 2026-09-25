@@ -1,6 +1,6 @@
 import type { DatabaseAdapter } from "../db/adapter.js";
 import ExcelJS from "exceljs";
-import { AppError } from "./authService.js";
+import { AppError } from "../utils/appError.js";
 import { emitProductUpdated } from "../socket/index.js";
 import { nowString } from "@integracore/shared";
 
@@ -158,9 +158,9 @@ export function productService(db: DatabaseAdapter) {
     await workbook.xlsx.load(buffer as any);
     const sheet = workbook.getWorksheet(1);
 
-    if (!sheet) throw new AppError(400, "No worksheet found in Excel file");
+    if (!sheet) throw new AppError(400, "No worksheet found in Excel file", "NO_WORKSHEET");
 
-    const errors: { row: number; sku: string; error: string }[] = [];
+    const errors: { row: number; sku: string; error: string; code?: string }[] = [];
     let imported = 0;
     const seenSkus = new Set<string>();
 
@@ -179,15 +179,15 @@ export function productService(db: DatabaseAdapter) {
       const lowStockThreshold = parseInt(String(row.getCell(7).value || "5"), 10);
       const status = String(row.getCell(8).value || "active").trim().toLowerCase();
 
-      if (!name) { errors.push({ row: rowNumber, sku: sku || "N/A", error: "Missing required field: name" }); continue; }
-      if (!sku) { errors.push({ row: rowNumber, sku: "N/A", error: "Missing required field: sku" }); continue; }
-      if (isNaN(price) || price < 0) { errors.push({ row: rowNumber, sku, error: "Invalid price" }); continue; }
-      if (isNaN(sellPrice) || sellPrice < 0) { errors.push({ row: rowNumber, sku, error: "Invalid sell price" }); continue; }
-      if (seenSkus.has(sku)) { errors.push({ row: rowNumber, sku, error: "Duplicate SKU in file" }); continue; }
-      if (status !== "active" && status !== "discontinued") { errors.push({ row: rowNumber, sku, error: "Invalid status (must be 'active' or 'discontinued')" }); continue; }
+      if (!name) { errors.push({ row: rowNumber, sku: sku || "N/A", error: "Missing required field: name", code: "MISSING_NAME" }); continue; }
+      if (!sku) { errors.push({ row: rowNumber, sku: "N/A", error: "Missing required field: sku", code: "MISSING_SKU" }); continue; }
+      if (isNaN(price) || price < 0) { errors.push({ row: rowNumber, sku, error: "Invalid price", code: "INVALID_PRICE" }); continue; }
+      if (isNaN(sellPrice) || sellPrice < 0) { errors.push({ row: rowNumber, sku, error: "Invalid sell price", code: "INVALID_SELL_PRICE" }); continue; }
+      if (seenSkus.has(sku)) { errors.push({ row: rowNumber, sku, error: "Duplicate SKU in file", code: "DUPLICATE_SKU_FILE" }); continue; }
+      if (status !== "active" && status !== "discontinued") { errors.push({ row: rowNumber, sku, error: "Invalid status (must be 'active' or 'discontinued')", code: "INVALID_STATUS" }); continue; }
 
       const existing = await db.get("SELECT id FROM products WHERE sku = ?", [sku]);
-      if (existing) { errors.push({ row: rowNumber, sku, error: "SKU already exists in database" }); continue; }
+      if (existing) { errors.push({ row: rowNumber, sku, error: "SKU already exists in database", code: "SKU_EXISTS_DB" }); continue; }
 
       seenSkus.add(sku);
       await db.run(
@@ -202,7 +202,7 @@ export function productService(db: DatabaseAdapter) {
 
   async function create(data: { name: string; sku: string; category: string; price: number; sell_price: number; stock: number; low_stock_threshold: number; status?: string }) {
     const existing = await db.get("SELECT id FROM products WHERE sku = ?", [data.sku]);
-    if (existing) throw new AppError(409, "SKU already exists");
+    if (existing) throw new AppError(409, "SKU already exists", "SKU_EXISTS");
 
     const status = data.status || "active";
 
@@ -223,11 +223,11 @@ export function productService(db: DatabaseAdapter) {
 
   async function update(id: number, data: { name?: string; sku?: string; category?: string; price?: number; sell_price?: number; stock?: number; low_stock_threshold?: number; status?: string }) {
     const existing = await db.get("SELECT * FROM products WHERE id = ?", [id]) as any;
-    if (!existing) throw new AppError(404, "Product not found");
+    if (!existing) throw new AppError(404, "Product not found", "PRODUCT_NOT_FOUND");
 
     if (data.sku && data.sku !== existing.sku) {
       const skuExists = await db.get("SELECT id FROM products WHERE sku = ? AND id != ?", [data.sku, id]);
-      if (skuExists) throw new AppError(409, "SKU already exists");
+      if (skuExists) throw new AppError(409, "SKU already exists", "SKU_EXISTS");
     }
 
     await db.run(
@@ -260,10 +260,10 @@ export function productService(db: DatabaseAdapter) {
 
   async function remove(id: number) {
     const existing = await db.get("SELECT * FROM products WHERE id = ?", [id]) as any;
-    if (!existing) throw new AppError(404, "Product not found");
+    if (!existing) throw new AppError(404, "Product not found", "PRODUCT_NOT_FOUND");
 
     const hasSales = await db.get<{ count: number }>("SELECT COUNT(*) as count FROM sale_items WHERE product_id = ?", [id]);
-    if (hasSales!.count > 0) throw new AppError(409, "Cannot delete product with existing sales");
+    if (hasSales!.count > 0) throw new AppError(409, "Cannot delete product with existing sales", "PRODUCT_HAS_SALES");
 
     await db.run("DELETE FROM products WHERE id = ?", [id]);
     return { success: true };
@@ -271,7 +271,7 @@ export function productService(db: DatabaseAdapter) {
 
   async function stockIn(id: number, quantity: number) {
     const product = await db.get("SELECT * FROM products WHERE id = ?", [id]) as any;
-    if (!product) throw new AppError(404, "Product not found");
+    if (!product) throw new AppError(404, "Product not found", "PRODUCT_NOT_FOUND");
 
     await db.run(
       "UPDATE products SET stock = stock + ?, updated_at = datetime('now') WHERE id = ?",
@@ -290,10 +290,10 @@ export function productService(db: DatabaseAdapter) {
 
   async function stockOut(id: number, quantity: number) {
     const product = await db.get("SELECT * FROM products WHERE id = ?", [id]) as any;
-    if (!product) throw new AppError(404, "Product not found");
+    if (!product) throw new AppError(404, "Product not found", "PRODUCT_NOT_FOUND");
 
     if (product.stock < quantity) {
-      throw new AppError(400, `Insufficient stock: available ${product.stock}, requested ${quantity}`);
+      throw new AppError(400, `Insufficient stock for "${product.name}": available ${product.stock}, requested ${quantity}`, "INSUFFICIENT_STOCK", { name: product.name, available: product.stock, requested: quantity });
     }
 
     await db.run(

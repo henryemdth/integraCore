@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Loader2 } from "lucide-react"
+import { getErrorMessage } from "@/lib/errorMessages"
 
 interface CreateUserDialogProps {
   open: boolean
@@ -35,7 +36,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
       setUsername(""); setFullName(""); setPassword(""); setRole("user")
       onOpenChange(false)
     },
-    onError: (err: any) => setError(err.response?.data?.error || t("users.create.failedCreate")),
+    onError: (err: any) => setError(getErrorMessage(err, "users.create.failedCreate")),
   })
 
   return (

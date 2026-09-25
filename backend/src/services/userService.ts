@@ -1,6 +1,6 @@
 import type { DatabaseAdapter } from "../db/adapter.js";
 import bcrypt from "bcryptjs";
-import { AppError } from "./authService.js";
+import { AppError } from "../utils/appError.js";
 
 export function userService(db: DatabaseAdapter) {
   async function list(params: { page: number; limit: number; active?: string }) {
@@ -40,20 +40,20 @@ export function userService(db: DatabaseAdapter) {
       "SELECT id, username, full_name, role, active, created_at, updated_at FROM users WHERE id = ?",
       [id]
     );
-    if (!user) throw new AppError(404, "User not found");
+    if (!user) throw new AppError(404, "User not found", "USER_NOT_FOUND");
     return user;
   }
 
   async function update(id: number, data: { full_name?: string; role?: string }, requesterId: number) {
     const existing = await db.get("SELECT * FROM users WHERE id = ?", [id]) as any;
-    if (!existing) throw new AppError(404, "User not found");
+    if (!existing) throw new AppError(404, "User not found", "USER_NOT_FOUND");
 
     if (Number(id) === requesterId && data.role && data.role !== existing.role) {
-      throw new AppError(400, "Cannot change your own role");
+      throw new AppError(400, "Cannot change your own role", "CANNOT_CHANGE_OWN_ROLE");
     }
 
     if (data.role && data.role !== "admin" && data.role !== "user") {
-      throw new AppError(400, "Role must be 'admin' or 'user'");
+      throw new AppError(400, "Role must be 'admin' or 'user'", "ROLE_INVALID");
     }
 
     await db.run(
@@ -73,10 +73,10 @@ export function userService(db: DatabaseAdapter) {
 
   async function deactivate(id: number, requesterId: number) {
     const existing = await db.get("SELECT * FROM users WHERE id = ?", [id]) as any;
-    if (!existing) throw new AppError(404, "User not found");
+    if (!existing) throw new AppError(404, "User not found", "USER_NOT_FOUND");
 
     if (Number(id) === requesterId) {
-      throw new AppError(400, "Cannot deactivate your own account");
+      throw new AppError(400, "Cannot deactivate your own account", "CANNOT_DEACTIVATE_SELF");
     }
 
     if (existing.role === "admin") {
@@ -85,7 +85,7 @@ export function userService(db: DatabaseAdapter) {
         [1]
       );
       if (activeAdminCount!.count <= 1) {
-        throw new AppError(400, "Cannot deactivate the last active admin");
+        throw new AppError(400, "Cannot deactivate the last active admin", "LAST_ACTIVE_ADMIN");
       }
     }
 
@@ -102,7 +102,7 @@ export function userService(db: DatabaseAdapter) {
 
   async function activate(id: number) {
     const existing = await db.get("SELECT id FROM users WHERE id = ?", [id]);
-    if (!existing) throw new AppError(404, "User not found");
+    if (!existing) throw new AppError(404, "User not found", "USER_NOT_FOUND");
 
     await db.run(
       "UPDATE users SET active = ?, updated_at = datetime('now') WHERE id = ?",
@@ -117,7 +117,7 @@ export function userService(db: DatabaseAdapter) {
 
   async function resetPassword(id: number, password: string) {
     const existing = await db.get("SELECT id FROM users WHERE id = ?", [id]);
-    if (!existing) throw new AppError(404, "User not found");
+    if (!existing) throw new AppError(404, "User not found", "USER_NOT_FOUND");
 
     const passwordHash = bcrypt.hashSync(password, 10);
     await db.run(

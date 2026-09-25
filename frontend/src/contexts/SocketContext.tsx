@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext"
 import { getBackendUrl, subscribeBackendUrl } from "@/lib/api"
 
 export function SocketProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth()
+  const { user, logout } = useAuth()
   const queryClient = useQueryClient()
   const [backendUrl, setBackendUrl] = useState(getBackendUrl())
 
@@ -34,10 +34,18 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       queryClient.invalidateQueries()
     })
 
+    // Server rejected the handshake JWT (expired token, deactivated account):
+    // the API 401 path only triggers on requests, so end the session here too.
+    socket.on("connect_error", (err) => {
+      if (err.message === "Not authenticated") {
+        logout()
+      }
+    })
+
     return () => {
       socket.disconnect()
     }
-  }, [user, backendUrl, queryClient])
+  }, [user, backendUrl, queryClient, logout])
 
   return <>{children}</>
 }

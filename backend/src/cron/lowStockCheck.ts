@@ -2,7 +2,7 @@ import cron from "node-cron";
 import type { DatabaseAdapter } from "../db/adapter.js";
 import { productService } from "../services/productService.js";
 import { profitService } from "../services/profitService.js";
-import { todayDateString } from "@integracore/shared";
+import { nextDayDateString, startOfDay, todayDateString } from "@integracore/shared";
 
 export function startLowStockCron(db: DatabaseAdapter) {
   cron.schedule("0 0 * * *", async () => {
@@ -18,12 +18,13 @@ export function startLowStockCron(db: DatabaseAdapter) {
 
 export async function runLowStockCheck(db: DatabaseAdapter) {
   const svc = profitService(db);
-  // One alert per day: date(created_at) = ? works on both SQLite (TEXT) and
-  // Postgres (TIMESTAMP). Param injection avoids driver-specific datetime
-  // functions that PostgresAdapter doesn't translate.
+  // One alert per local calendar day: half-open [today 00:00, tomorrow 00:00)
+  // window against created_at, which createNotification stores as a local
+  // wall-clock string. Plain string/TIMESTAMP comparison works identically on
+  // SQLite TEXT and Postgres TIMESTAMP — no driver-specific date() function.
   const existing = await db.get(
-    "SELECT 1 FROM notifications WHERE type = 'low_stock' AND date(created_at) = ? LIMIT 1",
-    [todayDateString()]
+    "SELECT 1 FROM notifications WHERE type = 'low_stock' AND created_at >= ? AND created_at < ? LIMIT 1",
+    [startOfDay(todayDateString()), startOfDay(nextDayDateString(todayDateString()))]
   );
   if (existing) return;
 

@@ -1,6 +1,7 @@
 import pg from "pg";
 import type { DatabaseAdapter, RunResult } from "./adapter.js";
-import { convertDatetimeFunctions, addReturningIfNeeded } from "./postgres-query-transform.js";
+import { convertDatetimeFunctions, convertLikeToIlike, addReturningIfNeeded } from "./postgres-query-transform.js";
+import { normalizeRowDates, normalizeRowDatesAll } from "./postgres-row-normalize.js";
 
 export class PostgresAdapter implements DatabaseAdapter {
   private pool: pg.Pool;
@@ -12,6 +13,7 @@ export class PostgresAdapter implements DatabaseAdapter {
     user: string;
     password: string;
     ssl: boolean;
+    sslRejectUnauthorized?: boolean;
   }) {
     this.pool = new pg.Pool({
       host: config.host,
@@ -19,7 +21,7 @@ export class PostgresAdapter implements DatabaseAdapter {
       database: config.database,
       user: config.user,
       password: config.password,
-      ssl: config.ssl ? { rejectUnauthorized: false } : false,
+      ssl: config.ssl ? { rejectUnauthorized: config.sslRejectUnauthorized ?? true } : false,
       max: 10,
     });
   }
@@ -31,17 +33,17 @@ export class PostgresAdapter implements DatabaseAdapter {
   private createTxAdapter(client: pg.PoolClient): DatabaseAdapter {
     return {
       async get<T = any>(sql: string, params?: any[]): Promise<T | undefined> {
-        const q = convertDatetimeFunctions(sql);
+        const q = convertLikeToIlike(convertDatetimeFunctions(sql));
         const result = await client.query(q, params);
-        return result.rows[0] as T | undefined;
+        return result.rows[0] === undefined ? undefined : (normalizeRowDates(result.rows[0]) as T);
       },
       async all<T = any>(sql: string, params?: any[]): Promise<T[]> {
-        const q = convertDatetimeFunctions(sql);
+        const q = convertLikeToIlike(convertDatetimeFunctions(sql));
         const result = await client.query(q, params);
-        return result.rows as T[];
+        return normalizeRowDatesAll(result.rows) as T[];
       },
       async run(sql: string, params?: any[]): Promise<RunResult> {
-        let q = convertDatetimeFunctions(sql);
+        let q = convertLikeToIlike(convertDatetimeFunctions(sql));
         q = addReturningIfNeeded(q);
         const result = await client.query(q, params);
         return {
@@ -65,19 +67,19 @@ export class PostgresAdapter implements DatabaseAdapter {
   }
 
   async get<T = any>(sql: string, params?: any[]): Promise<T | undefined> {
-    const pgSql = convertDatetimeFunctions(sql);
+    const pgSql = convertLikeToIlike(convertDatetimeFunctions(sql));
     const result = await this.pool.query(pgSql, params);
-    return result.rows[0] as T | undefined;
+    return result.rows[0] === undefined ? undefined : (normalizeRowDates(result.rows[0]) as T);
   }
 
   async all<T = any>(sql: string, params?: any[]): Promise<T[]> {
-    const pgSql = convertDatetimeFunctions(sql);
+    const pgSql = convertLikeToIlike(convertDatetimeFunctions(sql));
     const result = await this.pool.query(pgSql, params);
-    return result.rows as T[];
+    return normalizeRowDatesAll(result.rows) as T[];
   }
 
   async run(sql: string, params?: any[]): Promise<RunResult> {
-    let pgSql = convertDatetimeFunctions(sql);
+    let pgSql = convertLikeToIlike(convertDatetimeFunctions(sql));
     pgSql = addReturningIfNeeded(pgSql);
     const result = await this.pool.query(pgSql, params);
     return {

@@ -14,7 +14,10 @@
     "back": "Back",
     "previous": "Previous",
     "next": "Next",
-    "actions": "Actions"
+    "actions": "Actions",
+    "search": "Search…",
+    "noMatches": "No matches",
+    "clearFilter": "Clear filter"
   },
   "auth": {
     "signIn": "Sign In",
@@ -90,7 +93,7 @@
     "stockMovement": {
       "stockInTitle": "Stock In",
       "stockOutTitle": "Stock Out",
-      "currentStock": "SKU: {{sku}} | Current stock: {{stock}}",
+      "currentStock": "Current stock: {{stock}}",
       "quantity": "Quantity *",
       "notes": "Notes",
       "inPlaceholder": "Enter quantity to add",
@@ -375,6 +378,53 @@
     "cancelled": "Cancelled",
     "cancelSuccess": "Discount cancelled",
     "cancelFailed": "Failed to cancel discount",
-    "status": "Status"
+    "status": "Status",
+    "priceInvalid": "Discounted price must be greater than or equal to 0",
+    "startDateRequired": "Start date is required",
+    "endDateRequired": "End date is required",
+    "dateOrder": "Start date must be on or before end date"
+  },
+  "errors": {
+    "invalidCredentials": "Invalid credentials",
+    "accountDeactivated": "This account is deactivated",
+    "usernameExists": "Username already exists",
+    "setupAlreadyCompleted": "Setup has already been completed",
+    "currentPasswordIncorrect": "Current password is incorrect",
+    "rateLimited": "Too many attempts, please try again later",
+    "insufficientPermissions": "You don't have permission to do that",
+    "validationFailed": "Please check the entered values",
+    "noFile": "No file was provided",
+    "invalidId": "Invalid identifier",
+    "userNotFound": "User not found",
+    "cannotChangeOwnRole": "You can't change your own role",
+    "cannotDeactivateSelf": "You can't deactivate your own account",
+    "lastActiveAdmin": "Can't deactivate the last active admin",
+    "roleInvalid": "Role must be admin or user",
+    "productNotFound": "Product not found",
+    "skuExists": "This SKU already exists",
+    "productHasSales": "This product can't be deleted because it has registered sales",
+    "insufficientStock": "Insufficient stock for \"{{name}}\": available {{available}}, requested {{requested}}",
+    "productDiscontinued": "Can't sell discontinued product \"{{name}}\"",
+    "noWorksheet": "No worksheet found in the Excel file",
+    "saleNotFound": "Sale not found",
+    "discountNotFound": "Discount not found",
+    "discountAlreadyCancelled": "This discount is already cancelled",
+    "discountPriceAboveSell": "Discounted price must be less than the sell price",
+    "discountDiscontinued": "New discounts can't be created for discontinued products",
+    "discountOverlap": "The date range overlaps with an existing discount for this product",
+    "discountHasSales": "This discount can't be deleted because it already has sales. Cancel it instead to stop it from applying going forward.",
+    "invalidSqliteFile": "The uploaded file is not a valid SQLite database",
+    "invalidDbSchema": "The database schema is not valid: {{detail}}",
+    "restoreFailed": "Restore failed: {{detail}}",
+    "restoreFailedCritical": "Restore failed and the database could not be rolled back: {{detail}}",
+    "importRow": {
+      "missingName": "Missing required field: name",
+      "missingSku": "Missing required field: SKU",
+      "invalidPrice": "Invalid price",
+      "invalidSellPrice": "Invalid sell price",
+      "duplicateSkuFile": "Duplicate SKU in file",
+      "invalidStatus": "Invalid status (must be active or discontinued)",
+      "skuExistsDb": "SKU already exists in database"
+    }
   }
 }

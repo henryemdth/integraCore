@@ -1,6 +1,6 @@
 import { QueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-import i18n from "@/i18n"
+import { getErrorMessage } from "@/lib/errorMessages"
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -11,7 +11,7 @@ export const queryClient = new QueryClient({
     },
     mutations: {
       onError: (err: any) => {
-        toast.error(err?.response?.data?.error || i18n.t("common.unexpectedError"))
+        toast.error(getErrorMessage(err, "common.unexpectedError"))
       },
     },
   },

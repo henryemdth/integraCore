@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2 } from "lucide-react"
+import { getErrorMessage, getImportRowError } from "@/lib/errorMessages"
 
 interface ImportDialogProps {
   open: boolean
@@ -16,7 +17,7 @@ interface ImportDialogProps {
 export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
   const { t } = useTranslation()
   const [file, setFile] = useState<File | null>(null)
-  const [result, setResult] = useState<{ imported: number; errors: { row: number; sku: string; error: string }[] } | null>(null)
+  const [result, setResult] = useState<{ imported: number; errors: { row: number; sku: string; error: string; code?: string }[] } | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const queryClient = useQueryClient()
 
@@ -35,7 +36,7 @@ export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
         toast.success(t("products.import.imported", { count: data.imported }))
       }
     },
-    onError: (err: any) => toast.error(err.response?.data?.error || t("products.import.failedImport")),
+    onError: (err: any) => toast.error(getErrorMessage(err, "products.import.failedImport")),
   })
 
   const handleClose = () => { setFile(null); setResult(null); onOpenChange(false) }
@@ -54,7 +55,7 @@ export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
                 {t("products.import.imported", { count: result.imported })}
                 {result.errors.length > 0 && (
                   <span className="block mt-1 text-destructive">
-                    {t("products.import.errors", { count: result.errors.length, details: result.errors.map((e) => t("products.import.rowError", { row: e.row, error: e.error })).join("; ") })}
+                    {t("products.import.errors", { count: result.errors.length, details: result.errors.map((e) => t("products.import.rowError", { row: e.row, error: getImportRowError(e) })).join("; ") })}
                   </span>
                 )}
               </AlertDescription>

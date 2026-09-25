@@ -128,7 +128,7 @@ describe("requireRole", () => {
     requireRole("admin")(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(403);
-    expect(res.json).toHaveBeenCalledWith({ error: "Insufficient permissions" });
+    expect(res.json).toHaveBeenCalledWith({ error: "Insufficient permissions", code: "INSUFFICIENT_PERMISSIONS" });
     expect(next).not.toHaveBeenCalled();
   });
 

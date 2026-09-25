@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2 } from "lucide-react"
+import { getErrorMessage } from "@/lib/errorMessages"
 
 interface ResetPasswordDialogProps {
   user: User | null
@@ -32,7 +33,7 @@ export function ResetPasswordDialog({ user, open, onOpenChange }: ResetPasswordD
       setPassword("")
       onOpenChange(false)
     },
-    onError: (err: any) => setError(err.response?.data?.error || t("users.resetPwd.failed")),
+    onError: (err: any) => setError(getErrorMessage(err, "users.resetPwd.failed")),
   })
 
   if (!user) return null

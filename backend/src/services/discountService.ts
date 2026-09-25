@@ -1,6 +1,6 @@
 import type { DatabaseAdapter } from "../db/adapter.js";
 import ExcelJS from "exceljs";
-import { AppError } from "./authService.js";
+import { AppError } from "../utils/appError.js";
 import { emitProductUpdated } from "../socket/index.js";
 import {
   startOfDay,
@@ -46,14 +46,15 @@ export function discountService(db: DatabaseAdapter) {
       "SELECT id, status, sell_price FROM products WHERE id = ?",
       [productId],
     )) as any;
-    if (!product) throw new AppError(404, "Product not found");
+    if (!product) throw new AppError(404, "Product not found", "PRODUCT_NOT_FOUND");
     if (product.status === "discontinued")
       throw new AppError(
         400,
         "Cannot create discounts for discontinued products",
+        "DISCOUNT_DISCONTINUED",
       );
     if (data.discounted_price >= product.sell_price)
-      throw new AppError(400, "Discounted price must be less than sell price");
+      throw new AppError(400, "Discounted price must be less than sell price", "DISCOUNT_PRICE_ABOVE_SELL");
 
     const start = startOfDay(data.start_date);
     const end = endOfDay(data.end_date);
@@ -69,6 +70,7 @@ export function discountService(db: DatabaseAdapter) {
       throw new AppError(
         409,
         "Discount date range overlaps with an existing active discount for this product",
+        "DISCOUNT_OVERLAP",
       );
 
     const result = await db.run(
@@ -100,9 +102,9 @@ export function discountService(db: DatabaseAdapter) {
       "SELECT * FROM product_discounts WHERE id = ?",
       [id],
     )) as any;
-    if (!discount) throw new AppError(404, "Discount not found");
+    if (!discount) throw new AppError(404, "Discount not found", "DISCOUNT_NOT_FOUND");
     if (discount.status === "cancelled")
-      throw new AppError(400, "Discount is already cancelled");
+      throw new AppError(400, "Discount is already cancelled", "DISCOUNT_ALREADY_CANCELLED");
 
     await db.run(
       "UPDATE product_discounts SET status = 'cancelled' WHERE id = ?",
@@ -127,7 +129,7 @@ export function discountService(db: DatabaseAdapter) {
       "SELECT * FROM product_discounts WHERE id = ?",
       [id],
     )) as any;
-    if (!discount) throw new AppError(404, "Discount not found");
+    if (!discount) throw new AppError(404, "Discount not found", "DISCOUNT_NOT_FOUND");
 
     const salesCount = await db.get<{ count: number }>(
       "SELECT COUNT(*) as count FROM sale_items WHERE discount_id = ?",
@@ -137,6 +139,7 @@ export function discountService(db: DatabaseAdapter) {
       throw new AppError(
         409,
         "This discount can't be deleted because it already has sales. Cancel it instead to stop it from applying going forward.",
+        "DISCOUNT_HAS_SALES",
       );
     }
 

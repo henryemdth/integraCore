@@ -14,6 +14,7 @@ import { Download, Trash2, Ban } from "lucide-react"
 import { formatCurrency, formatDate } from "@/lib/format"
 import { nowString } from "@integracore/shared"
 import { useState } from "react"
+import { getErrorMessage } from "@/lib/errorMessages"
 
 type DiscountRow = ProductDiscount & { normal_price: number; units_sold?: number }
 
@@ -41,7 +42,7 @@ export default function DiscountHistoryPage() {
       toast.success(t("discounts.deleted"))
     },
     onError: (err: any) => {
-      const msg = err.response?.data?.error || t("discounts.failedDelete")
+      const msg = getErrorMessage(err, "discounts.failedDelete")
       toast.error(msg)
     },
   })

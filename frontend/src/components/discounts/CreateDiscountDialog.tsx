@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2 } from "lucide-react"
+import { getErrorMessage } from "@/lib/errorMessages"
 
 interface CreateDiscountDialogProps {
   product: Product | null
@@ -47,7 +48,7 @@ export function CreateDiscountDialog({ product, open, onOpenChange }: CreateDisc
       onOpenChange(false)
     },
     onError: (err: any) => {
-      const msg = err.response?.data?.error || t("discounts.failedCreate")
+      const msg = getErrorMessage(err, "discounts.failedCreate")
       setError(msg)
     },
   })
@@ -58,11 +59,11 @@ export function CreateDiscountDialog({ product, open, onOpenChange }: CreateDisc
     if (!product) return
     if (product.status === "discontinued") { setError(t("discounts.discontinuedBlocked")); return }
     const price = parseFloat(discountedPrice)
-    if (!discountedPrice || price < 0) { setError("Discounted price must be >= 0"); return }
-    if (product && price >= product.sell_price) { setError("Discounted price must be less than sell price"); return }
-    if (!startDate) { setError("Start date is required"); return }
-    if (!endDate) { setError("End date is required"); return }
-    if (startDate > endDate) { setError("Start date must be on or before end date"); return }
+    if (!discountedPrice || price < 0) { setError(t("discounts.priceInvalid")); return }
+    if (product && price >= product.sell_price) { setError(t("errors.discountPriceAboveSell")); return }
+    if (!startDate) { setError(t("discounts.startDateRequired")); return }
+    if (!endDate) { setError(t("discounts.endDateRequired")); return }
+    if (startDate > endDate) { setError(t("discounts.dateOrder")); return }
     mutation.mutate()
   }
 

@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { SearchableSelect } from "@/components/ui/searchable-select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
 import { SaleDetailDialog } from "@/components/sales/SaleDetailDialog"
@@ -21,6 +21,7 @@ import { StatCard } from "@/components/StatCard"
 import { QueryErrorState } from "@/components/ui/query-error"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Eye, Trash2, Download, ShoppingCart, TrendingUp } from "lucide-react"
+import { getErrorMessage } from "@/lib/errorMessages"
 
 interface UserListItem { id: number; full_name: string; username: string }
 
@@ -83,7 +84,7 @@ export default function SalesListPage() {
   const deleteMutation = useMutation({
     mutationFn: (id: number) => api.delete(`/api/sales/${id}`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["sales"] }); toast.success(t("sales.deleted")) },
-    onError: (err: any) => toast.error(err.response?.data?.error || t("sales.failedDelete")),
+    onError: (err: any) => toast.error(getErrorMessage(err, "sales.failedDelete")),
   })
 
   const resetPage = () => setPage(1)
@@ -111,24 +112,28 @@ export default function SalesListPage() {
                 {isAdmin && (
                   <div className="space-y-1.5">
                     <Label className="text-label-caps text-muted-foreground">{t("sales.seller")}</Label>
-                    <Select value={sellerFilter} onValueChange={(v) => { setSellerFilter(v); resetPage() }}>
-                      <SelectTrigger><SelectValue placeholder={t("sales.allSellers")} /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">{t("sales.allSellers")}</SelectItem>
-                        {users.map((u) => <SelectItem key={u.id} value={String(u.id)}>{u.full_name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                    <SearchableSelect
+                      value={sellerFilter}
+                      onValueChange={(v) => { setSellerFilter(v); resetPage() }}
+                      options={users.map((u: any) => ({ value: String(u.id), label: u.full_name }))}
+                      allLabel={t("sales.allSellers")}
+                      searchPlaceholder={t("common.search")}
+                      noResultsText={t("common.noMatches")}
+                      clearLabel={t("common.clearFilter")}
+                    />
                   </div>
                 )}
                 <div className="space-y-1.5">
                   <Label className="text-label-caps text-muted-foreground">{t("sales.product")}</Label>
-                  <Select value={productFilter} onValueChange={(v) => { setProductFilter(v); resetPage() }}>
-                    <SelectTrigger><SelectValue placeholder={t("sales.allProducts")} /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">{t("sales.allProducts")}</SelectItem>
-                      {products.map((p) => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    value={productFilter}
+                    onValueChange={(v) => { setProductFilter(v); resetPage() }}
+                    options={products.map((p: any) => ({ value: String(p.id), label: p.name, keywords: [p.sku] }))}
+                    allLabel={t("sales.allProducts")}
+                    searchPlaceholder={t("common.search")}
+                    noResultsText={t("common.noMatches")}
+                    clearLabel={t("common.clearFilter")}
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-label-caps text-muted-foreground">{t("sales.from")}</Label>

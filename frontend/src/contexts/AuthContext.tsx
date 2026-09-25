@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { createContext, useCallback, useContext, useState, useEffect, type ReactNode } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import api from "@/lib/api"
 import type { User } from "@integracore/shared"
@@ -48,11 +48,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(res.data.user)
   }
 
-  const logout = () => {
+  // Stable identity so effects that react to session loss (e.g. the socket
+  // provider's auth-failure handler) don't re-run on every provider render.
+  const logout = useCallback(() => {
     localStorage.removeItem("token")
     setUser(null)
     queryClient.clear()
-  }
+  }, [queryClient])
 
   return (
     <AuthContext.Provider

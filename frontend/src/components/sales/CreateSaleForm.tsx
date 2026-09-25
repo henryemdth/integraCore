@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { X, Search, Loader2, Tag } from "lucide-react"
 import { formatCurrency } from "@/lib/format"
 import { cn } from "@/lib/utils"
+import { getErrorMessage } from "@/lib/errorMessages"
 
 interface CartItem { product: Product; quantity: number }
 
@@ -78,7 +79,7 @@ export function CreateSaleForm() {
       setSearch("")
     },
     onError: (err: any) => {
-      const msg = err.message || err.response?.data?.error || t("sales.create.failedCreate")
+      const msg = err.message || getErrorMessage(err, "sales.create.failedCreate")
       setError(msg)
       if (!err.message) toast.error(msg)
     },

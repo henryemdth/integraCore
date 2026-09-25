@@ -70,6 +70,45 @@ export function convertDatetimeFunctions(sql: string): string {
 }
 
 /**
+ * Converts LIKE operators to ILIKE so text search is case-insensitive on
+ * PostgreSQL the way SQLite's LIKE already is (SQLite LIKE folds ASCII case;
+ * PostgreSQL LIKE is case-sensitive). Quote-aware so string literals
+ * containing the word "LIKE" are left alone. NOT LIKE → NOT ILIKE follows
+ * automatically since only the LIKE word is replaced.
+ */
+export function convertLikeToIlike(sql: string): string {
+  const isWordChar = (c: string | undefined) => c !== undefined && /[A-Za-z0-9_]/.test(c);
+  let result = "";
+  let inSingleQuote = false;
+  let inDoubleQuote = false;
+
+  for (let i = 0; i < sql.length; i++) {
+    const ch = sql[i];
+    if (ch === "'" && !inDoubleQuote) {
+      inSingleQuote = !inSingleQuote;
+      result += ch;
+      continue;
+    }
+    if (ch === '"' && !inSingleQuote) {
+      inDoubleQuote = !inDoubleQuote;
+      result += ch;
+      continue;
+    }
+    if (!inSingleQuote && !inDoubleQuote && sql.startsWith("LIKE", i)) {
+      const before = i === 0 ? " " : sql[i - 1];
+      const after = sql[i + 4];
+      if (!isWordChar(before) && !isWordChar(after)) {
+        result += "ILIKE";
+        i += 3;
+        continue;
+      }
+    }
+    result += ch;
+  }
+  return result;
+}
+
+/**
  * Detect if an INSERT statement needs a RETURNING clause
  * to get the last inserted ID.
  */

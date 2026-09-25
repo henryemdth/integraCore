@@ -11,6 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AuthLayout } from "@/components/auth/AuthLayout"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Loader2, Upload } from "lucide-react"
+import { getErrorMessage } from "@/lib/errorMessages"
 
 type SetupMode = "choose" | "start-fresh"
 
@@ -38,16 +39,12 @@ export default function SetupPage() {
         if (!res.data.needsSetup) {
           navigate("/login")
         }
+        // Public endpoint: /api/system/info is auth-gated, so the setup screen
+        // gets the driver from here to decide whether to offer backup restore.
+        setIsSqlite(res.data.dbDriver === "sqlite")
       })
       .finally(() => setChecking(false))
   }, [navigate])
-
-  useEffect(() => {
-    api
-      .get("/api/system/info")
-      .then((res) => setIsSqlite(res.data.dbDriver === "sqlite"))
-      .catch(() => setIsSqlite(true))
-  }, [])
 
   useEffect(() => {
     if (user) navigate("/")
@@ -65,7 +62,7 @@ export default function SetupPage() {
       await setup(username, password, fullName)
       navigate("/")
     } catch (err: any) {
-      setError(err.response?.data?.error || t("auth.setupFailed"))
+      setError(getErrorMessage(err, "auth.setupFailed"))
     } finally {
       setLoading(false)
     }
@@ -85,7 +82,7 @@ export default function SetupPage() {
         navigate("/login")
       }
     } catch (err: any) {
-      setError(err.response?.data?.error || t("common.error"))
+      setError(getErrorMessage(err, "common.error"))
     } finally {
       setRestoreLoading(false)
     }

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { createTestDb, seedTestProduct } from "../../helpers/test-helper.js";
 import type { SqliteAdapter } from "../../../src/db/sqlite.js";
 import { runLowStockCheck } from "../../../src/cron/lowStockCheck.js";
-import { todayDateString } from "@integracore/shared";
+import { nextDayDateString, startOfDay, todayDateString } from "@integracore/shared";
 
 vi.mock("../../../src/socket/index.js", () => ({
   emitProductUpdated: vi.fn(),
@@ -95,8 +95,8 @@ describe("runLowStockCheck", () => {
     await runLowStockCheck(db);
 
     const existing = await db.get(
-      "SELECT 1 FROM notifications WHERE type = 'low_stock' AND date(created_at) = ? LIMIT 1",
-      [todayDateString()]
+      "SELECT 1 FROM notifications WHERE type = 'low_stock' AND created_at >= ? AND created_at < ? LIMIT 1",
+      [startOfDay(todayDateString()), startOfDay(nextDayDateString(todayDateString()))]
     );
     expect(existing).toBeDefined();
   });

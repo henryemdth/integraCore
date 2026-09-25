@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Loader2 } from "lucide-react"
+import { getErrorMessage } from "@/lib/errorMessages"
 
 interface EditUserDialogProps {
   user: User | null
@@ -41,7 +42,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
       toast.success(t("users.edit.saved"))
       onOpenChange(false)
     },
-    onError: (err: any) => setError(err.response?.data?.error || t("users.edit.failedSave")),
+    onError: (err: any) => setError(getErrorMessage(err, "users.edit.failedSave")),
   })
 
   if (!user) return null

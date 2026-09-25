@@ -3,25 +3,27 @@ import { getAdapter } from "../db/index.js";
 import { authenticate, requireRole } from "../middleware/auth.js";
 import { writeLockGuard } from "../middleware/writeLock.js";
 import { validate } from "../middleware/validate.js";
+import { authRateLimiter } from "../middleware/rateLimit.js";
 import { SetupSchema, LoginSchema, RegisterSchema, ChangePasswordSchema } from "@integracore/shared";
 import { authService } from "../services/authService.js";
+import { config } from "../config.js";
 
 const router = Router();
 
 router.get("/setup-status", async (_req: Request, res: Response) => {
   const db = getAdapter();
   const svc = authService(db);
-  res.json({ needsSetup: await svc.getSetupStatus() });
+  res.json({ needsSetup: await svc.getSetupStatus(), dbDriver: config.dbDriver });
 });
 
-router.post("/setup", writeLockGuard, validate(SetupSchema), async (req: Request, res: Response) => {
+router.post("/setup", authRateLimiter, writeLockGuard, validate(SetupSchema), async (req: Request, res: Response) => {
   const db = getAdapter();
   const svc = authService(db);
   const result = await svc.setup(req.body.username, req.body.password, req.body.full_name);
   res.status(201).json(result);
 });
 
-router.post("/login", validate(LoginSchema), async (req: Request, res: Response) => {
+router.post("/login", authRateLimiter, validate(LoginSchema), async (req: Request, res: Response) => {
   const db = getAdapter();
   const svc = authService(db);
   const result = await svc.login(req.body.username, req.body.password);

@@ -14,7 +14,10 @@
     "back": "Volver",
     "previous": "Anterior",
     "next": "Siguiente",
-    "actions": "Acciones"
+    "actions": "Acciones",
+    "search": "Buscar…",
+    "noMatches": "Sin coincidencias",
+    "clearFilter": "Limpiar filtro"
   },
   "auth": {
     "signIn": "Iniciar sesión",
@@ -90,7 +93,7 @@
     "stockMovement": {
       "stockInTitle": "Entrada de stock",
       "stockOutTitle": "Salida de stock",
-      "currentStock": "SKU: {{sku}} | Stock actual: {{stock}}",
+      "currentStock": "Stock actual: {{stock}}",
       "quantity": "Cantidad *",
       "notes": "Notas",
       "inPlaceholder": "Cantidad a agregar",
@@ -375,6 +378,53 @@
     "cancelled": "Cancelado",
     "cancelSuccess": "Descuento cancelado",
     "cancelFailed": "Error al cancelar descuento",
-    "status": "Estado"
+    "status": "Estado",
+    "priceInvalid": "El precio con descuento debe ser mayor o igual a 0",
+    "startDateRequired": "La fecha de inicio es obligatoria",
+    "endDateRequired": "La fecha de fin es obligatoria",
+    "dateOrder": "La fecha de inicio debe ser anterior o igual a la fecha de fin"
+  },
+  "errors": {
+    "invalidCredentials": "Credenciales incorrectas",
+    "accountDeactivated": "Esta cuenta está desactivada",
+    "usernameExists": "El usuario ya existe",
+    "setupAlreadyCompleted": "La configuración inicial ya fue completada",
+    "currentPasswordIncorrect": "La contraseña actual es incorrecta",
+    "rateLimited": "Demasiados intentos, inténtalo de nuevo más tarde",
+    "insufficientPermissions": "No tienes permisos para realizar esta acción",
+    "validationFailed": "Revisa los valores ingresados",
+    "noFile": "No se proporcionó ningún archivo",
+    "invalidId": "Identificador inválido",
+    "userNotFound": "Usuario no encontrado",
+    "cannotChangeOwnRole": "No puedes cambiar tu propio rol",
+    "cannotDeactivateSelf": "No puedes desactivar tu propia cuenta",
+    "lastActiveAdmin": "No se puede desactivar el último administrador activo",
+    "roleInvalid": "El rol debe ser administrador o usuario",
+    "productNotFound": "Producto no encontrado",
+    "skuExists": "Este SKU ya existe",
+    "productHasSales": "Este producto no se puede eliminar porque tiene ventas registradas",
+    "insufficientStock": "Stock insuficiente para \"{{name}}\": disponible {{available}}, solicitado {{requested}}",
+    "productDiscontinued": "No se puede vender el producto descontinuado \"{{name}}\"",
+    "noWorksheet": "No se encontró ninguna hoja en el archivo Excel",
+    "saleNotFound": "Venta no encontrada",
+    "discountNotFound": "Descuento no encontrado",
+    "discountAlreadyCancelled": "Este descuento ya está cancelado",
+    "discountPriceAboveSell": "El precio con descuento debe ser menor al precio de venta",
+    "discountDiscontinued": "No se pueden crear nuevos descuentos para productos descontinuados",
+    "discountOverlap": "El rango de fechas se superpone con un descuento existente para este producto",
+    "discountHasSales": "Este descuento no se puede eliminar porque ya tiene ventas. Cáncelalo para que deje de aplicarse de aquí en adelante.",
+    "invalidSqliteFile": "El archivo subido no es una base de datos SQLite válida",
+    "invalidDbSchema": "El esquema de la base de datos no es válido: {{detail}}",
+    "restoreFailed": "Error al restaurar: {{detail}}",
+    "restoreFailedCritical": "Error al restaurar y la base de datos no pudo revertirse: {{detail}}",
+    "importRow": {
+      "missingName": "Campo obligatorio faltante: nombre",
+      "missingSku": "Campo obligatorio faltante: SKU",
+      "invalidPrice": "Precio inválido",
+      "invalidSellPrice": "Precio de venta inválido",
+      "duplicateSkuFile": "SKU duplicado en el archivo",
+      "invalidStatus": "Estado inválido (debe ser activo o descontinuado)",
+      "skuExistsDb": "El SKU ya existe en la base de datos"
+    }
   }
 }

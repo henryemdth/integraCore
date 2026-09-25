@@ -19,6 +19,7 @@ import { QueryErrorState } from "@/components/ui/query-error"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Plus, MoreHorizontal, Users, UserCheck, Shield } from "lucide-react"
 import { formatDateTime } from "@/lib/format"
+import { getErrorMessage } from "@/lib/errorMessages"
 
 export default function UserListPage() {
   const { t } = useTranslation()
@@ -61,13 +62,13 @@ export default function UserListPage() {
   const deactivateMutation = useMutation({
     mutationFn: (id: number) => api.patch(`/api/users/${id}/deactivate`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["users"] }); toast.success(t("users.deactivated")) },
-    onError: (err: any) => toast.error(err.response?.data?.error || t("users.failedDeactivate")),
+    onError: (err: any) => toast.error(getErrorMessage(err, "users.failedDeactivate")),
   })
 
   const activateMutation = useMutation({
     mutationFn: (id: number) => api.patch(`/api/users/${id}/activate`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["users"] }); toast.success(t("users.activated")) },
-    onError: (err: any) => toast.error(err.response?.data?.error || t("users.failedActivate")),
+    onError: (err: any) => toast.error(getErrorMessage(err, "users.failedActivate")),
   })
 
   const resetPage = () => setPage(1)

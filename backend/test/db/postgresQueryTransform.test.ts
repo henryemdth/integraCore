@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   convertDatetimeFunctions,
+  convertLikeToIlike,
   addReturningIfNeeded,
 } from "../../src/db/postgres-query-transform.js";
 
@@ -76,5 +77,33 @@ describe("addReturningIfNeeded", () => {
   it("leaves non-INSERT statements unchanged", () => {
     const sql = "UPDATE users SET active = ? WHERE id = ?";
     expect(addReturningIfNeeded(sql)).toBe(sql);
+  });
+});
+
+describe("convertLikeToIlike", () => {
+  it("converts LIKE to ILIKE in search conditions", () => {
+    const sql = "(name LIKE ? OR sku LIKE ?)";
+    expect(convertLikeToIlike(sql)).toBe("(name ILIKE ? OR sku ILIKE ?)");
+  });
+
+  it("converts NOT LIKE to NOT ILIKE", () => {
+    const sql = "end_date NOT LIKE '% %'";
+    expect(convertLikeToIlike(sql)).toBe("end_date NOT ILIKE '% %'");
+  });
+
+  it("leaves string literals containing LIKE untouched", () => {
+    const sql = "SELECT * FROM t WHERE note = 'I LIKE this' AND sku LIKE ?";
+    expect(convertLikeToIlike(sql)).toBe(
+      "SELECT * FROM t WHERE note = 'I LIKE this' AND sku ILIKE ?"
+    );
+  });
+
+  it("leaves identifiers that merely contain LIKE (e.g. MILKLIKE) untouched", () => {
+    const sql = "SELECT MILKLIKE FROM t WHERE name LIKE ?";
+    expect(convertLikeToIlike(sql)).toBe("SELECT MILKLIKE FROM t WHERE name ILIKE ?");
+  });
+
+  it("is case-sensitive: lowercase like is untouched", () => {
+    expect(convertLikeToIlike("WHERE note = 'like'")).toBe("WHERE note = 'like'");
   });
 });

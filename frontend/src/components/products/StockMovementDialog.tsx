@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2 } from "lucide-react"
+import { getErrorMessage } from "@/lib/errorMessages"
 
 interface StockMovementDialogProps {
   product: Product | null
@@ -42,7 +43,7 @@ export function StockMovementDialog({ product, type, open, onOpenChange }: Stock
       onOpenChange(false)
     },
     onError: (err: any) => {
-      setError(err.response?.data?.error || (type === "in" ? t("products.stockMovement.failedAdd") : t("products.stockMovement.failedRemove")))
+      setError(getErrorMessage(err, type === "in" ? "products.stockMovement.failedAdd" : "products.stockMovement.failedRemove"))
     },
   })
 

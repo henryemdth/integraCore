@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2 } from "lucide-react"
+import { getErrorMessage } from "@/lib/errorMessages"
 
 interface ChangePasswordDialogProps {
   open: boolean
@@ -30,7 +31,7 @@ export function ChangePasswordDialog({ open, onOpenChange }: ChangePasswordDialo
       setCurrentPassword(""); setNewPassword("")
       onOpenChange(false)
     },
-    onError: (err: any) => setError(err.response?.data?.error || t("changePassword.failed")),
+    onError: (err: any) => setError(getErrorMessage(err, "changePassword.failed")),
   })
 
   return (

@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AuthLayout } from "@/components/auth/AuthLayout"
 import { Loader2 } from "lucide-react"
+import { getErrorMessage } from "@/lib/errorMessages"
 
 export default function LoginPage() {
   const [username, setUsername] = useState("")
@@ -50,7 +51,7 @@ export default function LoginPage() {
       await login(username, password)
       navigate("/")
     } catch (err: any) {
-      setError(err.response?.data?.error || t("auth.loginFailed"))
+      setError(getErrorMessage(err, "auth.loginFailed"))
     } finally {
       setLoading(false)
     }

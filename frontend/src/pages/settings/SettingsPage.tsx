@@ -14,6 +14,7 @@ import { Progress } from "@/components/ui/progress"
 import { ChangePasswordDialog } from "@/components/users/ChangePasswordDialog"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Save, TrendingUp, TrendingDown, Globe, DollarSign, Shield, Download, Upload, Database, Loader2, Wifi, CheckCircle2, XCircle } from "lucide-react"
+import { getErrorMessage } from "@/lib/errorMessages"
 
 export default function SettingsPage() {
   const queryClient = useQueryClient()
@@ -69,7 +70,7 @@ export default function SettingsPage() {
       // only safe state. Without a token the app redirects to /login.
       setTimeout(() => window.location.reload(), 1500)
     } catch (err: any) {
-      toast.error(err.response?.data?.error || t("settings.backup.failedRestore"))
+      toast.error(getErrorMessage(err, "settings.backup.failedRestore"))
     } finally {
       setRestoreLoading(false)
       if (fileInputRef.current) fileInputRef.current.value = ""
@@ -109,7 +110,7 @@ export default function SettingsPage() {
       queryClient.invalidateQueries({ queryKey: ["profit-check"] })
       toast.success(t("settings.profit.saved"))
     },
-    onError: (err: any) => toast.error(err.response?.data?.error || t("settings.profit.failedSave")),
+    onError: (err: any) => toast.error(getErrorMessage(err, "settings.profit.failedSave")),
   })
 
   const handleLanguageChange = (lang: string) => {
@@ -317,7 +318,7 @@ export default function SettingsPage() {
                           URL.revokeObjectURL(url)
                           toast.success(t("settings.backup.exported"))
                         } catch (err: any) {
-                          toast.error(err.response?.data?.error || t("settings.backup.failedExport"))
+                          toast.error(getErrorMessage(err, "settings.backup.failedExport"))
                         } finally {
                           setBackupLoading(false)
                         }

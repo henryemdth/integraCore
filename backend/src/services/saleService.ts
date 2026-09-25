@@ -1,6 +1,6 @@
 import type { DatabaseAdapter } from "../db/adapter.js";
 import ExcelJS from "exceljs";
-import { AppError } from "./authService.js";
+import { AppError } from "../utils/appError.js";
 import { emitProductUpdated } from "../socket/index.js";
 import { nowString } from "@integracore/shared";
 
@@ -85,17 +85,19 @@ export function saleService(db: DatabaseAdapter) {
 
       for (const item of items) {
         if (!productMap.has(item.product_id)) {
-          throw new AppError(400, `Product not found: ${item.product_id}`);
+          throw new AppError(400, `Product not found: ${item.product_id}`, "PRODUCT_NOT_FOUND", { id: item.product_id });
         }
       }
       for (const item of items) {
         const product = productMap.get(item.product_id)!;
         if (product.status === "discontinued") {
-          throw new AppError(400, `Cannot sell discontinued product: "${product.name}"`);
+          throw new AppError(400, `Cannot sell discontinued product: "${product.name}"`, "PRODUCT_DISCONTINUED", { name: product.name });
         }
         if (product.stock < item.quantity) {
           throw new AppError(400,
-            `Insufficient stock for "${product.name}": available ${product.stock}, requested ${item.quantity}`
+            `Insufficient stock for "${product.name}": available ${product.stock}, requested ${item.quantity}`,
+            "INSUFFICIENT_STOCK",
+            { name: product.name, available: product.stock, requested: item.quantity }
           );
         }
       }
@@ -216,10 +218,10 @@ export function saleService(db: DatabaseAdapter) {
 
   async function getById(id: number, requesterId: number, isAdmin: boolean) {
     const sale = await buildSaleDetail(db, id);
-    if (!sale) throw new AppError(404, "Sale not found");
+    if (!sale) throw new AppError(404, "Sale not found", "SALE_NOT_FOUND");
 
     if (!isAdmin && sale.user_id !== requesterId) {
-      throw new AppError(403, "Insufficient permissions");
+      throw new AppError(403, "Insufficient permissions", "INSUFFICIENT_PERMISSIONS");
     }
 
     return { sale };
@@ -322,7 +324,7 @@ export function saleService(db: DatabaseAdapter) {
 
   async function remove(id: number) {
     const sale = await db.get("SELECT * FROM sales WHERE id = ?", [id]) as any;
-    if (!sale) throw new AppError(404, "Sale not found");
+    if (!sale) throw new AppError(404, "Sale not found", "SALE_NOT_FOUND");
 
     const items = await db.all("SELECT * FROM sale_items WHERE sale_id = ?", [id]) as any[];
 

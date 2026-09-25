@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import Database from "better-sqlite3";
 import type { DatabaseAdapter } from "../db/adapter.js";
-import { AppError } from "./authService.js";
+import { AppError } from "../utils/appError.js";
 import { acquireWriteLock, releaseWriteLock } from "./lockService.js";
 import { emitDbRestored } from "../socket/index.js";
 import { runMigrations } from "../db/schema.js";
@@ -116,12 +116,12 @@ export function backupService(adapter: DatabaseAdapter, dataDir: string) {
       fs.writeFileSync(tempPath, buf);
 
       if (!validateSqliteFile(tempPath)) {
-        throw new AppError(400, "Uploaded file is not a valid SQLite database");
+        throw new AppError(400, "Uploaded file is not a valid SQLite database", "INVALID_SQLITE_FILE");
       }
 
       const schemaError = validateSchema(tempPath);
       if (schemaError) {
-        throw new AppError(400, `Invalid database schema: ${schemaError}`);
+        throw new AppError(400, `Invalid database schema: ${schemaError}`, "INVALID_DB_SCHEMA", { detail: String(schemaError) });
       }
 
       acquireWriteLock();
@@ -167,15 +167,15 @@ export function backupService(adapter: DatabaseAdapter, dataDir: string) {
           await rollback();
         } catch (rollbackErr) {
           console.error("[backup] Swap failed and rollback also failed:", rollbackErr);
-          throw new AppError(500, "Restore failed and the database could not be rolled back: " + (rollbackErr as Error).message);
+          throw new AppError(500, "Restore failed and the database could not be rolled back: " + (rollbackErr as Error).message, "RESTORE_FAILED_CRITICAL", { detail: (rollbackErr as Error).message });
         }
-        throw new AppError(500, "Restore failed: " + (err as Error).message + ". Auto-backup restored.");
+        throw new AppError(500, "Restore failed: " + (err as Error).message + ". Auto-backup restored.", "RESTORE_FAILED", { detail: (err as Error).message });
       }
 
       emitDbRestored();
     } catch (err) {
       if (err instanceof AppError) throw err;
-      throw new AppError(500, "Restore failed: " + (err as Error).message);
+      throw new AppError(500, "Restore failed: " + (err as Error).message, "RESTORE_FAILED", { detail: (err as Error).message });
     } finally {
       releaseWriteLock();
       try { fs.rmSync(tempPath, { force: true }); } catch { /* ignore */ }

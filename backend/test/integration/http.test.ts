@@ -42,7 +42,7 @@ describe("HTTP error handling — async gap regression (FIX.md §1)", () => {
       .post("/api/auth/login")
       .send({ username: "admin", password: "wrong-password" });
     expect(res.status).toBe(401);
-    expect(res.body).toEqual({ error: "Invalid credentials" });
+    expect(res.body).toEqual({ error: "Invalid credentials", code: "INVALID_CREDENTIALS", params: undefined });
   });
 
   it("non-admin cannot list users (403)", async () => {
@@ -59,7 +59,7 @@ describe("HTTP error handling — async gap regression (FIX.md §1)", () => {
       .get("/api/users")
       .set("Authorization", `Bearer ${login.token}`);
     expect(sellerRes.status).toBe(403);
-    expect(sellerRes.body).toEqual({ error: "Insufficient permissions" });
+    expect(sellerRes.body).toEqual({ error: "Insufficient permissions", code: "INSUFFICIENT_PERMISSIONS" });
   });
 
   it("duplicate SKU returns 409 with error body (was: hang)", async () => {
@@ -70,7 +70,7 @@ describe("HTTP error handling — async gap regression (FIX.md §1)", () => {
       .set("Authorization", `Bearer ${adminToken}`)
       .send({ name: "Second", sku: "DUP-001", price: 10, sell_price: 15, stock: 5 });
     expect(res.status).toBe(409);
-    expect(res.body).toEqual({ error: "SKU already exists" });
+    expect(res.body).toEqual({ error: "SKU already exists", code: "SKU_EXISTS", params: undefined });
   });
 
   it("insufficient-stock sale returns 400 with error body (was: hang)", async () => {

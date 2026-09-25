@@ -71,5 +71,14 @@ export const config = {
     user: process.env.PG_USER || "postgres",
     password: process.env.PG_PASSWORD || "",
     ssl: process.env.PG_SSL === "true",
+    // TLS certificate verification: on by default in production, off otherwise
+    // (self-signed local dev/test instances). Override with
+    // PG_SSL_REJECT_UNAUTHORIZED=true|false when needed.
+    sslRejectUnauthorized:
+      process.env.PG_SSL_REJECT_UNAUTHORIZED === "true"
+        ? true
+        : process.env.PG_SSL_REJECT_UNAUTHORIZED === "false"
+          ? false
+          : process.env.NODE_ENV === "production",
   },
 } as const;

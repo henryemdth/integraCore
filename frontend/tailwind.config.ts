@@ -1,7 +1,8 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
-  darkMode: "class",
+  // DESIGN.md specifies a light-only palette; add darkMode back together with
+  // a `.dark` CSS-variable block if a dark theme is ever introduced.
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {

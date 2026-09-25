@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { SearchableSelect } from "@/components/ui/searchable-select"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { StockMovementDialog } from "@/components/products/StockMovementDialog"
 import { ImportDialog } from "@/components/products/ImportDialog"
@@ -23,6 +24,7 @@ import { QueryErrorState } from "@/components/ui/query-error"
 import { Plus, MoreHorizontal, Search, PackagePlus, PackageMinus, Download, Upload, Tag, Percent, Info } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
+import { getErrorMessage } from "@/lib/errorMessages"
 
 export default function ProductListPage() {
   const { t } = useTranslation()
@@ -71,7 +73,7 @@ export default function ProductListPage() {
   const deleteMutation = useMutation({
     mutationFn: (id: number) => api.delete(`/api/products/${id}`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["products"] }); toast.success(t("products.deleted")) },
-    onError: (err: any) => toast.error(err.response?.data?.error || t("products.failedDelete")),
+    onError: (err: any) => toast.error(getErrorMessage(err, "products.failedDelete")),
   })
 
   const handleSort = (column: string) => {
@@ -104,13 +106,15 @@ export default function ProductListPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input placeholder={t("products.search")} value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} className="pl-9" />
             </div>
-            <Select value={category} onValueChange={(v) => { setCategory(v); setPage(1) }}>
-              <SelectTrigger><SelectValue placeholder={t("products.allCategories")} /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t("products.allCategories")}</SelectItem>
-                {categories.map((cat) => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={category}
+              onValueChange={(v) => { setCategory(v); setPage(1) }}
+              options={categories.map((cat: string) => ({ value: cat, label: cat }))}
+              allLabel={t("products.allCategories")}
+              searchPlaceholder={t("common.search")}
+              noResultsText={t("common.noMatches")}
+              clearLabel={t("common.clearFilter")}
+            />
             <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1) }}>
               <SelectTrigger className="w-[160px]"><SelectValue placeholder={t("products.statusFilter")} /></SelectTrigger>
               <SelectContent>

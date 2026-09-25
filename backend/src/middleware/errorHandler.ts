@@ -1,15 +1,22 @@
 import { Request, Response, NextFunction } from "express";
-import { AppError } from "../services/authService.js";
+import { AppError } from "../utils/appError.js";
 
 export function errorHandler(err: Error, _req: Request, res: Response, _next: NextFunction): void {
   if (err instanceof AppError) {
-    res.status(err.statusCode).json({ error: err.message });
+    // code/params let the frontend display the message in the user's language
+    // (frontend lib/errorMessages.ts maps code → i18n key); the English
+    // `error` string stays as the developer-facing fallback.
+    res.status(err.statusCode).json({
+      error: err.message,
+      code: err.code,
+      params: err.params,
+    });
     return;
   }
 
   if ("issues" in err && Array.isArray((err as any).issues)) {
     const messages = (err as any).issues.map((i: any) => `${i.path?.join(".")}: ${i.message}`);
-    res.status(400).json({ error: "Validation failed", details: messages });
+    res.status(400).json({ error: "Validation failed", code: "VALIDATION_FAILED", details: messages });
     return;
   }
 

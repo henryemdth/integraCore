@@ -36,7 +36,7 @@ export function createApp() {
   app.use("/api/dashboard", dashboardRoutes)
   app.use("/api/system", systemRoutes)
   app.use("/api/backup", backupRoutes)
-  app.use("/api", discountRoutes)
+  app.use("/api/discounts", discountRoutes)
 
   app.use(errorHandler)
 

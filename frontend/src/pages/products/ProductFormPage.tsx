@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ArrowLeft, Loader2 } from "lucide-react"
+import { getErrorMessage } from "@/lib/errorMessages"
 
 export default function ProductFormPage() {
   const { t } = useTranslation()
@@ -83,7 +84,7 @@ export default function ProductFormPage() {
       }
       navigate("/products")
     } catch (err: any) {
-      setError(err.response?.data?.error || t("products.createForm.failedSave"))
+      setError(getErrorMessage(err, "products.createForm.failedSave"))
     } finally {
       setLoading(false)
     }
