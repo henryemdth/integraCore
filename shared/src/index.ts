@@ -88,6 +88,7 @@ interface SaleItemDetail {
   product_id: number;
   product_name: string;
   product_sku: string;
+  product_category: string;
   quantity: number;
   unit_price: number;
   subtotal: number;

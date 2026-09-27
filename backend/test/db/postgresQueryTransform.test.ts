@@ -107,3 +107,20 @@ describe("convertLikeToIlike", () => {
     expect(convertLikeToIlike("WHERE note = 'like'")).toBe("WHERE note = 'like'");
   });
 });
+
+describe("getSaleItems query (Phase 30: product_category)", () => {
+  const sql =
+    "SELECT si.*, p.name as product_name, p.sku as product_sku, p.category as product_category " +
+    "FROM sale_items si JOIN products p ON si.product_id = p.id WHERE si.sale_id = ?";
+
+  it("numbers the placeholder and leaves the rest of the query untouched", () => {
+    expect(convertDatetimeFunctions(sql)).toBe(
+      "SELECT si.*, p.name as product_name, p.sku as product_sku, p.category as product_category " +
+        "FROM sale_items si JOIN products p ON si.product_id = p.id WHERE si.sale_id = $1"
+    );
+  });
+
+  it("contains no LIKE, so the ILIKE pass is a no-op", () => {
+    expect(convertLikeToIlike(sql)).toBe(sql);
+  });
+});

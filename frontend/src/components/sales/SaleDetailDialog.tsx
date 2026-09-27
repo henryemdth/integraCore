@@ -60,7 +60,7 @@ export function SaleDetailDialog({ sale, open, onOpenChange }: SaleDetailDialogP
           <TableHeader>
             <TableRow>
               <TableHead>{t("sales.product")}</TableHead>
-              <TableHead>{t("products.sku")}</TableHead>
+              <TableHead>{t("products.category")}</TableHead>
               <TableHead className="text-right">{t("sales.create.qty")}</TableHead>
               <TableHead className="text-right">{t("products.price")}</TableHead>
               <TableHead className="text-right">{t("sales.detail.originalPrice")}</TableHead>
@@ -74,9 +74,7 @@ export function SaleDetailDialog({ sale, open, onOpenChange }: SaleDetailDialogP
               return (
                 <TableRow key={item.id}>
                   <TableCell className="font-medium">{item.product_name}</TableCell>
-                  <TableCell>
-                    <code className="text-xs bg-surface-container-highest px-1.5 py-0.5 rounded font-data">{item.product_sku}</code>
-                  </TableCell>
+                  <TableCell className="text-body-sm text-muted-foreground">{item.product_category || "—"}</TableCell>
                   <TableCell className="text-right font-data">{item.quantity}</TableCell>
                   <TableCell className="text-right font-data">
                     {hasDiscount ? (

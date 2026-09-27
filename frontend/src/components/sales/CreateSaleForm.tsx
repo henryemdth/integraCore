@@ -116,7 +116,9 @@ export function CreateSaleForm() {
                     >
                       <span>
                         <span className="font-medium">{product.name}</span>
-                        <code className="text-xs text-muted-foreground ml-2 font-data">{product.sku}</code>
+                        {product.category && (
+                          <span className="text-xs text-muted-foreground ml-2">{product.category}</span>
+                        )}
                       </span>
                       <span className="flex items-center gap-3">
                         {product.discounted_price ? (
@@ -158,7 +160,7 @@ export function CreateSaleForm() {
                       <TableRow key={item.product.id}>
                         <TableCell className="font-medium">
                           {item.product.name}
-                          <code className="text-xs text-muted-foreground ml-2 font-data">{item.product.sku}</code>
+                          <code className="text-xs text-muted-foreground ml-2 font-data">{item.product.category}</code>
                         </TableCell>
                         <TableCell className="text-right font-data">
                           {item.product.discounted_price ? (

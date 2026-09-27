@@ -32,6 +32,7 @@ describe("saleService", () => {
       expect(result.sale.items[0].unit_price).toBe(15);
       expect(result.sale.items[0].original_price).toBe(15);
       expect(result.sale.items[0].discount_id).toBeNull();
+      expect(result.sale.items[0].product_category).toBe("Test");
 
       const updated = await db.get("SELECT stock FROM products WHERE id = ?", [product.id]) as any;
       expect(updated.stock).toBe(48);
@@ -121,6 +122,7 @@ describe("saleService", () => {
       });
 
       expect(result.sales).toHaveLength(1);
+      expect(result.sales[0].items[0].product_category).toBe("Test");
       expect(result.total).toBe(2);
     });
 
@@ -181,6 +183,7 @@ describe("saleService", () => {
       const result = await service.getById(created.sale.id, user.id, true);
       expect(result.sale!.id).toBe(created.sale.id);
       expect(result.sale!.items).toHaveLength(1);
+      expect(result.sale!.items[0].product_category).toBe("Test");
       expect(result.sale!.seller_name).toBeDefined();
     });
 

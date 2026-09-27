@@ -4,6 +4,15 @@ import { AppError } from "../utils/appError.js";
 import { emitProductUpdated } from "../socket/index.js";
 import { nowString } from "@integracore/shared";
 
+function getSaleItems(db: DatabaseAdapter, saleId: number) {
+  return db.all(
+    `SELECT si.*, p.name as product_name, p.sku as product_sku, p.category as product_category
+     FROM sale_items si JOIN products p ON si.product_id = p.id
+     WHERE si.sale_id = ?`,
+    [saleId]
+  );
+}
+
 async function buildSaleDetail(db: DatabaseAdapter, saleId: number) {
   const sale = await db.get(
     `SELECT s.*, u.full_name as seller_name
@@ -14,12 +23,7 @@ async function buildSaleDetail(db: DatabaseAdapter, saleId: number) {
 
   if (!sale) return null;
 
-  const items = await db.all(
-    `SELECT si.*, p.name as product_name, p.sku as product_sku
-     FROM sale_items si JOIN products p ON si.product_id = p.id
-     WHERE si.sale_id = ?`,
-    [saleId]
-  );
+  const items = await getSaleItems(db, saleId);
 
   return { ...sale, items };
 }
@@ -203,12 +207,7 @@ export function saleService(db: DatabaseAdapter) {
 
     const salesWithItems = await Promise.all(
       sales.map(async (sale: any) => {
-        const items = await db.all(
-          `SELECT si.*, p.name as product_name, p.sku as product_sku
-           FROM sale_items si JOIN products p ON si.product_id = p.id
-           WHERE si.sale_id = ?`,
-          [sale.id]
-        );
+        const items = await getSaleItems(db, sale.id);
         return { ...sale, items };
       })
     );
@@ -277,12 +276,7 @@ export function saleService(db: DatabaseAdapter) {
     let countWithoutDiscount = 0;
 
     for (const sale of sales) {
-      const items = await db.all(
-        `SELECT si.*, p.name as product_name, p.sku as product_sku
-         FROM sale_items si JOIN products p ON si.product_id = p.id
-         WHERE si.sale_id = ?`,
-        [sale.id]
-      ) as any[];
+      const items = await getSaleItems(db, sale.id) as any[];
 
       totalSales++;
       for (const item of items) {
