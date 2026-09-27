@@ -84,6 +84,12 @@ export function productService(db: DatabaseAdapter) {
     return [...new Set(products.map((p) => p.category))].sort();
   }
 
+  async function getById(id: number) {
+    const product = await db.get("SELECT * FROM products WHERE id = ?", [id]);
+    if (!product) throw new AppError(404, "Product not found", "PRODUCT_NOT_FOUND");
+    return product;
+  }
+
   async function exportToExcel(search: string, category: string, status: string) {
     const conditions: string[] = [];
     const params: any[] = [];
@@ -311,5 +317,5 @@ export function productService(db: DatabaseAdapter) {
     return updated;
   }
 
-  return { list, listLowStock, getCategories, exportToExcel, importFromExcel, create, update, remove, stockIn, stockOut };
+  return { list, listLowStock, getCategories, getById, exportToExcel, importFromExcel, create, update, remove, stockIn, stockOut };
 }

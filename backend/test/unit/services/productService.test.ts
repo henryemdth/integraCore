@@ -21,6 +21,22 @@ describe("productService", () => {
     service = productService(db);
   });
 
+  describe("getById", () => {
+    it("returns the product with all fields", async () => {
+      const seeded = await seedTestProduct(db, { name: "Café Especial", category: "Bebidas" });
+
+      const product = await service.getById(seeded.id);
+      expect(product).toBeDefined();
+      expect(product!.name).toBe("Café Especial");
+      expect(product!.category).toBe("Bebidas");
+      expect(product!.sku).toBe(seeded.sku);
+    });
+
+    it("throws 404 for a non-existent product", async () => {
+      await expect(service.getById(999)).rejects.toThrow("Product not found");
+    });
+  });
+
   describe("create", () => {
     it("creates a product", async () => {
       const product = await service.create({

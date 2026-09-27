@@ -83,7 +83,12 @@
       "namePlaceholder": "Nombre del producto",
       "skuPlaceholder": "Unidad de mantenimiento de stock",
       "categoryPlaceholder": "ej. Electrónica, Ferretería",
-      "failedSave": "Error al guardar producto"
+      "failedSave": "Error al guardar producto",
+      "duplicateNameTitle": "Ya existe un producto con un nombre similar",
+      "duplicateNameItem": "{{name}} — SKU {{sku}}, {{category}}, {{price}}",
+      "useValue": "Usar \"{{value}}\"",
+      "noCategory": "sin categoría",
+      "clearCategory": "Limpiar categoría"
     },
     "editForm": {
       "title": "Editar producto",

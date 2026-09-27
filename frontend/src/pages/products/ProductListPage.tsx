@@ -64,8 +64,8 @@ export default function ProductListPage() {
   const { data: catData } = useQuery({
     queryKey: ["products", "categories"],
     queryFn: async () => {
-      const res = await api.get("/api/products?limit=100")
-      return [...new Set(res.data.products.map((p: Product) => p.category).filter(Boolean))].sort() as string[]
+      const res = await api.get("/api/products/categories")
+      return res.data.categories as string[]
     },
   })
   const categories = catData ?? []

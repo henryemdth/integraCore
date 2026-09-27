@@ -83,7 +83,12 @@
       "namePlaceholder": "Product name",
       "skuPlaceholder": "Stock Keeping Unit",
       "categoryPlaceholder": "e.g. Electronics, Hardware",
-      "failedSave": "Failed to save product"
+      "failedSave": "Failed to save product",
+      "duplicateNameTitle": "A product with a similar name already exists",
+      "duplicateNameItem": "{{name}} — SKU {{sku}}, {{category}}, {{price}}",
+      "useValue": "Use \"{{value}}\"",
+      "noCategory": "no category",
+      "clearCategory": "Clear category"
     },
     "editForm": {
       "title": "Edit Product",

@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useAuth } from "@/contexts/AuthContext"
 import api from "@/lib/api"
 import type { Product } from "@integracore/shared"
@@ -11,8 +12,11 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ArrowLeft, Loader2 } from "lucide-react"
+import { SearchableSelect } from "@/components/ui/searchable-select"
+import { ArrowLeft, Loader2, TriangleAlert } from "lucide-react"
 import { getErrorMessage } from "@/lib/errorMessages"
+import { normalizeForSearch } from "@/lib/text"
+import { formatCurrency } from "@/lib/format"
 
 export default function ProductFormPage() {
   const { t } = useTranslation()
@@ -32,17 +36,14 @@ export default function ProductFormPage() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const [fetching, setFetching] = useState(isEdit)
+  const queryClient = useQueryClient()
 
   useEffect(() => {
     if (isEdit) {
       api
-        .get(`/api/products?page=1&limit=100&search=`)
+        .get(`/api/products/${id}`)
         .then((res) => {
-          const product = res.data.products.find((p: Product) => p.id === Number(id))
-          if (!product) {
-            setError(t("products.editForm.notFound"))
-            return
-          }
+          const product = res.data.product as Product
           setName(product.name)
           setSku(product.sku)
           setCategory(product.category)
@@ -52,10 +53,49 @@ export default function ProductFormPage() {
           setLowStockThreshold(String(product.low_stock_threshold))
           setStatus(product.status)
         })
-        .catch(() => setError(t("products.createForm.failedSave")))
+        .catch((err: any) => setError(getErrorMessage(err, "products.editForm.notFound")))
         .finally(() => setFetching(false))
     }
-  }, [id, isEdit, t])
+  }, [id, isEdit])
+
+  const { data: categories = [] } = useQuery({
+    queryKey: ["products", "categories"],
+    queryFn: async () => {
+      const res = await api.get("/api/products/categories")
+      return res.data.categories as string[]
+    },
+  })
+
+  const { data: allProducts = [] } = useQuery({
+    queryKey: ["products", "list-all"],
+    queryFn: async () => {
+      const res = await api.get("/api/products?limit=10000")
+      return res.data.products as Product[]
+    },
+  })
+
+  // Debounce so the duplicate-name check runs after the user pauses typing.
+  const [debouncedName, setDebouncedName] = useState("")
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedName(name), 400)
+    return () => clearTimeout(timer)
+  }, [name])
+
+  const duplicateMatches = useMemo(() => {
+    const query = normalizeForSearch(debouncedName)
+    if (query.length < 2) return []
+    const currentId = isEdit ? Number(id) : -1
+    return allProducts
+      .filter((p) => p.id !== currentId)
+      .map((p) => ({ product: p, norm: normalizeForSearch(p.name) }))
+      .filter(({ norm }) => norm.includes(query) || query.includes(norm))
+      .sort((a, b) => {
+        const exactA = a.norm === query ? 0 : 1
+        const exactB = b.norm === query ? 0 : 1
+        return exactA !== exactB ? exactA - exactB : a.norm.length - b.norm.length
+      })
+      .slice(0, 3)
+  }, [debouncedName, allProducts, isEdit, id])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -82,6 +122,7 @@ export default function ProductFormPage() {
       } else {
         await api.post("/api/products", body)
       }
+      queryClient.invalidateQueries({ queryKey: ["products"] })
       navigate("/products")
     } catch (err: any) {
       setError(getErrorMessage(err, "products.createForm.failedSave"))
@@ -144,6 +185,26 @@ export default function ProductFormPage() {
                   placeholder={t("products.createForm.namePlaceholder")}
                   required
                 />
+                {duplicateMatches.length > 0 && (
+                  <Alert className="border-amber-300 bg-amber-50 text-amber-900 [&>svg]:text-amber-600">
+                    <TriangleAlert className="h-4 w-4" />
+                    <AlertDescription>
+                      <span className="font-medium">{t("products.createForm.duplicateNameTitle")}</span>
+                      <ul className="mt-1 space-y-0.5">
+                        {duplicateMatches.map(({ product }) => (
+                          <li key={product.id}>
+                            {t("products.createForm.duplicateNameItem", {
+                              name: product.name,
+                              sku: product.sku,
+                              category: product.category || t("products.createForm.noCategory"),
+                              price: formatCurrency(product.sell_price),
+                            })}
+                          </li>
+                        ))}
+                      </ul>
+                    </AlertDescription>
+                  </Alert>
+                )}
               </div>
               <div className="col-span-6 space-y-2">
                 <Label htmlFor="sku">{t("products.sku") + " *"}</Label>
@@ -157,12 +218,17 @@ export default function ProductFormPage() {
                 />
               </div>
               <div className="col-span-6 space-y-2">
-                <Label htmlFor="category">{t("products.category")}</Label>
-                <Input
-                  id="category"
+                <Label>{t("products.category")}</Label>
+                <SearchableSelect
                   value={category}
-                  onChange={(e) => setCategory(e.target.value)}
+                  onValueChange={setCategory}
+                  options={categories.map((c) => ({ value: c, label: c }))}
+                  creatable
+                  createLabel={(text) => t("products.createForm.useValue", { value: text })}
                   placeholder={t("products.createForm.categoryPlaceholder")}
+                  searchPlaceholder={t("common.search")}
+                  clearLabel={t("products.createForm.clearCategory")}
+                  className="w-full max-w-none"
                 />
               </div>
               <div className="col-span-6 space-y-2">

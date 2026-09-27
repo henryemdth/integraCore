@@ -51,6 +51,13 @@ router.get("/export", authenticate, async (req: Request, res: Response) => {
   res.end();
 });
 
+router.get("/:id", authenticate, async (req: Request, res: Response) => {
+  const db = getAdapter();
+  const svc = productService(db);
+  const product = await svc.getById(parseId(req.params.id as string));
+  res.json({ product });
+});
+
 router.post("/import", authenticate, requireRole("admin"), writeLockGuard, async (req: Request, res: Response) => {
   const { file } = req.body as { file?: string };
   if (!file) {
