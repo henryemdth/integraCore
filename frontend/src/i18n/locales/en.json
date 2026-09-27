@@ -352,6 +352,8 @@
   },
   "discounts": {
     "history": "Discount History",
+    "allProducts": "All products",
+    "allStatuses": "All statuses",
     "createDiscount": "Set Discount",
     "discountedPrice": "Discounted Price",
     "startDate": "Start Date",

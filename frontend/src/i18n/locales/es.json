@@ -352,6 +352,8 @@
   },
   "discounts": {
     "history": "Historial de descuentos",
+    "allProducts": "Todos los productos",
+    "allStatuses": "Todos los estados",
     "createDiscount": "Aplicar descuento",
     "discountedPrice": "Precio con descuento",
     "startDate": "Fecha de inicio",

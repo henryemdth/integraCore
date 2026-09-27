@@ -287,6 +287,65 @@ describe("discountService", () => {
       expect(all[0].product_name).toBeDefined();
       expect(all[0].product_sku).toBeDefined();
     });
+
+    it("orders by creation time (newest first), not by start date", async () => {
+      const p1 = await seedTestProduct(db, { sku: "P1" });
+      const p2 = await seedTestProduct(db, { sku: "P2", name: "Other" });
+
+      // Created first but starts LATER — old start_date ordering would rank it on top.
+      await service.create(p1.id, { discounted_price: 10, start_date: "2027-01-01", end_date: "2027-01-31" });
+      // Created second — must rank first (last discount added on top).
+      await service.create(p2.id, { discounted_price: 12, start_date: "2026-01-01", end_date: "2026-01-31" });
+
+      const all = await service.listAll();
+      expect(all).toHaveLength(2);
+      expect(all[0].product_sku).toBe("P2");
+      expect(all[1].product_sku).toBe("P1");
+    });
+
+    it("filters by product", async () => {
+      const p1 = await seedTestProduct(db, { sku: "P1" });
+      const p2 = await seedTestProduct(db, { sku: "P2", name: "Other" });
+
+      await service.create(p1.id, { discounted_price: 10, start_date: "2026-01-01", end_date: "2026-01-31" });
+      await service.create(p2.id, { discounted_price: 12, start_date: "2026-02-01", end_date: "2026-02-28" });
+
+      const onlyP1 = await service.listAll({ productId: p1.id });
+      expect(onlyP1).toHaveLength(1);
+      expect(onlyP1[0].product_sku).toBe("P1");
+    });
+
+    it("filters by derived status (active / scheduled / expired / cancelled)", async () => {
+      const today = todayDateString();
+      const tomorrow = nextDayDateString(today);
+      const pActive = await seedTestProduct(db, { sku: "ACT" });
+      const pSched = await seedTestProduct(db, { sku: "SCH", name: "S" });
+      const pExpired = await seedTestProduct(db, { sku: "EXP", name: "E" });
+      const pCancelled = await seedTestProduct(db, { sku: "CAN", name: "C" });
+
+      await service.create(pActive.id, { discounted_price: 10, start_date: today, end_date: today });
+      await service.create(pSched.id, { discounted_price: 10, start_date: tomorrow, end_date: tomorrow });
+      await service.create(pExpired.id, { discounted_price: 10, start_date: "2000-01-01", end_date: "2000-01-31" });
+      // Dates cover today, but being cancelled must exclude it from "active".
+      const cancelled = await service.create(pCancelled.id, { discounted_price: 10, start_date: today, end_date: today });
+      await service.cancel(cancelled.id);
+
+      const active = await service.listAll({ status: "active" });
+      expect(active.map((d: any) => d.product_sku)).toEqual(["ACT"]);
+
+      const scheduled = await service.listAll({ status: "scheduled" });
+      expect(scheduled.map((d: any) => d.product_sku)).toEqual(["SCH"]);
+
+      const expired = await service.listAll({ status: "expired" });
+      expect(expired.map((d: any) => d.product_sku)).toEqual(["EXP"]);
+
+      const cancelledOnly = await service.listAll({ status: "cancelled" });
+      expect(cancelledOnly.map((d: any) => d.product_sku)).toEqual(["CAN"]);
+
+      // Unknown values apply no condition (no filter).
+      const unknown = await service.listAll({ status: "garbage" });
+      expect(unknown).toHaveLength(4);
+    });
   });
 
   describe("overlap (inclusive boundaries)", () => {

@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext"
 import { useExportExcel } from "@/hooks/useExportExcel"
 import api from "@/lib/api"
 import { formatCurrency, formatDate } from "@/lib/format"
+import { normalizeForSearch } from "@/lib/text"
 import type { Product } from "@integracore/shared"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -35,6 +36,7 @@ export default function ProductListPage() {
 
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState("")
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false)
   const [category, setCategory] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
   const [sort, setSort] = useState("created_at")
@@ -70,6 +72,35 @@ export default function ProductListPage() {
   })
   const categories = catData ?? []
 
+  // Suggestion source for the search box: all products, matched accent- and
+  // case-insensitively on name or SKU (server-side LIKE is not diacritic-safe).
+  const { data: allProducts = [] } = useQuery({
+    queryKey: ["products", "list-all"],
+    queryFn: async () => {
+      const res = await api.get("/api/products?limit=10000")
+      return res.data.products as Product[]
+    },
+  })
+
+  const suggestions = useMemo(() => {
+    const q = normalizeForSearch(search)
+    if (!q) return []
+    return allProducts.filter((p) => normalizeForSearch(`${p.name} ${p.sku}`).includes(q)).slice(0, 10)
+  }, [search, allProducts])
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value)
+    setPage(1)
+    setSuggestionsOpen(value.trim().length > 0)
+  }
+
+  const pickSuggestion = (product: Product) => {
+    // Fill the search with the SKU: unique, so the table shows exactly this product.
+    setSearch(product.sku)
+    setPage(1)
+    setSuggestionsOpen(false)
+  }
+
   const deleteMutation = useMutation({
     mutationFn: (id: number) => api.delete(`/api/products/${id}`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["products"] }); toast.success(t("products.deleted")) },
@@ -104,7 +135,31 @@ export default function ProductListPage() {
           <div className="flex items-center gap-3 flex-wrap">
             <div className="relative flex-1 min-w-[200px] max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder={t("products.search")} value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} className="pl-9" />
+              <Input
+                placeholder={t("products.search")}
+                value={search}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Escape") setSuggestionsOpen(false) }}
+                className="pl-9"
+              />
+              {suggestionsOpen && suggestions.length > 0 && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setSuggestionsOpen(false)} />
+                  <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-60 overflow-y-auto rounded-md border border-border bg-popover shadow-md">
+                    {suggestions.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-surface-container"
+                        onClick={() => pickSuggestion(p)}
+                      >
+                        <span className="font-medium">{p.name}</span>
+                        <code className="text-xs text-muted-foreground font-data">{p.sku}</code>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
             <SearchableSelect
               value={category}

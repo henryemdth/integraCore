@@ -9,17 +9,23 @@ import { parseId } from "../utils/parseId.js";
 // (GET/POST /api/products/:productId/discounts) live in routes/products.ts.
 const router = Router();
 
-router.get("/", authenticate, requireRole("admin"), async (_req: Request, res: Response) => {
+router.get("/", authenticate, requireRole("admin"), async (req: Request, res: Response) => {
   const db = getAdapter();
   const svc = discountService(db);
-  const discounts = await svc.listAll();
+  const discounts = await svc.listAll({
+    productId: req.query.product_id ? Number(req.query.product_id) : undefined,
+    status: (req.query.status as string) || undefined,
+  });
   res.json({ discounts });
 });
 
-router.get("/export", authenticate, requireRole("admin"), async (_req: Request, res: Response) => {
+router.get("/export", authenticate, requireRole("admin"), async (req: Request, res: Response) => {
   const db = getAdapter();
   const svc = discountService(db);
-  const workbook = await svc.exportHistory();
+  const workbook = await svc.exportHistory({
+    productId: req.query.product_id ? Number(req.query.product_id) : undefined,
+    status: (req.query.status as string) || undefined,
+  });
   res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
   res.setHeader("Content-Disposition", "attachment; filename=discount-history.xlsx");
   await workbook.xlsx.write(res);

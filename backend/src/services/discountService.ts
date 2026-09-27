@@ -18,7 +18,7 @@ export function discountService(db: DatabaseAdapter) {
        FROM product_discounts pd
        JOIN products p ON pd.product_id = p.id
        WHERE pd.product_id = ?
-       ORDER BY pd.start_date DESC`,
+       ORDER BY pd.created_at DESC, pd.id DESC`,
       [productId],
     );
   }
@@ -158,7 +158,42 @@ export function discountService(db: DatabaseAdapter) {
     return { success: true };
   }
 
-  async function listAll() {
+  // Derived-status semantics mirrored from the client badges in
+  // DiscountHistoryPage: active/scheduled/expired are date-based states of an
+  // active row; cancelled is the stored status. Values outside the list apply
+  // no condition (the filter is progressive enhancement, not validation).
+  function buildDiscountFilter(filters: { productId?: number; status?: string }) {
+    const conditions: string[] = [];
+    const params: any[] = [];
+
+    if (filters.productId) {
+      conditions.push("pd.product_id = ?");
+      params.push(filters.productId);
+    }
+    if (filters.status) {
+      const now = nowString();
+      if (filters.status === "active") {
+        conditions.push("pd.status = 'active' AND pd.start_date <= ? AND pd.end_date >= ?");
+        params.push(now, now);
+      } else if (filters.status === "scheduled") {
+        conditions.push("pd.status = 'active' AND pd.start_date > ?");
+        params.push(now);
+      } else if (filters.status === "expired") {
+        conditions.push("pd.status = 'active' AND pd.end_date < ?");
+        params.push(now);
+      } else if (filters.status === "cancelled") {
+        conditions.push("pd.status = 'cancelled'");
+      }
+    }
+
+    const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+    return { where, params };
+  }
+
+  // Shared by the dashboard list and the Excel export so both always see the
+  // same shape, filters, and ordering (newest-created first, id tiebreak).
+  async function queryDiscountHistory(filters: { productId?: number; status?: string }) {
+    const { where, params } = buildDiscountFilter(filters);
     return await db.all(
       `SELECT pd.*, p.name as product_name, p.sku as product_sku, p.sell_price as normal_price,
               COALESCE(si_agg.units_sold, 0) as units_sold
@@ -170,24 +205,18 @@ export function discountService(db: DatabaseAdapter) {
          WHERE discount_id IS NOT NULL
          GROUP BY discount_id
        ) si_agg ON si_agg.discount_id = pd.id
-       ORDER BY pd.start_date DESC`,
+       ${where}
+       ORDER BY pd.created_at DESC, pd.id DESC`,
+      params,
     );
   }
 
-  async function exportHistory() {
-    const discounts = (await db.all(
-      `SELECT pd.*, p.name as product_name, p.sku as product_sku, p.sell_price as normal_price,
-              COALESCE(si_agg.units_sold, 0) as units_sold
-       FROM product_discounts pd
-       JOIN products p ON pd.product_id = p.id
-       LEFT JOIN (
-         SELECT discount_id, SUM(quantity) as units_sold
-         FROM sale_items
-         WHERE discount_id IS NOT NULL
-         GROUP BY discount_id
-       ) si_agg ON si_agg.discount_id = pd.id
-       ORDER BY pd.start_date DESC`,
-    )) as any[];
+  async function listAll(filters: { productId?: number; status?: string } = {}) {
+    return await queryDiscountHistory(filters);
+  }
+
+  async function exportHistory(filters: { productId?: number; status?: string } = {}) {
+    const discounts = (await queryDiscountHistory(filters)) as any[];
 
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet("Discount History");

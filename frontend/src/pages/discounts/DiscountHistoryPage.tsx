@@ -1,19 +1,23 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
+import { useSearchParams } from "react-router-dom"
 import { useExportExcel } from "@/hooks/useExportExcel"
 import api from "@/lib/api"
-import type { ProductDiscount } from "@integracore/shared"
+import type { Product, ProductDiscount } from "@integracore/shared"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { SearchableSelect } from "@/components/ui/searchable-select"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { QueryErrorState } from "@/components/ui/query-error"
 import { Download, Trash2, Ban } from "lucide-react"
 import { formatCurrency, formatDate } from "@/lib/format"
 import { nowString } from "@integracore/shared"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { getErrorMessage } from "@/lib/errorMessages"
 
 type DiscountRow = ProductDiscount & { normal_price: number; units_sold?: number }
@@ -26,11 +30,36 @@ export default function DiscountHistoryPage() {
   const { exportToExcel } = useExportExcel()
   const [pendingAction, setPendingAction] = useState<PendingAction>(null)
 
+  // Deep link from Products ("Historial de descuentos" row action) pre-selects
+  // the product filter; later navigations with a new productId re-apply it.
+  const [searchParams] = useSearchParams()
+  const paramProductId = searchParams.get("productId")
+  const [productFilter, setProductFilter] = useState(paramProductId ?? "all")
+  const [statusFilter, setStatusFilter] = useState("all")
+
+  useEffect(() => {
+    if (paramProductId) setProductFilter(paramProductId)
+  }, [paramProductId])
+
+  const filterParams: Record<string, string> = {}
+  if (productFilter !== "all") filterParams.product_id = productFilter
+  if (statusFilter !== "all") filterParams.status = statusFilter
+
   const { data: discounts = [], isLoading, isError, refetch } = useQuery({
-    queryKey: ["discounts", "all"],
+    queryKey: ["discounts", filterParams],
     queryFn: async () => {
-      const res = await api.get("/api/discounts")
+      const qs = new URLSearchParams(filterParams).toString()
+      const res = await api.get(`/api/discounts${qs ? `?${qs}` : ""}`)
       return res.data.discounts as DiscountRow[]
+    },
+    placeholderData: (prev) => prev,
+  })
+
+  const { data: products = [] } = useQuery({
+    queryKey: ["products", "list-all"],
+    queryFn: async () => {
+      const res = await api.get("/api/products?limit=10000")
+      return res.data.products as Product[]
     },
   })
 
@@ -58,7 +87,7 @@ export default function DiscountHistoryPage() {
   })
 
   const handleExport = () => {
-    exportToExcel("/api/discounts/export", {}, "discount-history.xlsx")
+    exportToExcel("/api/discounts/export", { ...filterParams }, "discount-history.xlsx")
   }
 
   const now = nowString()
@@ -75,15 +104,43 @@ export default function DiscountHistoryPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-headline-lg">{t("discounts.history")}</h2>
-        <Button variant="outline" size="sm" onClick={handleExport}>
-          <Download className="h-4 w-4 mr-2" />
-          {t("discounts.export")}
-        </Button>
-      </div>
+      <h2 className="text-headline-lg">{t("discounts.history")}</h2>
       <Card>
-        <CardContent className="pt-6">
+        <CardHeader className="pb-3">
+          <div className="flex items-end gap-3 flex-wrap">
+            <div className="space-y-1.5">
+              <Label className="text-label-caps text-muted-foreground">{t("discounts.product")}</Label>
+              <SearchableSelect
+                value={productFilter}
+                onValueChange={setProductFilter}
+                options={products.map((p: Product) => ({ value: String(p.id), label: p.name, keywords: [p.sku] }))}
+                allLabel={t("discounts.allProducts")}
+                searchPlaceholder={t("common.search")}
+                noResultsText={t("common.noMatches")}
+                clearLabel={t("common.clearFilter")}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-label-caps text-muted-foreground">{t("discounts.status")}</Label>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[170px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t("discounts.allStatuses")}</SelectItem>
+                  <SelectItem value="active">{t("discounts.active")}</SelectItem>
+                  <SelectItem value="scheduled">{t("discounts.scheduled")}</SelectItem>
+                  <SelectItem value="expired">{t("discounts.expired")}</SelectItem>
+                  <SelectItem value="cancelled">{t("discounts.cancelled")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex-1" />
+            <Button variant="outline" size="sm" onClick={handleExport}>
+              <Download className="h-4 w-4 mr-2" />
+              {t("discounts.export")}
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
           {isLoading ? (
             <div className="text-center py-8 text-muted-foreground">{t("common.loading")}</div>
           ) : isError ? (
