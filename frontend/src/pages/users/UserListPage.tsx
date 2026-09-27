@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { SuggestiveInput } from "@/components/ui/suggestive-input"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
 import { CreateUserDialog } from "@/components/users/CreateUserDialog"
@@ -25,6 +26,7 @@ export default function UserListPage() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [page, setPage] = useState(1)
+  const [search, setSearch] = useState("")
   const [filter, setFilter] = useState<"all" | "active" | "inactive">("active")
   const [createOpen, setCreateOpen] = useState(false)
   const [editUser, setEditUser] = useState<User | null>(null)
@@ -34,6 +36,7 @@ export default function UserListPage() {
   const limit = 10
   const params: Record<string, string> = { page: String(page), limit: String(limit) }
   if (filter !== "all") params.active = filter
+  if (search) params.search = search
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["users", params],
@@ -89,6 +92,22 @@ export default function UserListPage() {
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center gap-3">
+            <SuggestiveInput
+              value={search}
+              onValueChange={(v) => { setSearch(v); resetPage() }}
+              className="w-64"
+              items={allUsers ?? []}
+              itemKey={(u) => u.id}
+              itemText={(u) => `${u.full_name} ${u.username}`}
+              renderItem={(u) => (
+                <span className="flex w-full items-center justify-between gap-2">
+                  <span className="font-medium">{u.full_name}</span>
+                  <code className="text-xs text-muted-foreground font-data">{u.username}</code>
+                </span>
+              )}
+              onPick={(u) => { setSearch(u.username); resetPage() }}
+              placeholder={t("users.searchPlaceholder")}
+            />
             <div className="space-y-1.5">
               <Select value={filter} onValueChange={(v) => { setFilter(v as any); resetPage() }}>
                 <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>

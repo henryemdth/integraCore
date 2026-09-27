@@ -3,11 +3,13 @@ import { createTestDb, seedTestUser } from "../../helpers/test-helper.js";
 import type { SqliteAdapter } from "../../../src/db/sqlite.js";
 import type { DatabaseAdapter } from "../../../src/db/adapter.js";
 import { authService, AppError } from "../../../src/services/authService.js";
+import { emitUsersChanged } from "../../../src/socket/index.js";
 
 vi.mock("../../../src/socket/index.js", () => ({
   emitProductUpdated: vi.fn(),
   emitNotification: vi.fn(),
   emitDbRestored: vi.fn(),
+  emitUsersChanged: vi.fn(),
 }));
 
 describe("authService", () => {
@@ -15,6 +17,7 @@ describe("authService", () => {
   let service: ReturnType<typeof authService>;
 
   beforeEach(() => {
+    vi.clearAllMocks();
     const test = createTestDb();
     db = test.db;
     service = authService(db);
@@ -85,6 +88,26 @@ describe("authService", () => {
       await expect(service.setup("admin2", "password123", "Another Admin")).rejects.toThrow(
         "Setup already completed"
       );
+    });
+  });
+
+  describe("register", () => {
+    it("creates the user and notifies connected clients", async () => {
+      const result = await service.register("seller", "password123", "Bruno Díaz", "user");
+      expect(result.user).toMatchObject({
+        username: "seller",
+        full_name: "Bruno Díaz",
+        role: "user",
+      });
+      expect(emitUsersChanged).toHaveBeenCalledTimes(1);
+    });
+
+    it("rejects duplicate usernames without notifying", async () => {
+      await seedTestUser(db, { username: "seller" });
+      await expect(service.register("seller", "password123", "Duplicate", "user")).rejects.toThrow(
+        "Username already exists"
+      );
+      expect(emitUsersChanged).not.toHaveBeenCalled();
     });
   });
 });

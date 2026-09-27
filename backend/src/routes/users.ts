@@ -15,6 +15,7 @@ router.get("/", authenticate, requireRole("admin"), async (req: Request, res: Re
     page: Math.max(1, parseInt(req.query.page as string) || 1),
     limit: Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 10)),
     active: (req.query.active as string) || undefined,
+    search: (req.query.search as string) || undefined,
   });
   res.json(result);
 });

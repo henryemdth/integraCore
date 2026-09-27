@@ -186,6 +186,7 @@
     "status": "Estado",
     "created": "Creado",
     "noUsers": "No se encontraron usuarios",
+    "searchPlaceholder": "Buscar por nombre o usuario...",
     "pageInfo": "Página {{page}} de {{totalPages}} ({{total}} usuarios)",
     "stats": {
       "total": "Total usuarios",

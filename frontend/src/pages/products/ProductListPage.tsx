@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
@@ -6,23 +6,22 @@ import { useAuth } from "@/contexts/AuthContext"
 import { useExportExcel } from "@/hooks/useExportExcel"
 import api from "@/lib/api"
 import { formatCurrency, formatDate } from "@/lib/format"
-import { normalizeForSearch } from "@/lib/text"
 import type { Product } from "@integracore/shared"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { SearchableSelect } from "@/components/ui/searchable-select"
+import { SuggestiveInput } from "@/components/ui/suggestive-input"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { StockMovementDialog } from "@/components/products/StockMovementDialog"
 import { ImportDialog } from "@/components/products/ImportDialog"
 import { CreateDiscountDialog } from "@/components/discounts/CreateDiscountDialog"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { QueryErrorState } from "@/components/ui/query-error"
-import { Plus, MoreHorizontal, Search, PackagePlus, PackageMinus, Download, Upload, Tag, Percent, Info } from "lucide-react"
+import { Plus, MoreHorizontal, PackagePlus, PackageMinus, Download, Upload, Tag, Percent, Info } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import { getErrorMessage } from "@/lib/errorMessages"
@@ -36,7 +35,6 @@ export default function ProductListPage() {
 
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState("")
-  const [suggestionsOpen, setSuggestionsOpen] = useState(false)
   const [category, setCategory] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
   const [sort, setSort] = useState("created_at")
@@ -82,25 +80,6 @@ export default function ProductListPage() {
     },
   })
 
-  const suggestions = useMemo(() => {
-    const q = normalizeForSearch(search)
-    if (!q) return []
-    return allProducts.filter((p) => normalizeForSearch(`${p.name} ${p.sku}`).includes(q)).slice(0, 10)
-  }, [search, allProducts])
-
-  const handleSearchChange = (value: string) => {
-    setSearch(value)
-    setPage(1)
-    setSuggestionsOpen(value.trim().length > 0)
-  }
-
-  const pickSuggestion = (product: Product) => {
-    // Fill the search with the SKU: unique, so the table shows exactly this product.
-    setSearch(product.sku)
-    setPage(1)
-    setSuggestionsOpen(false)
-  }
-
   const deleteMutation = useMutation({
     mutationFn: (id: number) => api.delete(`/api/products/${id}`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["products"] }); toast.success(t("products.deleted")) },
@@ -133,34 +112,22 @@ export default function ProductListPage() {
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center gap-3 flex-wrap">
-            <div className="relative flex-1 min-w-[200px] max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder={t("products.search")}
-                value={search}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Escape") setSuggestionsOpen(false) }}
-                className="pl-9"
-              />
-              {suggestionsOpen && suggestions.length > 0 && (
-                <>
-                  <div className="fixed inset-0 z-10" onClick={() => setSuggestionsOpen(false)} />
-                  <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-60 overflow-y-auto rounded-md border border-border bg-popover shadow-md">
-                    {suggestions.map((p) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-surface-container"
-                        onClick={() => pickSuggestion(p)}
-                      >
-                        <span className="font-medium">{p.name}</span>
-                        <code className="text-xs text-muted-foreground font-data">{p.sku}</code>
-                      </button>
-                    ))}
-                  </div>
-                </>
+            <SuggestiveInput
+              value={search}
+              onValueChange={(v) => { setSearch(v); setPage(1) }}
+              className="flex-1 min-w-[200px] max-w-sm"
+              items={allProducts}
+              itemKey={(p) => p.id}
+              itemText={(p) => `${p.name} ${p.sku}`}
+              renderItem={(p) => (
+                <span className="flex w-full items-center justify-between gap-2">
+                  <span className="font-medium">{p.name}</span>
+                  <code className="text-xs text-muted-foreground font-data">{p.sku}</code>
+                </span>
               )}
-            </div>
+              onPick={(p) => { setSearch(p.sku); setPage(1) }}
+              placeholder={t("products.search")}
+            />
             <SearchableSelect
               value={category}
               onValueChange={(v) => { setCategory(v); setPage(1) }}

@@ -30,6 +30,10 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       queryClient.invalidateQueries({ queryKey: ["notifications"] })
     })
 
+    socket.on("users:changed", () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] })
+    })
+
     socket.on("db:restored", () => {
       queryClient.invalidateQueries()
     })

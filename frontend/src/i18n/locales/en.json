@@ -186,6 +186,7 @@
     "status": "Status",
     "created": "Created",
     "noUsers": "No users found",
+    "searchPlaceholder": "Search by name or username...",
     "pageInfo": "Page {{page}} of {{totalPages}} ({{total}} users)",
     "stats": {
       "total": "Total Users",

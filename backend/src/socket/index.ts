@@ -61,6 +61,10 @@ export function emitNotification(notification: { id: number; type: string; messa
   if (io) io.emit("notification:new", notification);
 }
 
+export function emitUsersChanged() {
+  if (io) io.emit("users:changed");
+}
+
 export function emitDbRestored() {
   if (io) io.emit("db:restored", { timestamp: new Date().toISOString() });
 }

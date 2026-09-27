@@ -1,10 +1,11 @@
 import type { DatabaseAdapter } from "../db/adapter.js";
 import bcrypt from "bcryptjs";
 import { AppError } from "../utils/appError.js";
+import { emitUsersChanged } from "../socket/index.js";
 
 export function userService(db: DatabaseAdapter) {
-  async function list(params: { page: number; limit: number; active?: string }) {
-    const { page, limit, active } = params;
+  async function list(params: { page: number; limit: number; active?: string; search?: string }) {
+    const { page, limit, active, search } = params;
     const offset = (page - 1) * limit;
 
     const conditions: string[] = [];
@@ -17,18 +18,22 @@ export function userService(db: DatabaseAdapter) {
       conditions.push("active = ?");
       sqlParams.push(0);
     }
+    if (search) {
+      conditions.push("(username LIKE ? OR full_name LIKE ?)");
+      sqlParams.push(`%${search}%`, `%${search}%`);
+    }
 
     const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
     const countRow = await db.get<{ count: number }>(
       `SELECT COUNT(*) as count FROM users ${where}`,
       sqlParams
     );
-  
+
     const total = countRow!.count;
     const totalPages = Math.ceil(total / limit);
 
     const users = await db.all(
-      `SELECT id, username, full_name, role, active, created_at, updated_at FROM users ${where} ORDER BY full_name ASC LIMIT ? OFFSET ?`,
+      `SELECT id, username, full_name, role, active, created_at, updated_at FROM users ${where} ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`,
       [...sqlParams, limit, offset]
     );
 
@@ -65,10 +70,12 @@ export function userService(db: DatabaseAdapter) {
       [data.full_name ?? null, data.role ?? null, id]
     );
 
-    return await db.get(
+    const user = await db.get(
       "SELECT id, username, full_name, role, active, created_at, updated_at FROM users WHERE id = ?",
       [id]
     );
+    emitUsersChanged();
+    return user;
   }
 
   async function deactivate(id: number, requesterId: number) {
@@ -94,10 +101,12 @@ export function userService(db: DatabaseAdapter) {
       [0, id]
     );
 
-    return await db.get(
+    const user = await db.get(
       "SELECT id, username, full_name, role, active, created_at, updated_at FROM users WHERE id = ?",
       [id]
     );
+    emitUsersChanged();
+    return user;
   }
 
   async function activate(id: number) {
@@ -109,10 +118,12 @@ export function userService(db: DatabaseAdapter) {
       [1, id]
     );
 
-    return await db.get(
+    const user = await db.get(
       "SELECT id, username, full_name, role, active, created_at, updated_at FROM users WHERE id = ?",
       [id]
     );
+    emitUsersChanged();
+    return user;
   }
 
   async function resetPassword(id: number, password: string) {

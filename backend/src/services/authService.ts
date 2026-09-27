@@ -2,6 +2,7 @@ import type { DatabaseAdapter } from "../db/adapter.js";
 import bcrypt from "bcryptjs";
 import { signToken } from "../middleware/auth.js";
 import { AppError } from "../utils/appError.js";
+import { emitUsersChanged } from "../socket/index.js";
 
 export { AppError };
 
@@ -76,6 +77,9 @@ export function authService(db: DatabaseAdapter) {
       "SELECT id, username, full_name, role, active, created_at, updated_at FROM users WHERE id = ?",
       [result.insertId]
     );
+
+    // Every connected client (e.g. another admin's Users dashboard) refreshes.
+    emitUsersChanged();
 
     return { user };
   }
