@@ -59,11 +59,14 @@ export function discountService(db: DatabaseAdapter) {
     const start = startOfDay(data.start_date);
     const end = endOfDay(data.end_date);
 
+    // Only an ACTIVE discount blocks a new one: cancelled discounts (with or
+    // without sales) never apply again, and historical sales keep their frozen
+    // discount_id/unit_price, so a new discount over the same dates creates no
+    // ambiguity. Same-day boundaries are inclusive.
     const overlap = (await db.get(
       `SELECT COUNT(*) as count FROM product_discounts pd
-       WHERE pd.product_id = ? AND pd.start_date <= ? AND pd.end_date >= ?
-         AND (pd.status = 'active'
-           OR (pd.status = 'cancelled' AND EXISTS (SELECT 1 FROM sale_items WHERE discount_id = pd.id)))`,
+       WHERE pd.product_id = ? AND pd.status = 'active'
+         AND pd.start_date <= ? AND pd.end_date >= ?`,
       [productId, end, start],
     )) as any;
     if (overlap.count > 0)

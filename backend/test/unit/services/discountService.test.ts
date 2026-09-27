@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { createTestDb, seedTestProduct } from "../../helpers/test-helper.js";
+import { createTestDb, seedTestProduct, seedTestUser, seedTestSale } from "../../helpers/test-helper.js";
 import type { SqliteAdapter } from "../../../src/db/sqlite.js";
 import { discountService } from "../../../src/services/discountService.js";
 import { todayDateString, nextDayDateString } from "@integracore/shared";
@@ -118,6 +118,33 @@ describe("discountService", () => {
       });
 
       expect(d2.id).toBeGreaterThan(0);
+    });
+
+    it("allows overlap with cancelled discount that already has sales", async () => {
+      const product = await seedTestProduct(db);
+      const user = await seedTestUser(db);
+
+      const d1 = await service.create(product.id, {
+        discounted_price: 10,
+        start_date: "2026-01-01",
+        end_date: "2026-01-31",
+      });
+
+      // A sale references the discount, then the admin cancels it.
+      const saleId = await seedTestSale(db, user.id, product.id);
+      await db.run("UPDATE sale_items SET discount_id = ? WHERE sale_id = ?", [d1.id, saleId]);
+      await service.cancel(d1.id);
+
+      // The same date range must be reusable — historical sales keep their
+      // frozen discount_id/unit_price, so a new discount creates no ambiguity.
+      const d2 = await service.create(product.id, {
+        discounted_price: 12,
+        start_date: "2026-01-01",
+        end_date: "2026-01-31",
+      });
+
+      expect(d2.id).toBeGreaterThan(0);
+      expect(d2.status).toBe("active");
     });
 
     it("rejects if product does not exist", async () => {
