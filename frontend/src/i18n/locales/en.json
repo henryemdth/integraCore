@@ -14,6 +14,8 @@
     "back": "Back",
     "previous": "Previous",
     "next": "Next",
+    "goToPage": "Go to page {{page}}",
+    "rowsPerPage": "Rows per page",
     "actions": "Actions",
     "search": "Search…",
     "noMatches": "No matches",
@@ -389,7 +391,8 @@
     "priceInvalid": "Discounted price must be greater than or equal to 0",
     "startDateRequired": "Start date is required",
     "endDateRequired": "End date is required",
-    "dateOrder": "Start date must be on or before end date"
+    "dateOrder": "Start date must be on or before end date",
+    "pageInfo": "Page {{page}} of {{totalPages}} ({{total}} discounts)"
   },
   "errors": {
     "invalidCredentials": "Invalid credentials",

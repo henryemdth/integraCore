@@ -48,7 +48,7 @@ export default function ProductListPage() {
   const [discountProduct, setDiscountProduct] = useState<Product | null>(null)
   const [confirmDeleteProduct, setConfirmDeleteProduct] = useState<Product | null>(null)
 
-  const limit = 20
+  const [limit, setLimit] = useState(20)
   const params = { page: String(page), limit: String(limit), sort, order, ...(search && { search }), ...(category !== "all" && { category }), ...(statusFilter !== "all" && { status: statusFilter }) }
 
   const { data, isLoading, isError, refetch } = useQuery({
@@ -79,6 +79,7 @@ export default function ProductListPage() {
   const handleSort = (column: string) => {
     if (sort === column) setOrder(order === "ASC" ? "DESC" : "ASC")
     else { setSort(column); setOrder("ASC") }
+    setPage(1)
   }
 
   const handleExport = () => {
@@ -228,7 +229,7 @@ export default function ProductListPage() {
               ))}
             </TableBody>
           </Table>
-          <Pagination page={page} totalPages={totalPages} total={total} pageInfoKey="products.pageInfo" onPageChange={setPage} />
+          <Pagination page={page} totalPages={totalPages} total={total} pageInfoKey="products.pageInfo" onPageChange={setPage} limit={limit} onLimitChange={(l) => { setLimit(l); setPage(1) }} />
         </CardContent>
       </Card>
       <StockMovementDialog product={stockProduct} type={stockType} open={Boolean(stockProduct)} onOpenChange={(open: boolean) => { if (!open) setStockProduct(null) }} />

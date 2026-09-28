@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { SearchableSelect } from "@/components/ui/searchable-select"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { QueryErrorState } from "@/components/ui/query-error"
+import { Pagination } from "@/components/Pagination"
 import { Download, Trash2, Ban } from "lucide-react"
 import { formatCurrency, formatDate } from "@/lib/format"
 import { nowString } from "@integracore/shared"
@@ -38,24 +39,40 @@ export default function DiscountHistoryPage() {
   const paramProductId = searchParams.get("productId")
   const [productFilter, setProductFilter] = useState(paramProductId ?? "all")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(10)
 
   useEffect(() => {
-    if (paramProductId) setProductFilter(paramProductId)
+    if (paramProductId) {
+      setProductFilter(paramProductId)
+      setPage(1)
+    }
   }, [paramProductId])
 
+  // Filter-only params: reused by the export call, which is unbounded.
   const filterParams: Record<string, string> = {}
   if (productFilter !== "all") filterParams.product_id = productFilter
   if (statusFilter !== "all") filterParams.status = statusFilter
 
-  const { data: discounts = [], isLoading, isError, refetch } = useQuery({
-    queryKey: queryKeys.discounts.list(filterParams),
+  const queryParams = { page: String(page), limit: String(limit), ...filterParams }
+
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: queryKeys.discounts.list(queryParams),
     queryFn: async () => {
-      const qs = new URLSearchParams(filterParams).toString()
-      const res = await api.get(`/api/discounts${qs ? `?${qs}` : ""}`)
-      return res.data.discounts as DiscountRow[]
+      const qs = new URLSearchParams(queryParams).toString()
+      const res = await api.get(`/api/discounts?${qs}`)
+      return {
+        discounts: res.data.discounts as DiscountRow[],
+        total: res.data.total as number,
+        totalPages: res.data.totalPages as number,
+      }
     },
     placeholderData: (prev) => prev,
   })
+
+  const discounts = data?.discounts ?? []
+  const total = data?.total ?? 0
+  const totalPages = data?.totalPages ?? 1
 
   const allProducts = useAllProducts().data ?? []
 
@@ -108,7 +125,7 @@ export default function DiscountHistoryPage() {
               <Label className="text-label-caps text-muted-foreground">{t("discounts.product")}</Label>
               <SearchableSelect
                 value={productFilter}
-                onValueChange={setProductFilter}
+                onValueChange={(v) => { setProductFilter(v); setPage(1) }}
                 options={allProducts.map((p: Product) => ({ value: String(p.id), label: p.name, keywords: [p.sku] }))}
                 allLabel={t("discounts.allProducts")}
                 searchPlaceholder={t("common.search")}
@@ -118,7 +135,7 @@ export default function DiscountHistoryPage() {
             </div>
             <div className="space-y-1.5">
               <Label className="text-label-caps text-muted-foreground">{t("discounts.status")}</Label>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1) }}>
                 <SelectTrigger className="w-[170px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">{t("discounts.allStatuses")}</SelectItem>
@@ -216,6 +233,15 @@ export default function DiscountHistoryPage() {
               </TableBody>
             </Table>
           )}
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            pageInfoKey="discounts.pageInfo"
+            onPageChange={setPage}
+            limit={limit}
+            onLimitChange={(l) => { setLimit(l); setPage(1) }}
+          />
         </CardContent>
       </Card>
       <ConfirmDialog

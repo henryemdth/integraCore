@@ -36,7 +36,7 @@ export default function UserListPage() {
   const [resetPwdUser, setResetPwdUser] = useState<User | null>(null)
   const [confirmDeactivateUser, setConfirmDeactivateUser] = useState<User | null>(null)
 
-  const limit = 10
+  const [limit, setLimit] = useState(10)
   const params: Record<string, string> = { page: String(page), limit: String(limit) }
   if (filter !== "all") params.active = filter
   if (search) params.search = search
@@ -174,7 +174,7 @@ export default function UserListPage() {
               ))}
             </TableBody>
           </Table>
-          <Pagination page={page} totalPages={totalPages} total={total} pageInfoKey="users.pageInfo" onPageChange={setPage} />
+          <Pagination page={page} totalPages={totalPages} total={total} pageInfoKey="users.pageInfo" onPageChange={setPage} limit={limit} onLimitChange={(l) => { setLimit(l); setPage(1) }} />
         </CardContent>
       </Card>
       <CreateUserDialog open={createOpen} onOpenChange={setCreateOpen} />

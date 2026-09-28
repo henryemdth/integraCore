@@ -44,7 +44,7 @@ export default function SalesListPage() {
   const [detailSale, setDetailSale] = useState<SaleDetail | null>(null)
   const [confirmDeleteSaleId, setConfirmDeleteSaleId] = useState<number | null>(null)
 
-  const limit = 10
+  const [limit, setLimit] = useState(10)
   const filterParams: Record<string, string> = { page: String(page), limit: String(limit) }
   if (sellerFilter !== "all") filterParams.user_id = sellerFilter
   if (productFilter !== "all") filterParams.product_id = productFilter
@@ -196,7 +196,7 @@ export default function SalesListPage() {
                   ))}
                 </TableBody>
               </Table>
-          <Pagination page={page} totalPages={totalPages} total={total} pageInfoKey="sales.pageInfo" onPageChange={setPage} />
+          <Pagination page={page} totalPages={totalPages} total={total} pageInfoKey="sales.pageInfo" onPageChange={setPage} limit={limit} onLimitChange={(l) => { setLimit(l); setPage(1) }} />
             </CardContent>
           </Card>
         </TabsContent>

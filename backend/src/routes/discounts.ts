@@ -4,6 +4,7 @@ import { authenticate, requireRole } from "../middleware/auth.js";
 import { writeLockGuard } from "../middleware/writeLock.js";
 import { discountService } from "../services/discountService.js";
 import { parseId } from "../utils/parseId.js";
+import { parsePagination } from "../utils/pagination.js";
 
 // Mounted at /api/discounts. Discount creation is product-scoped
 // (POST /api/products/:productId/discounts in routes/products.ts).
@@ -12,11 +13,12 @@ const router = Router();
 router.get("/", authenticate, requireRole("admin"), async (req: Request, res: Response) => {
   const db = getAdapter();
   const svc = discountService(db);
-  const discounts = await svc.listAll({
+  const result = await svc.listAll({
+    ...parsePagination(req.query, 10),
     productId: req.query.product_id ? Number(req.query.product_id) : undefined,
     status: (req.query.status as string) || undefined,
   });
-  res.json({ discounts });
+  res.json(result);
 });
 
 router.get("/export", authenticate, requireRole("admin"), async (req: Request, res: Response) => {

@@ -276,7 +276,7 @@ describe("discountService", () => {
   });
 
   describe("listAll", () => {
-    it("returns all discounts with product info and units sold", async () => {
+    it("returns a paginated shape with product info and units sold", async () => {
       const p1 = await seedTestProduct(db, { sku: "P1" });
       const p2 = await seedTestProduct(db, { sku: "P2", name: "Other" });
 
@@ -291,10 +291,13 @@ describe("discountService", () => {
         end_date: "2026-02-28",
       });
 
-      const all = await service.listAll();
-      expect(all).toHaveLength(2);
-      expect(all[0].product_name).toBeDefined();
-      expect(all[0].product_sku).toBeDefined();
+      const result = await service.listAll({ page: 1, limit: 10 });
+      expect(result.total).toBe(2);
+      expect(result.totalPages).toBe(1);
+      expect(result.page).toBe(1);
+      expect(result.discounts).toHaveLength(2);
+      expect(result.discounts[0].product_name).toBeDefined();
+      expect(result.discounts[0].product_sku).toBeDefined();
     });
 
     it("orders by creation time (newest first), not by start date", async () => {
@@ -306,10 +309,10 @@ describe("discountService", () => {
       // Created second — must rank first (last discount added on top).
       await service.create(p2.id, { discounted_price: 12, start_date: "2026-01-01", end_date: "2026-01-31" });
 
-      const all = await service.listAll();
-      expect(all).toHaveLength(2);
-      expect(all[0].product_sku).toBe("P2");
-      expect(all[1].product_sku).toBe("P1");
+      const result = await service.listAll({ page: 1, limit: 10 });
+      expect(result.discounts).toHaveLength(2);
+      expect(result.discounts[0].product_sku).toBe("P2");
+      expect(result.discounts[1].product_sku).toBe("P1");
     });
 
     it("filters by product", async () => {
@@ -319,9 +322,10 @@ describe("discountService", () => {
       await service.create(p1.id, { discounted_price: 10, start_date: "2026-01-01", end_date: "2026-01-31" });
       await service.create(p2.id, { discounted_price: 12, start_date: "2026-02-01", end_date: "2026-02-28" });
 
-      const onlyP1 = await service.listAll({ productId: p1.id });
-      expect(onlyP1).toHaveLength(1);
-      expect(onlyP1[0].product_sku).toBe("P1");
+      const onlyP1 = await service.listAll({ productId: p1.id, page: 1, limit: 10 });
+      expect(onlyP1.discounts).toHaveLength(1);
+      expect(onlyP1.discounts[0].product_sku).toBe("P1");
+      expect(onlyP1.total).toBe(1);
     });
 
     it("filters by derived status (active / scheduled / expired / cancelled)", async () => {
@@ -339,21 +343,52 @@ describe("discountService", () => {
       const cancelled = await service.create(pCancelled.id, { discounted_price: 10, start_date: today, end_date: today });
       await service.cancel(cancelled.id);
 
-      const active = await service.listAll({ status: "active" });
-      expect(active.map((d: any) => d.product_sku)).toEqual(["ACT"]);
+      const skus = (result: Awaited<ReturnType<typeof service.listAll>>) =>
+        result.discounts.map((d: any) => d.product_sku);
 
-      const scheduled = await service.listAll({ status: "scheduled" });
-      expect(scheduled.map((d: any) => d.product_sku)).toEqual(["SCH"]);
+      const active = await service.listAll({ status: "active", page: 1, limit: 10 });
+      expect(skus(active)).toEqual(["ACT"]);
 
-      const expired = await service.listAll({ status: "expired" });
-      expect(expired.map((d: any) => d.product_sku)).toEqual(["EXP"]);
+      const scheduled = await service.listAll({ status: "scheduled", page: 1, limit: 10 });
+      expect(skus(scheduled)).toEqual(["SCH"]);
 
-      const cancelledOnly = await service.listAll({ status: "cancelled" });
-      expect(cancelledOnly.map((d: any) => d.product_sku)).toEqual(["CAN"]);
+      const expired = await service.listAll({ status: "expired", page: 1, limit: 10 });
+      expect(skus(expired)).toEqual(["EXP"]);
+
+      const cancelledOnly = await service.listAll({ status: "cancelled", page: 1, limit: 10 });
+      expect(skus(cancelledOnly)).toEqual(["CAN"]);
 
       // Unknown values apply no condition (no filter).
-      const unknown = await service.listAll({ status: "garbage" });
-      expect(unknown).toHaveLength(4);
+      const unknown = await service.listAll({ status: "garbage", page: 1, limit: 10 });
+      expect(unknown.discounts).toHaveLength(4);
+    });
+
+    it("paginates: slices rows and computes total/totalPages across pages", async () => {
+      const p1 = await seedTestProduct(db, { sku: "P1" });
+      const p2 = await seedTestProduct(db, { sku: "P2", name: "Other" });
+
+      // Five discounts, all non-overlapping per product (overlap rule is per product).
+      const p1Months = [["2026-01-01", "2026-01-31"], ["2026-02-01", "2026-02-28"], ["2026-03-01", "2026-03-31"]];
+      for (const [start, end] of p1Months) {
+        await service.create(p1.id, { discounted_price: 10, start_date: start, end_date: end });
+      }
+      await service.create(p2.id, { discounted_price: 10, start_date: "2026-04-01", end_date: "2026-04-30" });
+      await service.create(p2.id, { discounted_price: 10, start_date: "2026-05-01", end_date: "2026-05-31" });
+
+      const page1 = await service.listAll({ page: 1, limit: 2 });
+      expect(page1.total).toBe(5);
+      expect(page1.totalPages).toBe(3);
+      expect(page1.discounts).toHaveLength(2);
+      // Newest created first → the last two created (both on P2) lead the list.
+      expect(page1.discounts.map((d: any) => d.product_sku)).toEqual(["P2", "P2"]);
+
+      const page3 = await service.listAll({ page: 3, limit: 2 });
+      expect(page3.discounts).toHaveLength(1);
+      expect(page3.discounts[0].product_sku).toBe("P1");
+
+      const pastEnd = await service.listAll({ page: 9, limit: 2 });
+      expect(pastEnd.discounts).toHaveLength(0);
+      expect(pastEnd.total).toBe(5);
     });
   });
 

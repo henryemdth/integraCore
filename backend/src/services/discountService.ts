@@ -153,8 +153,10 @@ export function discountService(db: DatabaseAdapter) {
 
   // Shared by the dashboard list and the Excel export so both always see the
   // same shape, filters, and ordering (newest-created first, id tiebreak).
-  async function queryDiscountHistory(filters: { productId?: number; status?: string }) {
+  async function queryDiscountHistory(filters: { productId?: number; status?: string }, paging?: { page: number; limit: number }) {
     const { where, params } = buildDiscountFilter(filters);
+    const limitSuffix = paging ? " LIMIT ? OFFSET ?" : "";
+    const pagingParams = paging ? [paging.limit, (paging.page - 1) * paging.limit] : [];
     return await db.all(
       `SELECT pd.*, p.name as product_name, p.sku as product_sku, p.sell_price as normal_price,
               COALESCE(si_agg.units_sold, 0) as units_sold
@@ -167,15 +169,25 @@ export function discountService(db: DatabaseAdapter) {
          GROUP BY discount_id
        ) si_agg ON si_agg.discount_id = pd.id
        ${where}
-       ORDER BY pd.created_at DESC, pd.id DESC`,
-      params,
+       ORDER BY pd.created_at DESC, pd.id DESC${limitSuffix}`,
+      [...params, ...pagingParams],
     );
   }
 
-  async function listAll(filters: { productId?: number; status?: string } = {}) {
-    return await queryDiscountHistory(filters);
+  // Paginated dashboard list (same shape as the other services' list()).
+  async function listAll(filters: { productId?: number; status?: string; page: number; limit: number }) {
+    const { where, params } = buildDiscountFilter(filters);
+    const countRow = await db.get<{ count: number }>(
+      `SELECT COUNT(*) as count FROM product_discounts pd ${where}`,
+      params,
+    );
+    const total = countRow!.count;
+    const totalPages = Math.ceil(total / filters.limit);
+    const discounts = (await queryDiscountHistory(filters, { page: filters.page, limit: filters.limit })) as any[];
+    return { discounts, total, page: filters.page, totalPages };
   }
 
+  // The Excel export always covers everything matching the filters — unbounded.
   async function exportHistory(filters: { productId?: number; status?: string } = {}) {
     const discounts = (await queryDiscountHistory(filters)) as any[];
 

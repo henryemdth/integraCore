@@ -14,6 +14,8 @@
     "back": "Volver",
     "previous": "Anterior",
     "next": "Siguiente",
+    "goToPage": "Ir a la página {{page}}",
+    "rowsPerPage": "Filas por página",
     "actions": "Acciones",
     "search": "Buscar…",
     "noMatches": "Sin coincidencias",
@@ -389,7 +391,8 @@
     "priceInvalid": "El precio con descuento debe ser mayor o igual a 0",
     "startDateRequired": "La fecha de inicio es obligatoria",
     "endDateRequired": "La fecha de fin es obligatoria",
-    "dateOrder": "La fecha de inicio debe ser anterior o igual a la fecha de fin"
+    "dateOrder": "La fecha de inicio debe ser anterior o igual a la fecha de fin",
+    "pageInfo": "Página {{page}} de {{totalPages}} ({{total}} descuentos)"
   },
   "errors": {
     "invalidCredentials": "Credenciales incorrectas",
