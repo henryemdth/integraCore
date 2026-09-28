@@ -3,6 +3,36 @@ import path from "path"
 import fs from "fs"
 import http from "http"
 
+let mainWindow: BrowserWindow | null = null
+
+// ---- file logging ---------------------------------------------------------
+// Packaged Windows apps have no visible console: append to
+// userData/logs/client-main.log so connection problems are diagnosable.
+
+let logFile: string | null = null
+
+function initLogging(): void {
+  try {
+    const logsDir = path.join(app.getPath("userData"), "logs")
+    fs.mkdirSync(logsDir, { recursive: true })
+    logFile = path.join(logsDir, "client-main.log")
+    // Keep one rotated copy when the log grows past 1 MB.
+    if (fs.existsSync(logFile) && fs.statSync(logFile).size > 1024 * 1024) {
+      fs.renameSync(logFile, logFile.replace(/\.log$/, ".old.log"))
+    }
+  } catch {
+    logFile = null // logging is best-effort; never block startup on it
+  }
+}
+
+function log(line: string): void {
+  console.log(line)
+  if (!logFile) return
+  try {
+    fs.appendFileSync(logFile, `${new Date().toISOString()} ${line}\n`)
+  } catch { /* best-effort */ }
+}
+
 function getResourcesPath(): string {
   if (app.isPackaged) {
     return process.resourcesPath
@@ -32,7 +62,7 @@ function saveConfig(config: { serverUrl?: string }): void {
   try {
     fs.writeFileSync(getConfigPath(), JSON.stringify(config, null, 2))
   } catch (err) {
-    console.error("[client] Failed to save config:", err)
+    log(`[client] Failed to save config: ${err instanceof Error ? err.message : err}`)
   }
 }
 
@@ -77,7 +107,7 @@ async function createWindow(): Promise<void> {
     ? path.join(app.getAppPath(), "dist", "preload.js")
     : path.join(__dirname, "..", "preload.js")
 
-  const win = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
     title: "integraCore Client",
@@ -89,22 +119,39 @@ async function createWindow(): Promise<void> {
     },
   })
 
+  mainWindow.on("closed", () => {
+    mainWindow = null
+  })
+
   const frontendPath = getFrontendPath()
-  console.log(`[client] Cargando frontend desde: ${frontendPath}`)
+  log(`[client] Loading frontend from: ${frontendPath}`)
   if (app.isPackaged) {
-    win.loadFile(frontendPath)
+    await mainWindow.loadFile(frontendPath)
   } else {
-    win.loadURL(process.env.DEV_FRONTEND_URL || "http://localhost:5173")
+    await mainWindow.loadURL(process.env.DEV_FRONTEND_URL || "http://localhost:5173")
   }
 }
 
-app.whenReady().then(async () => {
-  setupIpc()
-  await createWindow()
-})
+const gotLock = app.requestSingleInstanceLock()
+if (!gotLock) {
+  app.quit()
+} else {
+  app.on("second-instance", () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      mainWindow.focus()
+    }
+  })
 
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    app.quit()
-  }
-})
+  app.whenReady().then(async () => {
+    initLogging()
+    setupIpc()
+    await createWindow()
+  })
+
+  app.on("window-all-closed", () => {
+    if (process.platform !== "darwin") {
+      app.quit()
+    }
+  })
+}

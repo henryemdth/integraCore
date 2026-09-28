@@ -138,6 +138,15 @@ npm run dist:client   # Client installer: Electron main + frontend only
 
 Both are NSIS x64 `.exe` installers produced by electron-builder from `electron-builder-server.yml` / `electron-builder-client.yml`. The installer you run **is** the machine's role — there is no in-app server/client switch. Releases are built and published automatically by GitHub Actions (`.github/workflows/build-release.yml`) on `v*` tags.
 
+### Installing on Windows
+
+- **SmartScreen warning**: the installers are not code-signed, so Windows 11 shows "Windows protected your PC" on first run. Click **More info → Run anyway**. Removing this warning permanently requires a code-signing certificate.
+- **Windows Defender Firewall prompt (Server only)**: the server listens on `0.0.0.0:3001` so LAN clients can reach it — Windows asks for permission on first launch. Choose **Allow** (private networks), otherwise client machines cannot connect.
+- **Port 3001 must be free** on the server machine; if another application uses it, the app shows an error dialog explaining the conflict.
+- **Where data lives**: all runtime data is written under `AppData\Roaming\<integraCore Server | integraCore Client>\` — the SQLite database and backups under `data\`, per-install secrets in `data\.jwt-secret`, and app logs in `logs\` (`server-main.log` / `client-main.log`). Nothing is written to the installation directory.
+- **Server settings are built into the installer** (per-install JWT secret, `CORS_ORIGIN: *`, SQLite driver); the CI-provided `backend/.env` is not part of the packaged app.
+- **Launching the Server twice** is safe: the second instance just focuses the already-running window.
+
 ### Backend tests
 
 ```bash

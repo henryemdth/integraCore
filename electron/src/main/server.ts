@@ -1,10 +1,46 @@
-import { app, BrowserWindow } from "electron"
+import { app, BrowserWindow, dialog } from "electron"
 import path from "path"
+import fs from "fs"
 import { fork, ChildProcess } from "child_process"
 
+const BACKEND_PORT = "3001"
+const MAX_START_ATTEMPTS = 3
+const MAX_CRASH_RESTARTS = 5
+
+let mainWindow: BrowserWindow | null = null
 let backendProcess: ChildProcess | null = null
 let stopping = false
-let restartAttempts = 0
+let crashRestarts = 0
+
+// ---- file logging ---------------------------------------------------------
+// Packaged Windows apps have no visible console: everything important is also
+// appended to userData/logs/server-main.log so failures are diagnosable.
+
+let logFile: string | null = null
+
+function initLogging(): void {
+  try {
+    const logsDir = path.join(app.getPath("userData"), "logs")
+    fs.mkdirSync(logsDir, { recursive: true })
+    logFile = path.join(logsDir, "server-main.log")
+    // Keep one rotated copy when the log grows past 1 MB.
+    if (fs.existsSync(logFile) && fs.statSync(logFile).size > 1024 * 1024) {
+      fs.renameSync(logFile, logFile.replace(/\.log$/, ".old.log"))
+    }
+  } catch {
+    logFile = null // logging is best-effort; never block startup on it
+  }
+}
+
+function log(line: string): void {
+  console.log(line)
+  if (!logFile) return
+  try {
+    fs.appendFileSync(logFile, `${new Date().toISOString()} ${line}\n`)
+  } catch { /* best-effort */ }
+}
+
+// ---- paths ----------------------------------------------------------------
 
 function getResourcesPath(): string {
   if (app.isPackaged) {
@@ -29,14 +65,26 @@ function getDataDir(): string {
   return path.join(app.getPath("userData"), "data")
 }
 
-async function startBackend(): Promise<void> {
-  const entry = getBackendEntry()
-  const dataDir = getDataDir()
+// ---- transient startup splash --------------------------------------------
+// Shown while the backend boots so the user never sees a broken login page.
 
+const STARTING_HTML = `data:text/html;charset=utf-8,${encodeURIComponent(`<!doctype html>
+<html><head><meta charset="utf-8"><title>integraCore Server</title></head>
+<body style="margin:0;font-family:'Segoe UI',system-ui,sans-serif;background:#f8fafc;display:flex;align-items:center;justify-content:center;height:100vh;color:#334155">
+<div style="text-align:center">
+<div style="width:36px;height:36px;border:4px solid #dbeafe;border-top-color:#2563eb;border-radius:50%;margin:0 auto 16px;animation:spin 1s linear infinite"></div>
+<div style="font-size:15px">Starting integraCore Server&hellip;</div>
+</div>
+<style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+</body></html>`)}`
+
+// ---- backend process ------------------------------------------------------
+
+function forkBackend(): void {
   const backendEnv: NodeJS.ProcessEnv = {
     ...process.env,
-    PORT: "3001",
-    DATA_DIR: dataDir,
+    PORT: BACKEND_PORT,
+    DATA_DIR: getDataDir(),
     DB_DRIVER: "sqlite",
     // "*" lets the packaged frontend (loaded from file://, Origin "null")
     // reach its own local backend. Tighten via env for cloud/Postgres.
@@ -48,43 +96,67 @@ async function startBackend(): Promise<void> {
   // shared hardcoded fallback.
   if (process.env.JWT_SECRET) backendEnv.JWT_SECRET = process.env.JWT_SECRET
 
+  backendProcess = fork(getBackendEntry(), [], {
+    env: backendEnv,
+    stdio: ["pipe", "pipe", "pipe", "ipc"],
+  })
+
+  backendProcess.stdout?.on("data", (data: Buffer) => log(`[backend] ${data.toString().trim()}`))
+  backendProcess.stderr?.on("data", (data: Buffer) => log(`[backend] ${data.toString().trim()}`))
+
+  backendProcess.on("error", (err) => {
+    log(`[backend] Failed to start: ${err.message}`)
+    backendProcess = null
+  })
+
+  backendProcess.on("exit", (code) => {
+    log(`[backend] Exited with code ${code}`)
+    backendProcess = null
+  })
+}
+
+function startBackend(): Promise<void> {
   return new Promise((resolve, reject) => {
-    backendProcess = fork(entry, [], {
-      env: backendEnv,
-      stdio: ["pipe", "pipe", "pipe", "ipc"],
-    })
+    let settled = false
 
-    backendProcess.stdout?.on("data", (data: Buffer) => {
-      console.log(`[backend] ${data.toString().trim()}`)
-    })
+    forkBackend()
+    if (!backendProcess) {
+      reject(new Error("The backend process could not be launched"))
+      return
+    }
 
-    backendProcess.stderr?.on("data", (data: Buffer) => {
-      console.error(`[backend] ${data.toString().trim()}`)
-    })
-
-    backendProcess.on("error", (err) => {
-      console.error("[backend] Failed to start:", err)
-      backendProcess = null
+    const settleResolve = () => {
+      if (settled) return
+      settled = true
+      resolve()
+    }
+    const settleReject = (err: Error) => {
+      if (settled) return
+      settled = true
       reject(err)
-    })
+    }
 
+    // An exit before health OK fails this attempt (the retry wrapper decides
+    // what to do). After health OK, an exit is a crash → crash-restart path.
     backendProcess.on("exit", (code) => {
-      console.log(`[backend] Exited with code ${code}`)
-      backendProcess = null
-      // A failed backend (e.g. a DB operation gone wrong mid-restore) must not
-      // leave the app dead-silent: restart it with backoff.
-      if (!stopping) scheduleBackendRestart()
+      if (!settled) {
+        settled = true
+        reject(new Error(`The backend exited during startup (code ${code})`))
+        return
+      }
+      handleBackendExit()
     })
 
     const maxRetries = 30
     let retries = 0
 
     const poll = async () => {
+      if (settled) return
       try {
         const http = await import("http")
-        const req = http.get("http://localhost:3001/api/health", (res) => {
+        const req = http.get(`http://localhost:${BACKEND_PORT}/api/health`, (res) => {
           if (res.statusCode === 200) {
-            resolve()
+            settleResolve()
           } else {
             retry()
           }
@@ -99,7 +171,7 @@ async function startBackend(): Promise<void> {
     const retry = () => {
       retries++
       if (retries >= maxRetries) {
-        reject(new Error("Backend failed to start within timeout"))
+        settleReject(new Error("Backend failed to start within timeout"))
         return
       }
       setTimeout(poll, 500)
@@ -109,20 +181,60 @@ async function startBackend(): Promise<void> {
   })
 }
 
-function scheduleBackendRestart(): void {
-  const delay = Math.min(1000 * Math.pow(2, restartAttempts), 30000)
-  restartAttempts++
-  console.log(`[server] Restarting backend in ${delay}ms (attempt ${restartAttempts})`)
+function killBackend(): void {
+  if (backendProcess) {
+    backendProcess.kill("SIGKILL")
+    backendProcess = null
+  }
+}
+
+function showFatalError(detail: string): void {
+  log(`[server] FATAL: ${detail}`)
+  dialog.showErrorBox(
+    "integraCore Server",
+    `The server could not start.\n\n${detail}\n\nPossible causes:\n` +
+      `- Port ${BACKEND_PORT} is already in use (another integraCore Server instance or another application).\n` +
+      `- Antivirus software blocked the server.\n\n` +
+      `Details were written to:\n${logFile ?? "(log file unavailable)"}`
+  )
+  app.quit()
+}
+
+function handleBackendExit(): void {
+  crashRestarts++
+  if (crashRestarts >= MAX_CRASH_RESTARTS) {
+    showFatalError("The backend process keeps crashing and was restarted too many times.")
+    return
+  }
+  const delay = Math.min(1000 * Math.pow(2, crashRestarts), 30000)
+  log(`[server] Restarting backend in ${delay}ms (crash restart ${crashRestarts}/${MAX_CRASH_RESTARTS})`)
   setTimeout(async () => {
     if (stopping) return
     try {
       await startBackend()
-      restartAttempts = 0
-      console.log("[server] Backend restarted and ready")
+      crashRestarts = 0
+      log("[server] Backend restarted and ready")
+      await mainWindow?.loadFile(getFrontendPath())
     } catch (err) {
-      console.error("[server] Backend restart failed, will retry:", err)
+      log(`[server] Backend restart failed: ${err instanceof Error ? err.message : err}`)
+      handleBackendExit()
     }
   }, delay)
+}
+
+async function startBackendWithRetries(): Promise<void> {
+  for (let attempt = 1; attempt <= MAX_START_ATTEMPTS; attempt++) {
+    try {
+      await startBackend()
+      return
+    } catch (err) {
+      killBackend()
+      const message = err instanceof Error ? err.message : String(err)
+      log(`[server] Backend start attempt ${attempt}/${MAX_START_ATTEMPTS} failed: ${message}`)
+      if (attempt === MAX_START_ATTEMPTS) throw err
+      await new Promise((resolve) => setTimeout(resolve, 1000 * attempt))
+    }
+  }
 }
 
 function stopBackend(): void {
@@ -137,8 +249,10 @@ function stopBackend(): void {
   }
 }
 
+// ---- window ---------------------------------------------------------------
+
 async function createWindow(): Promise<void> {
-  const win = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
     title: "integraCore Server",
@@ -150,37 +264,58 @@ async function createWindow(): Promise<void> {
     },
   })
 
+  mainWindow.on("closed", () => {
+    mainWindow = null
+  })
+
   if (app.isPackaged) {
-    const frontendPath = getFrontendPath()
-    win.loadFile(frontendPath)
+    // Transient splash; replaced by the real frontend once the backend is healthy.
+    await mainWindow.loadURL(STARTING_HTML)
   } else {
-    win.loadURL(getFrontendUrl())
+    await mainWindow.loadURL(getFrontendUrl())
   }
 }
 
-app.whenReady().then(async () => {
-  if (app.isPackaged) {
-    startBackend()
-      .then(() => {
-        restartAttempts = 0
-        console.log("[server] Backend is ready")
-      })
-      .catch((err) => {
-        console.error("[server] Failed to start backend:", err)
-        scheduleBackendRestart()
-      })
-  } else {
-    console.log("[server] Dev mode: using external backend on http://localhost:3001")
-  }
+// ---- app lifecycle --------------------------------------------------------
 
-  createWindow()
-})
-
-app.on("window-all-closed", () => {
-  stopBackend()
+const gotLock = app.requestSingleInstanceLock()
+if (!gotLock) {
+  // A second Server launch would fight this one over port 3001 and the SQLite file.
   app.quit()
-})
+} else {
+  app.on("second-instance", () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      mainWindow.focus()
+    }
+  })
 
-app.on("before-quit", () => {
-  stopBackend()
-})
+  app.whenReady().then(async () => {
+    initLogging()
+
+    await createWindow()
+    if (!app.isPackaged) {
+      log("[server] Dev mode: using external backend on http://localhost:3001")
+      return
+    }
+
+    try {
+      await startBackendWithRetries()
+      crashRestarts = 0
+      log("[server] Backend is ready — loading the app")
+      await mainWindow?.loadFile(getFrontendPath())
+    } catch (err) {
+      killBackend()
+      showFatalError(err instanceof Error ? err.message : String(err))
+    }
+  })
+
+  app.on("window-all-closed", () => {
+    stopBackend()
+    app.quit()
+  })
+
+  app.on("before-quit", () => {
+    stopBackend()
+  })
+}
