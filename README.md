@@ -140,24 +140,23 @@ Both are NSIS x64 `.exe` installers produced by electron-builder from `electron-
 
 ### Releasing a version
 
-Pushing a `v*` tag runs, in order: release version check → `npm ci` → backend tests → frontend lint → build Client → build Server → publish. The first four are gates; nothing is packaged unless they pass.
+Pushing a `v*` tag runs, in order: release version check → `npm ci` → build shared → backend tests → frontend lint → build Client → build Server → publish. The first five are gates; nothing is packaged unless they pass.
 
 ```bash
 # 1. bump the version in all five manifests: root, backend, frontend, electron, shared
 # 2. refresh the lockfile (records workspace versions + dependency ranges)
 npm install
-# 3. verify locally
+# 3. verify locally (build shared first — see the note below)
 node scripts/check-release-version.mjs
+npm run build:shared
 npm test -w backend && npm run lint -w frontend
-# 4. commit, then tag that commit and push the tag
-git commit -am "0.2.2"
-git tag v0.2.2 && git push origin main --follow-tags
 ```
 
 Two rules that keep releases buildable:
 
 - **Never pin an internal workspace dependency with an exact version.** `backend` and `frontend` depend on `@integracore/shared` as `"^0.2.1"`; an exact pin like `"0.2.0"` stops matching the local workspace as soon as the shared package's version changes, so npm falls back to the public registry and the install dies with `404 @integracore%2fshared - Not found` (the package is `private` and never published).
 - **Always run `npm install` after bumping versions**, and commit the updated `package-lock.json`. The lockfile stores every workspace's version and each dependency's range; a stale one makes `npm ci` fail or silently disagree with the manifests. `scripts/check-release-version.mjs` (also the first CI step) catches the version half of this drift with a clear message.
+- **Build `shared` before running backend tests or the frontend build.** `shared/dist` is gitignored, so a fresh clone (including CI) has no build output. `@integracore/shared` resolves through its `package.json` `main: dist/index.js`, so without `npm run build:shared` first, vitest dies with `Failed to resolve entry for package "@integracore/shared"`. The CI workflow builds shared right after `npm ci`; run the same step locally on a clean checkout.
 
 ### Installing on Windows
 
