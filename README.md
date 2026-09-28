@@ -138,6 +138,27 @@ npm run dist:client   # Client installer: Electron main + frontend only
 
 Both are NSIS x64 `.exe` installers produced by electron-builder from `electron-builder-server.yml` / `electron-builder-client.yml`. The installer you run **is** the machine's role — there is no in-app server/client switch. Releases are built and published automatically by GitHub Actions (`.github/workflows/build-release.yml`) on `v*` tags.
 
+### Releasing a version
+
+Pushing a `v*` tag runs, in order: release version check → `npm ci` → backend tests → frontend lint → build Client → build Server → publish. The first four are gates; nothing is packaged unless they pass.
+
+```bash
+# 1. bump the version in all five manifests: root, backend, frontend, electron, shared
+# 2. refresh the lockfile (records workspace versions + dependency ranges)
+npm install
+# 3. verify locally
+node scripts/check-release-version.mjs
+npm test -w backend && npm run lint -w frontend
+# 4. commit, then tag that commit and push the tag
+git commit -am "0.2.2"
+git tag v0.2.2 && git push origin main --follow-tags
+```
+
+Two rules that keep releases buildable:
+
+- **Never pin an internal workspace dependency with an exact version.** `backend` and `frontend` depend on `@integracore/shared` as `"^0.2.1"`; an exact pin like `"0.2.0"` stops matching the local workspace as soon as the shared package's version changes, so npm falls back to the public registry and the install dies with `404 @integracore%2fshared - Not found` (the package is `private` and never published).
+- **Always run `npm install` after bumping versions**, and commit the updated `package-lock.json`. The lockfile stores every workspace's version and each dependency's range; a stale one makes `npm ci` fail or silently disagree with the manifests. `scripts/check-release-version.mjs` (also the first CI step) catches the version half of this drift with a clear message.
+
 ### Installing on Windows
 
 - **SmartScreen warning**: the installers are not code-signed, so Windows 11 shows "Windows protected your PC" on first run. Click **More info → Run anyway**. Removing this warning permanently requires a code-signing certificate.
@@ -150,7 +171,7 @@ Both are NSIS x64 `.exe` installers produced by electron-builder from `electron-
 ### Backend tests
 
 ```bash
-npm test -w backend          # vitest, ~117 tests
+npm test -w backend          # vitest, ~160 tests
 npm run test:coverage -w backend
 ```
 
