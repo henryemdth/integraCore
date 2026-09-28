@@ -3,9 +3,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import { useAuth } from "@/contexts/AuthContext"
 import { useExportExcel } from "@/hooks/useExportExcel"
+import { useAllProducts } from "@/hooks/useProductQueries"
+import { useSalesStats } from "@/hooks/useSalesStats"
 import api from "@/lib/api"
 import { formatCurrency, formatDateTime } from "@/lib/format"
-import type { SaleDetail, Product } from "@integracore/shared"
+import { queryKeys } from "@/lib/queryKeys"
+import type { SaleDetail } from "@integracore/shared"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -18,6 +21,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { SaleDetailDialog } from "@/components/sales/SaleDetailDialog"
 import { CreateSaleForm } from "@/components/sales/CreateSaleForm"
 import { StatCard } from "@/components/StatCard"
+import { Pagination } from "@/components/Pagination"
 import { QueryErrorState } from "@/components/ui/query-error"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Eye, Trash2, Download, ShoppingCart, TrendingUp } from "lucide-react"
@@ -48,7 +52,7 @@ export default function SalesListPage() {
   if (dateTo) filterParams.date_to = dateTo
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ["sales", filterParams],
+    queryKey: queryKeys.sales.list(filterParams),
     queryFn: async () => {
       const res = await api.get(`/api/sales?${new URLSearchParams(filterParams)}`)
       return { sales: res.data.sales as SaleDetail[], total: res.data.total as number, totalPages: res.data.totalPages as number }
@@ -61,30 +65,18 @@ export default function SalesListPage() {
   const totalPages = data?.totalPages ?? 1
 
   const { data: users = [] } = useQuery({
-    queryKey: ["users"],
+    queryKey: queryKeys.users.options,
     queryFn: async () => { if (!isAdmin) return []; const res = await api.get("/api/users"); return res.data.users as UserListItem[] },
   })
 
-  const { data: products = [] } = useQuery({
-    queryKey: ["products", "list-all"],
-    queryFn: async () => { const res = await api.get("/api/products?limit=100"); return res.data.products as Product[] },
-  })
+  const products = useAllProducts().data ?? []
 
-  const { data: allSales } = useQuery({
-    queryKey: ["sales", "stats"],
-    queryFn: async () => {
-      const res = await api.get("/api/sales?limit=10000")
-      return res.data.sales as SaleDetail[]
-    },
-  })
-
-  const totalRevenue = allSales?.reduce((sum, s) => sum + Number(s.total), 0) ?? 0
-  const avgSaleValue = allSales && allSales.length > 0 ? totalRevenue / allSales.length : 0
+  const { data: stats, isLoading: statsLoading } = useSalesStats()
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => api.delete(`/api/sales/${id}`),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["sales"] }); toast.success(t("sales.deleted")) },
-    onError: (err: any) => toast.error(getErrorMessage(err, "sales.failedDelete")),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.sales.all }); toast.success(t("sales.deleted")) },
+    onError: (err: unknown) => toast.error(getErrorMessage(err, "sales.failedDelete")),
   })
 
   const resetPage = () => setPage(1)
@@ -102,9 +94,9 @@ export default function SalesListPage() {
         </TabsContent>
         <TabsContent value="history" className="space-y-4">
           <div className="grid gap-4 grid-cols-2 lg:grid-cols-3">
-            <StatCard label={t("sales.stats.totalSales")} value={total} icon={ShoppingCart} loading={isLoading || !allSales} />
-            <StatCard label={t("sales.stats.totalRevenue")} value={formatCurrency(totalRevenue)} icon={TrendingUp} loading={isLoading || !allSales} />
-            <StatCard label={t("sales.stats.avgSale")} value={formatCurrency(avgSaleValue)} icon={TrendingUp} loading={isLoading || !allSales} />
+            <StatCard label={t("sales.stats.totalSales")} value={total} icon={ShoppingCart} loading={isLoading} />
+            <StatCard label={t("sales.stats.totalRevenue")} value={formatCurrency(stats?.totalRevenue ?? 0)} icon={TrendingUp} loading={statsLoading} />
+            <StatCard label={t("sales.stats.avgSale")} value={formatCurrency(stats?.avgSaleValue ?? 0)} icon={TrendingUp} loading={statsLoading} />
           </div>
           <Card>
             <CardHeader className="pb-3">
@@ -115,7 +107,7 @@ export default function SalesListPage() {
                     <SearchableSelect
                       value={sellerFilter}
                       onValueChange={(v) => { setSellerFilter(v); resetPage() }}
-                      options={users.map((u: any) => ({ value: String(u.id), label: u.full_name }))}
+                      options={users.map((u) => ({ value: String(u.id), label: u.full_name }))}
                       allLabel={t("sales.allSellers")}
                       searchPlaceholder={t("common.search")}
                       noResultsText={t("common.noMatches")}
@@ -128,7 +120,7 @@ export default function SalesListPage() {
                   <SearchableSelect
                     value={productFilter}
                     onValueChange={(v) => { setProductFilter(v); resetPage() }}
-                    options={products.map((p: any) => ({ value: String(p.id), label: p.name, keywords: [p.sku] }))}
+                    options={products.map((p) => ({ value: String(p.id), label: p.name, keywords: [p.sku] }))}
                     allLabel={t("sales.allProducts")}
                     searchPlaceholder={t("common.search")}
                     noResultsText={t("common.noMatches")}
@@ -204,15 +196,7 @@ export default function SalesListPage() {
                   ))}
                 </TableBody>
               </Table>
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between mt-4">
-                  <span className="text-sm text-muted-foreground">{t("sales.pageInfo", { page, totalPages, total })}</span>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>{t("common.previous")}</Button>
-                    <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>{t("common.next")}</Button>
-                  </div>
-                </div>
-              )}
+          <Pagination page={page} totalPages={totalPages} total={total} pageInfoKey="sales.pageInfo" onPageChange={setPage} />
             </CardContent>
           </Card>
         </TabsContent>

@@ -2,7 +2,9 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import api from "@/lib/api"
+import { ROLES } from "@integracore/shared"
 import { toast } from "sonner"
+import { queryKeys } from "@/lib/queryKeys"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -22,7 +24,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
   const [username, setUsername] = useState("")
   const [fullName, setFullName] = useState("")
   const [password, setPassword] = useState("")
-  const [role, setRole] = useState<"admin" | "user">("user")
+  const [role, setRole] = useState<(typeof ROLES)[keyof typeof ROLES]>(ROLES.user)
   const [error, setError] = useState("")
   const queryClient = useQueryClient()
 
@@ -31,12 +33,12 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
       await api.post("/api/auth/register", { username, password, full_name: fullName, role })
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["users"] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.all })
       toast.success(t("users.create.created"))
-      setUsername(""); setFullName(""); setPassword(""); setRole("user")
+      setUsername(""); setFullName(""); setPassword(""); setRole(ROLES.user)
       onOpenChange(false)
     },
-    onError: (err: any) => setError(getErrorMessage(err, "users.create.failedCreate")),
+    onError: (err: unknown) => setError(getErrorMessage(err, "users.create.failedCreate")),
   })
 
   return (

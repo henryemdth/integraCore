@@ -2,7 +2,7 @@ import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { useAuth } from "@/contexts/AuthContext"
 import { useTranslation } from "react-i18next"
-import api from "@/lib/api"
+import { useSetupStatus } from "@/hooks/useSetupStatus"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -17,21 +17,19 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
-  const [checking, setChecking] = useState(true)
   const { login } = useAuth()
   const navigate = useNavigate()
   const { t } = useTranslation()
 
+  // First-run gate: on an empty users table the server has no accounts yet,
+  // so send the visitor to the setup screen instead of letting them fail to log in.
+  const { data: setupStatus, isLoading: checking } = useSetupStatus()
+
   useEffect(() => {
-    api
-      .get("/api/auth/setup-status")
-      .then((res) => {
-        if (res.data.needsSetup) {
-          navigate("/setup")
-        }
-      })
-      .finally(() => setChecking(false))
-  }, [navigate])
+    if (setupStatus?.needsSetup) {
+      navigate("/setup")
+    }
+  }, [setupStatus, navigate])
 
   if (checking) {
     return (
@@ -50,7 +48,7 @@ export default function LoginPage() {
     try {
       await login(username, password)
       navigate("/")
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(getErrorMessage(err, "auth.loginFailed"))
     } finally {
       setLoading(false)

@@ -109,13 +109,10 @@ function addColumnIfMissing(db: Database.Database, table: string, column: string
 }
 
 export function runMigrations(db: Database.Database): void {
-  // Each CREATE TABLE / INDEX is isolated — failure won't cascade
+  // Base DDL fails loud: a permissions/disk error on CREATE TABLE would
+  // otherwise boot the app straight into runtime 500s.
   for (const sql of sqliteMigrations) {
-    try {
-      db.exec(sql);
-    } catch (err) {
-      console.error("[db] Migration failed (isolated, continuing):", (err as Error).message);
-    }
+    db.exec(sql);
   }
 
   // Each column addition is isolated
@@ -249,12 +246,9 @@ const postgresMigrations: string[] = [
 ];
 
 export async function runPostgresMigrations(adapter: DatabaseAdapter): Promise<void> {
+  // Base DDL + idempotent data migrations fail loud (same reasoning as SQLite).
   for (const sql of postgresMigrations) {
-    try {
-      await adapter.exec(sql);
-    } catch (err) {
-      console.error("[db] PostgreSQL DDL failed (isolated, continuing):", (err as Error).message);
-    }
+    await adapter.exec(sql);
   }
   for (const sql of postgresColumnMigrations) {
     try {

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { AppError } from "../utils/appError.js";
+import { formatZodIssues } from "../utils/zodIssues.js";
 
 export function errorHandler(err: Error, _req: Request, res: Response, _next: NextFunction): void {
   if (err instanceof AppError) {
@@ -15,8 +16,11 @@ export function errorHandler(err: Error, _req: Request, res: Response, _next: Ne
   }
 
   if ("issues" in err && Array.isArray((err as any).issues)) {
-    const messages = (err as any).issues.map((i: any) => `${i.path?.join(".")}: ${i.message}`);
-    res.status(400).json({ error: "Validation failed", code: "VALIDATION_FAILED", details: messages });
+    res.status(400).json({
+      error: "Validation failed",
+      code: "VALIDATION_FAILED",
+      details: formatZodIssues((err as any).issues),
+    });
     return;
   }
 

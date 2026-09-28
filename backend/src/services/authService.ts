@@ -3,8 +3,8 @@ import bcrypt from "bcryptjs";
 import { signToken } from "../middleware/auth.js";
 import { AppError } from "../utils/appError.js";
 import { emitUsersChanged } from "../socket/index.js";
-
-export { AppError };
+import { fetchUserProjection } from "./userProjection.js";
+import { ROLES } from "@integracore/shared";
 
 export function authService(db: DatabaseAdapter) {
   async function getSetupStatus() {
@@ -25,10 +25,7 @@ export function authService(db: DatabaseAdapter) {
       [username, passwordHash, fullName]
     );
 
-    const user = await db.get(
-      "SELECT id, username, full_name, role, active, created_at, updated_at FROM users WHERE id = ?",
-      [result.insertId]
-    );
+    const user = await fetchUserProjection(db, result.insertId);
 
     const token = signToken({ id: user!.id, username: user!.username, role: user!.role });
     return { token, user };
@@ -47,22 +44,11 @@ export function authService(db: DatabaseAdapter) {
     if (!valid) throw new AppError(401, "Invalid credentials", "INVALID_CREDENTIALS");
 
     const token = signToken({ id: user.id, username: user.username, role: user.role });
-    return {
-      token,
-      user: {
-        id: user.id,
-        username: user.username,
-        full_name: user.full_name,
-        role: user.role,
-        active: user.active,
-        created_at: user.created_at,
-        updated_at: user.updated_at,
-      },
-    };
+    return { token, user: await fetchUserProjection(db, user.id) };
   }
 
   async function register(username: string, password: string, fullName: string, role: string) {
-    const userRole = role === "admin" ? "admin" : "user";
+    const userRole = role === ROLES.admin ? ROLES.admin : ROLES.user;
 
     const existing = await db.get("SELECT id FROM users WHERE username = ?", [username]);
     if (existing) throw new AppError(409, "Username already exists", "USERNAME_EXISTS");
@@ -73,10 +59,7 @@ export function authService(db: DatabaseAdapter) {
       [username, passwordHash, fullName, userRole]
     );
 
-    const user = await db.get(
-      "SELECT id, username, full_name, role, active, created_at, updated_at FROM users WHERE id = ?",
-      [result.insertId]
-    );
+    const user = await fetchUserProjection(db, result.insertId);
 
     // Every connected client (e.g. another admin's Users dashboard) refreshes.
     emitUsersChanged();
@@ -101,10 +84,7 @@ export function authService(db: DatabaseAdapter) {
   }
 
   async function getMe(userId: number) {
-    const user = await db.get(
-      "SELECT id, username, full_name, role, active, created_at, updated_at FROM users WHERE id = ?",
-      [userId]
-    );
+    const user = await fetchUserProjection(db, userId);
 
     if (!user) throw new AppError(404, "User not found", "USER_NOT_FOUND");
     return { user };

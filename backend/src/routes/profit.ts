@@ -2,6 +2,8 @@ import { Router, Request, Response } from "express";
 import { getAdapter } from "../db/index.js";
 import { authenticate, requireRole } from "../middleware/auth.js";
 import { writeLockGuard } from "../middleware/writeLock.js";
+import { validate } from "../middleware/validate.js";
+import { ProfitTargetSchema } from "@integracore/shared";
 import { profitService } from "../services/profitService.js";
 
 const router = Router();
@@ -12,19 +14,10 @@ router.get("/target", authenticate, requireRole("admin"), async (_req: Request, 
   res.json({ target: await svc.getTarget() });
 });
 
-router.put("/target", authenticate, requireRole("admin"), writeLockGuard, async (req: Request, res: Response) => {
-  const { target_amount, period_days } = req.body;
-  if (target_amount === undefined || target_amount < 0) {
-    res.status(400).json({ error: "target_amount must be >= 0" });
-    return;
-  }
-  if (period_days === undefined || period_days < 1) {
-    res.status(400).json({ error: "period_days must be >= 1" });
-    return;
-  }
+router.put("/target", authenticate, requireRole("admin"), writeLockGuard, validate(ProfitTargetSchema), async (req: Request, res: Response) => {
   const db = getAdapter();
   const svc = profitService(db);
-  const target = await svc.updateTarget(target_amount, period_days);
+  const target = await svc.updateTarget(req.body.target_amount, req.body.period_days);
   res.json({ target });
 });
 
@@ -32,14 +25,6 @@ router.get("/check", authenticate, requireRole("admin"), async (_req: Request, r
   const db = getAdapter();
   const svc = profitService(db);
   const result = await svc.checkProfit();
-  res.json(result);
-});
-
-router.get("/revenue", authenticate, requireRole("admin"), async (req: Request, res: Response) => {
-  const db = getAdapter();
-  const svc = profitService(db);
-  const days = parseInt(req.query.days as string) || 15;
-  const result = await svc.getRevenueSummary(days);
   res.json(result);
 });
 

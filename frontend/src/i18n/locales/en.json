@@ -100,7 +100,6 @@
       "stockOutTitle": "Stock Out",
       "currentStock": "Current stock: {{stock}}",
       "quantity": "Quantity *",
-      "notes": "Notes",
       "inPlaceholder": "Enter quantity to add",
       "outPlaceholder": "Enter quantity to remove",
       "addStock": "Add Stock",

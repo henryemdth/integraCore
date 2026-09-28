@@ -2,7 +2,11 @@ import { useState, useEffect, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import { useAuth } from "@/contexts/AuthContext"
 import { useTranslation } from "react-i18next"
+import { useQueryClient } from "@tanstack/react-query"
+import { useSetupStatus } from "@/hooks/useSetupStatus"
 import api from "@/lib/api"
+import { fileToBase64 } from "@/lib/files"
+import { queryKeys } from "@/lib/queryKeys"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -25,26 +29,22 @@ export default function SetupPage() {
   const [loading, setLoading] = useState(false)
   const [restoreLoading, setRestoreLoading] = useState(false)
   const [pendingRestoreFile, setPendingRestoreFile] = useState<File | null>(null)
-  const [checking, setChecking] = useState(true)
-  const [isSqlite, setIsSqlite] = useState(true)
   const { setup, user } = useAuth()
   const navigate = useNavigate()
   const { t } = useTranslation()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const queryClient = useQueryClient()
+
+  // Public endpoint: /api/system/info is auth-gated, so the setup gate also
+  // carries the driver to decide whether to offer backup restore.
+  const { data: setupStatus, isLoading: checking } = useSetupStatus()
+  const isSqlite = (setupStatus?.dbDriver ?? "sqlite") === "sqlite"
 
   useEffect(() => {
-    api
-      .get("/api/auth/setup-status")
-      .then((res) => {
-        if (!res.data.needsSetup) {
-          navigate("/login")
-        }
-        // Public endpoint: /api/system/info is auth-gated, so the setup screen
-        // gets the driver from here to decide whether to offer backup restore.
-        setIsSqlite(res.data.dbDriver === "sqlite")
-      })
-      .finally(() => setChecking(false))
-  }, [navigate])
+    if (setupStatus && !setupStatus.needsSetup) {
+      navigate("/login")
+    }
+  }, [setupStatus, navigate])
 
   useEffect(() => {
     if (user) navigate("/")
@@ -61,7 +61,7 @@ export default function SetupPage() {
     try {
       await setup(username, password, fullName)
       navigate("/")
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(getErrorMessage(err, "auth.setupFailed"))
     } finally {
       setLoading(false)
@@ -72,17 +72,25 @@ export default function SetupPage() {
     setError("")
     setRestoreLoading(true)
     try {
-      const buf = await file.arrayBuffer()
-      const base64 = btoa(new Uint8Array(buf).reduce((data, byte) => data + String.fromCharCode(byte), ""))
+      const base64 = await fileToBase64(file)
       await api.post("/api/backup/restore", { file: base64 }, { timeout: 60000 })
-      const status = await api.get("/api/auth/setup-status")
-      if (status.data.needsSetup) {
+      // Re-run the gate against the restored data. staleTime: 0 bypasses the
+      // cached setup-status — the users table may have changed completely.
+      const status = await queryClient.fetchQuery({
+        queryKey: queryKeys.auth.setupStatus,
+        queryFn: async () => {
+          const res = await api.get("/api/auth/setup-status")
+          return { needsSetup: res.data.needsSetup as boolean, dbDriver: res.data.dbDriver as string }
+        },
+        staleTime: 0,
+      })
+      if (status.needsSetup) {
         setMode("start-fresh")
       } else {
         navigate("/login")
       }
-    } catch (err: any) {
-      setError(getErrorMessage(err, "common.error"))
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "auth.setupFailed"))
     } finally {
       setRestoreLoading(false)
     }

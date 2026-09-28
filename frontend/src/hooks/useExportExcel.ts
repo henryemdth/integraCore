@@ -1,5 +1,6 @@
 import { useCallback } from "react"
 import api from "@/lib/api"
+import { downloadBlob } from "@/lib/files"
 import { toast } from "sonner"
 import i18n from "i18next"
 
@@ -13,12 +14,7 @@ export function useExportExcel() {
         }
       }
       const res = await api.get(`${endpoint}?${searchParams}`, { responseType: "blob" })
-      const url = URL.createObjectURL(res.data)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = filename
-      a.click()
-      URL.revokeObjectURL(url)
+      downloadBlob(res.data, filename)
       toast.success(i18n.t("export.exported", { filename }))
     } catch {
       toast.error(i18n.t("export.failedExport"))

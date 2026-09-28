@@ -7,6 +7,7 @@ import { acquireWriteLock, releaseWriteLock } from "./lockService.js";
 import { emitDbRestored } from "../socket/index.js";
 import { runMigrations } from "../db/schema.js";
 import { replaceAdapter } from "../db/index.js";
+import { todayDateString } from "@integracore/shared";
 
 const REQUIRED_TABLES = [
   "users", "products", "sales", "sale_items",
@@ -86,6 +87,8 @@ function openDatabase(dbPath: string): Database.Database {
 }
 
 export function backupService(adapter: DatabaseAdapter, dataDir: string) {
+  const backupDir = path.join(dataDir, "backups");
+
   async function exportBackup(): Promise<{ filePath: string; fileName: string }> {
     const db = (adapter as any).raw();
     db.exec("PRAGMA wal_checkpoint(FULL)");
@@ -93,11 +96,11 @@ export function backupService(adapter: DatabaseAdapter, dataDir: string) {
     const dbPath = db.name;
     if (!dbPath) throw new AppError(500, "Could not determine database path");
 
-    const backupDir = path.join(dataDir, "backups");
     fs.mkdirSync(backupDir, { recursive: true });
 
-    const date = new Date().toISOString().split("T")[0];
-    const fileName = `backup-${date}.sqlite`;
+    // Local calendar date (shared convention), not UTC — around midnight in
+    // UTC-negative zones an ISO-based name would lag a day behind.
+    const fileName = `backup-${todayDateString()}.sqlite`;
     const destPath = path.join(backupDir, fileName);
 
     fs.copyFileSync(dbPath, destPath);
@@ -129,7 +132,6 @@ export function backupService(adapter: DatabaseAdapter, dataDir: string) {
       const currentDb = (adapter as any).raw();
       const dbPath = currentDb.name;
 
-      const backupDir = path.join(dataDir, "backups");
       fs.mkdirSync(backupDir, { recursive: true });
       const autoBackupPath = path.join(backupDir, `auto-${Date.now()}.sqlite`);
 
@@ -138,8 +140,10 @@ export function backupService(adapter: DatabaseAdapter, dataDir: string) {
       // WAL-mode file while frames sit in `-wal` would be incomplete).
       try {
         currentDb.pragma("wal_checkpoint(FULL)");
-      } catch {
-        /* best-effort — the auto-backup is a safety net, not the primary path */
+      } catch (err) {
+        // Best-effort — the auto-backup is a safety net, not the primary path,
+        // but a failed checkpoint is worth knowing about.
+        console.warn("[backup] WAL checkpoint before auto-backup failed:", (err as Error).message);
       }
       fs.copyFileSync(dbPath, autoBackupPath);
 

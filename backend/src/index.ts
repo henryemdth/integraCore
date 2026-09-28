@@ -5,7 +5,7 @@ import { initDatabase } from "./db/index.js"
 import { initSocket } from "./socket/index.js"
 import { createApp } from "./app.js"
 import { startProfitCron } from "./cron/profitCheck.js"
-import { startDiscountCron } from "./cron/discountCheck.js"
+import { startDiscountCron, runDiscountCheck } from "./cron/discountCheck.js"
 import { startLowStockCron, runLowStockCheck } from "./cron/lowStockCheck.js"
 
 const app = createApp()
@@ -30,17 +30,9 @@ async function main() {
   }
 
   // Run discount date-trigger check immediately on startup
-  try {
-    const { discountService } = await import("./services/discountService.js");
-    const svc = discountService(adapter);
-    svc.checkDateTriggers().then((r: any) => {
-      if (r.activated > 0 || r.expired > 0) {
-        console.log(`[startup] Discount date triggers: ${r.activated} activated, ${r.expired} expired`);
-      }
-    }).catch((err: any) => console.error("[startup] Discount trigger check failed:", err));
-  } catch (err) {
-    console.error("[startup] Failed to run discount trigger check:", err);
-  }
+  runDiscountCheck(adapter).catch((err: any) =>
+    console.error("[startup] Discount trigger check failed:", err)
+  );
 
   server.listen(config.port, "0.0.0.0", () => {
     console.log(`[backend] Running on http://0.0.0.0:${config.port}`)

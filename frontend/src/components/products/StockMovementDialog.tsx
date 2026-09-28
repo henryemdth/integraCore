@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import api from "@/lib/api"
 import type { Product } from "@integracore/shared"
 import { toast } from "sonner"
+import { queryKeys } from "@/lib/queryKeys"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -22,7 +23,6 @@ interface StockMovementDialogProps {
 export function StockMovementDialog({ product, type, open, onOpenChange }: StockMovementDialogProps) {
   const { t } = useTranslation()
   const [quantity, setQuantity] = useState("")
-  const [notes, setNotes] = useState("")
   const [error, setError] = useState("")
   const queryClient = useQueryClient()
 
@@ -31,18 +31,16 @@ export function StockMovementDialog({ product, type, open, onOpenChange }: Stock
       if (!product) return
       await api.post(`/api/products/${product.id}/stock-${type}`, {
         quantity: parseInt(quantity),
-        notes: notes || undefined,
       })
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["products"] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.products.all })
       toast.success(type === "in" ? t("products.stockMovement.added") : t("products.stockMovement.removed"))
       setQuantity("")
-      setNotes("")
       setError("")
       onOpenChange(false)
     },
-    onError: (err: any) => {
+    onError: (err: unknown) => {
       setError(getErrorMessage(err, type === "in" ? "products.stockMovement.failedAdd" : "products.stockMovement.failedRemove"))
     },
   })
@@ -73,10 +71,6 @@ export function StockMovementDialog({ product, type, open, onOpenChange }: Stock
               required
               className="font-data"
             />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor={`stock-${type}-notes`}>{t("products.stockMovement.notes")}</Label>
-            <Input id={`stock-${type}-notes`} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t("sales.create.notesPlaceholder")} />
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>

@@ -3,6 +3,7 @@ import { io } from "socket.io-client"
 import { useQueryClient } from "@tanstack/react-query"
 import { useAuth } from "@/contexts/AuthContext"
 import { getBackendUrl, subscribeBackendUrl } from "@/lib/api"
+import { queryKeys } from "@/lib/queryKeys"
 
 export function SocketProvider({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth()
@@ -21,17 +22,19 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     const token = localStorage.getItem("token")
     const socket = io(backendUrl, { autoConnect: true, auth: { token } })
 
+    // The socket is only an invalidation signal: data still flows through the
+    // REST queries, which refetch when their (prefixed) cache key is bumped.
     socket.on("product:updated", () => {
-      queryClient.invalidateQueries({ queryKey: ["products"] })
-      queryClient.invalidateQueries({ queryKey: ["discounts"] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.products.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.discounts.all })
     })
 
     socket.on("notification:new", () => {
-      queryClient.invalidateQueries({ queryKey: ["notifications"] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all })
     })
 
     socket.on("users:changed", () => {
-      queryClient.invalidateQueries({ queryKey: ["users"] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.all })
     })
 
     socket.on("db:restored", () => {

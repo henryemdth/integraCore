@@ -1,7 +1,8 @@
 import type { DatabaseAdapter } from "../db/adapter.js";
 import ExcelJS from "exceljs";
 import { AppError } from "../utils/appError.js";
-import { emitProductUpdated } from "../socket/index.js";
+import { reloadAndEmitProduct } from "./productService.js";
+import { findActiveDiscount } from "./discountLookup.js";
 import {
   startOfDay,
   endOfDay,
@@ -9,28 +10,13 @@ import {
   nowString,
   nextDayDateString,
   formatDateString,
+  DISCOUNT_STATUS,
+  PRODUCT_STATUS,
 } from "@integracore/shared";
 
 export function discountService(db: DatabaseAdapter) {
-  async function list(productId: number) {
-    return await db.all(
-      `SELECT pd.*, p.name as product_name, p.sku as product_sku
-       FROM product_discounts pd
-       JOIN products p ON pd.product_id = p.id
-       WHERE pd.product_id = ?
-       ORDER BY pd.created_at DESC, pd.id DESC`,
-      [productId],
-    );
-  }
-
   async function getActive(productId: number) {
-    const now = nowString();
-    return await db.get(
-      `SELECT * FROM product_discounts
-       WHERE product_id = ? AND status = 'active' AND start_date <= ? AND end_date >= ?
-       ORDER BY start_date DESC LIMIT 1`,
-      [productId, now, now],
-    );
+    return await findActiveDiscount(db, productId);
   }
 
   async function create(
@@ -47,7 +33,7 @@ export function discountService(db: DatabaseAdapter) {
       [productId],
     )) as any;
     if (!product) throw new AppError(404, "Product not found", "PRODUCT_NOT_FOUND");
-    if (product.status === "discontinued")
+    if (product.status === PRODUCT_STATUS.discontinued)
       throw new AppError(
         400,
         "Cannot create discounts for discontinued products",
@@ -86,17 +72,7 @@ export function discountService(db: DatabaseAdapter) {
       "SELECT * FROM product_discounts WHERE id = ?",
       [result.insertId],
     )) as any;
-    const updated = (await db.get(
-      "SELECT id, name, sku, price, sell_price, stock, status FROM products WHERE id = ?",
-      [productId],
-    )) as any;
-    const now = nowString();
-    const isActive = start <= now && now <= end;
-    emitProductUpdated({
-      ...updated,
-      discounted_price: isActive ? discount.discounted_price : null,
-      discount_end_date: isActive ? discount.end_date : null,
-    });
+    await reloadAndEmitProduct(db, productId);
     return discount;
   }
 
@@ -106,7 +82,7 @@ export function discountService(db: DatabaseAdapter) {
       [id],
     )) as any;
     if (!discount) throw new AppError(404, "Discount not found", "DISCOUNT_NOT_FOUND");
-    if (discount.status === "cancelled")
+    if (discount.status === DISCOUNT_STATUS.cancelled)
       throw new AppError(400, "Discount is already cancelled", "DISCOUNT_ALREADY_CANCELLED");
 
     await db.run(
@@ -114,16 +90,7 @@ export function discountService(db: DatabaseAdapter) {
       [id],
     );
 
-    const product = (await db.get(
-      "SELECT id, name, sku, price, sell_price, stock, status FROM products WHERE id = ?",
-      [discount.product_id],
-    )) as any;
-    const activeDiscount = await getActive(discount.product_id);
-    emitProductUpdated({
-      ...product,
-      discounted_price: activeDiscount?.discounted_price ?? null,
-      discount_end_date: activeDiscount?.end_date ?? null,
-    });
+    await reloadAndEmitProduct(db, discount.product_id);
     return { success: true, cancelled: true };
   }
 
@@ -148,16 +115,7 @@ export function discountService(db: DatabaseAdapter) {
 
     await db.run("DELETE FROM product_discounts WHERE id = ?", [id]);
 
-    const product = (await db.get(
-      "SELECT id, name, sku, price, sell_price, stock, status FROM products WHERE id = ?",
-      [discount.product_id],
-    )) as any;
-    const activeDiscount = await getActive(discount.product_id);
-    emitProductUpdated({
-      ...product,
-      discounted_price: activeDiscount?.discounted_price ?? null,
-      discount_end_date: activeDiscount?.end_date ?? null,
-    });
+    await reloadAndEmitProduct(db, discount.product_id);
     return { success: true };
   }
 
@@ -253,7 +211,7 @@ export function discountService(db: DatabaseAdapter) {
         pct_discount: `${pct}%`,
         start_date: formatDateString(d.start_date || ""),
         end_date: formatDateString(d.end_date || ""),
-        status: d.status === "cancelled" ? "Cancelled" : "Active",
+        status: d.status === DISCOUNT_STATUS.cancelled ? "Cancelled" : "Active",
         units_sold: unitsSold,
         worked: unitsSold > 0 ? "Yes" : "No",
         reason: d.reason || "",
@@ -277,17 +235,7 @@ export function discountService(db: DatabaseAdapter) {
     )) as any[];
 
     for (const d of todayStarters) {
-      const product = (await db.get(
-        "SELECT id, name, sku, price, sell_price, stock, status FROM products WHERE id = ?",
-        [d.product_id],
-      )) as any;
-      if (product) {
-        emitProductUpdated({
-          ...product,
-          discounted_price: d.discounted_price,
-          discount_end_date: d.end_date,
-        });
-      }
+      await reloadAndEmitProduct(db, d.product_id);
     }
 
     const todayEnders = (await db.all(
@@ -299,24 +247,13 @@ export function discountService(db: DatabaseAdapter) {
     )) as any[];
 
     for (const d of todayEnders) {
-      const product = (await db.get(
-        "SELECT id, name, sku, price, sell_price, stock, status FROM products WHERE id = ?",
-        [d.product_id],
-      )) as any;
-      if (product) {
-        emitProductUpdated({
-          ...product,
-          discounted_price: null,
-          discount_end_date: null,
-        });
-      }
+      await reloadAndEmitProduct(db, d.product_id);
     }
 
     return { activated: todayStarters.length, expired: todayEnders.length };
   }
 
   return {
-    list,
     getActive,
     create,
     cancel,

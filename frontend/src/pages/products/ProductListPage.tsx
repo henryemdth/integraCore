@@ -4,9 +4,11 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import { useAuth } from "@/contexts/AuthContext"
 import { useExportExcel } from "@/hooks/useExportExcel"
+import { useAllProducts, useProductCategories } from "@/hooks/useProductQueries"
 import api from "@/lib/api"
 import { formatCurrency, formatDate } from "@/lib/format"
-import type { Product } from "@integracore/shared"
+import { queryKeys } from "@/lib/queryKeys"
+import { PRODUCT_STATUS, type Product } from "@integracore/shared"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -15,6 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { SearchableSelect } from "@/components/ui/searchable-select"
 import { SuggestiveInput } from "@/components/ui/suggestive-input"
+import { Pagination } from "@/components/Pagination"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { StockMovementDialog } from "@/components/products/StockMovementDialog"
 import { ImportDialog } from "@/components/products/ImportDialog"
@@ -49,7 +52,7 @@ export default function ProductListPage() {
   const params = { page: String(page), limit: String(limit), sort, order, ...(search && { search }), ...(category !== "all" && { category }), ...(statusFilter !== "all" && { status: statusFilter }) }
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ["products", params],
+    queryKey: queryKeys.products.list(params),
     queryFn: async () => {
       const res = await api.get(`/api/products?${new URLSearchParams(params)}`)
       return { products: res.data.products as Product[], total: res.data.total as number, totalPages: res.data.totalPages as number }
@@ -61,29 +64,16 @@ export default function ProductListPage() {
   const total = data?.total ?? 0
   const totalPages = data?.totalPages ?? 1
 
-  const { data: catData } = useQuery({
-    queryKey: ["products", "categories"],
-    queryFn: async () => {
-      const res = await api.get("/api/products/categories")
-      return res.data.categories as string[]
-    },
-  })
-  const categories = catData ?? []
+  const categories = useProductCategories().data ?? []
 
   // Suggestion source for the search box: all products, matched accent- and
   // case-insensitively on name or SKU (server-side LIKE is not diacritic-safe).
-  const { data: allProducts = [] } = useQuery({
-    queryKey: ["products", "list-all"],
-    queryFn: async () => {
-      const res = await api.get("/api/products?limit=10000")
-      return res.data.products as Product[]
-    },
-  })
+  const allProducts = useAllProducts().data ?? []
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => api.delete(`/api/products/${id}`),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["products"] }); toast.success(t("products.deleted")) },
-    onError: (err: any) => toast.error(getErrorMessage(err, "products.failedDelete")),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.products.all }); toast.success(t("products.deleted")) },
+    onError: (err: unknown) => toast.error(getErrorMessage(err, "products.failedDelete")),
   })
 
   const handleSort = (column: string) => {
@@ -176,7 +166,7 @@ export default function ProductListPage() {
               ) : products.length === 0 ? (
                 <TableRow><TableCell colSpan={colCount} className="text-center py-8 text-muted-foreground">{t("products.noProducts")}</TableCell></TableRow>
               ) : products.map((product) => (
-                <TableRow key={product.id} className={cn((product.status ?? "active") === "discontinued" && "opacity-60")}>
+                <TableRow key={product.id} className={cn((product.status ?? PRODUCT_STATUS.active) === PRODUCT_STATUS.discontinued && "opacity-60")}>
                   <TableCell className="font-medium">{product.name}</TableCell>
                   <TableCell><code className="text-xs bg-muted px-1.5 py-0.5 rounded">{product.sku}</code></TableCell>
                   <TableCell>{product.category || "—"}</TableCell>
@@ -184,10 +174,10 @@ export default function ProductListPage() {
                   <TableCell className="text-right">
                     {product.discounted_price ? (
                       <span className="flex items-center justify-end gap-1">
-                        <Tag className="h-3.5 w-3.5 text-amber-500" />
+                        <Tag className="h-3.5 w-3.5 text-warning" />
                         <div className="flex flex-col items-end">
                           <span className="line-through text-muted-foreground mr-1">{formatCurrency(product.sell_price)}</span>
-                          <span className="font-semibold text-amber-600">{formatCurrency(product.discounted_price)}</span>
+                          <span className="font-semibold text-warning">{formatCurrency(product.discounted_price)}</span>
                         </div>
                         <TooltipProvider delayDuration={200}>
                           <Tooltip>
@@ -210,8 +200,8 @@ export default function ProductListPage() {
                     {product.stock <= product.low_stock_threshold ? <Badge variant="destructive">{product.stock}</Badge> : <span>{product.stock}</span>}
                   </TableCell>
                   <TableCell>
-                    <Badge variant={(product.status ?? "active") === "active" ? "success-light" : "secondary"}>
-                      {t(`products.${product.status ?? "active"}`)}
+                    <Badge variant={(product.status ?? PRODUCT_STATUS.active) === PRODUCT_STATUS.active ? "success-light" : "secondary"}>
+                      {t(`products.${product.status ?? PRODUCT_STATUS.active}`)}
                     </Badge>
                   </TableCell>
                   {isAdmin && (
@@ -238,15 +228,7 @@ export default function ProductListPage() {
               ))}
             </TableBody>
           </Table>
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4">
-              <span className="text-sm text-muted-foreground">{t("products.pageInfo", { page, totalPages, total })}</span>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>{t("common.previous")}</Button>
-                <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>{t("common.next")}</Button>
-              </div>
-            </div>
-          )}
+          <Pagination page={page} totalPages={totalPages} total={total} pageInfoKey="products.pageInfo" onPageChange={setPage} />
         </CardContent>
       </Card>
       <StockMovementDialog product={stockProduct} type={stockType} open={Boolean(stockProduct)} onOpenChange={(open: boolean) => { if (!open) setStockProduct(null) }} />

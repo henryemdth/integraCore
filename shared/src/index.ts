@@ -55,6 +55,21 @@ export function formatDateString(dateStr: string): string {
   return `${day}/${month}/${year}`;
 }
 
+// ─── Domain Constants ─────────────────────────────────────────────────
+// Single source of truth for the domain vocabulary used in TS comparisons
+// and validation (SQL/DDL keep their own literals, guarded by CHECKs).
+
+export const ROLES = { admin: "admin", user: "user" } as const;
+export type Role = (typeof ROLES)[keyof typeof ROLES];
+
+export const PRODUCT_STATUS = { active: "active", discontinued: "discontinued" } as const;
+export type ProductStatus = (typeof PRODUCT_STATUS)[keyof typeof PRODUCT_STATUS];
+
+export const DISCOUNT_STATUS = { active: "active", cancelled: "cancelled" } as const;
+export type DiscountStatus = (typeof DISCOUNT_STATUS)[keyof typeof DISCOUNT_STATUS];
+
+export const DEFAULT_LOW_STOCK_THRESHOLD = 5;
+
 // ─── Entity Interfaces ────────────────────────────────────────────────
 
 export interface User {
@@ -173,7 +188,6 @@ export const UpdateProductSchema = z.object({
 
 export const StockMovementSchema = z.object({
   quantity: z.number().int().min(1, "Quantity must be > 0"),
-  notes: z.string().optional(),
 });
 
 const CreateSaleItemSchema = z.object({
@@ -189,6 +203,11 @@ export const CreateSaleSchema = z.object({
 export const UpdateUserSchema = z.object({
   full_name: z.string().min(1).optional(),
   role: z.enum(["admin", "user"]).optional(),
+});
+
+export const ProfitTargetSchema = z.object({
+  target_amount: z.number().min(0, "target_amount must be >= 0"),
+  period_days: z.number().int().min(1, "period_days must be >= 1"),
 });
 
 export const CreateDiscountSchema = z.object({

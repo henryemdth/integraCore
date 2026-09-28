@@ -18,8 +18,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Tag } from "lucide-react"
 import { formatCurrency, formatDateTime } from "@/lib/format"
+import { PriceWithDiscount } from "@/components/PriceWithDiscount"
 
 interface SaleDetailDialogProps {
   sale: SaleDetail | null
@@ -78,11 +78,7 @@ export function SaleDetailDialog({ sale, open, onOpenChange }: SaleDetailDialogP
                   <TableCell className="text-right font-data">{item.quantity}</TableCell>
                   <TableCell className="text-right font-data">
                     {hasDiscount ? (
-                      <span className="flex items-center justify-end gap-1">
-                        <Tag className="h-3 w-3 text-amber-500" />
-                        <span className="line-through text-muted-foreground">{formatCurrency(item.original_price)}</span>
-                        <span className="font-semibold text-amber-600">{formatCurrency(item.unit_price)}</span>
-                      </span>
+                      <PriceWithDiscount original={item.original_price} discounted={item.unit_price} align="right" />
                     ) : (
                       formatCurrency(item.unit_price)
                     )}

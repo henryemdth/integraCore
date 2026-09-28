@@ -207,25 +207,7 @@ describe("discountService", () => {
     });
   });
 
-  describe("list / getActive", () => {
-    it("lists all discounts for a product", async () => {
-      const product = await seedTestProduct(db);
-
-      await service.create(product.id, {
-        discounted_price: 10,
-        start_date: "2026-01-01",
-        end_date: "2026-01-31",
-      });
-      await service.create(product.id, {
-        discounted_price: 12,
-        start_date: "2026-03-01",
-        end_date: "2026-03-31",
-      });
-
-      const list = await service.list(product.id);
-      expect(list).toHaveLength(2);
-    });
-
+  describe("getActive", () => {
     it("getActive returns undefined when no active discount", async () => {
       const product = await seedTestProduct(db);
       await service.create(product.id, {

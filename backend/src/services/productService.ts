@@ -2,9 +2,59 @@ import type { DatabaseAdapter } from "../db/adapter.js";
 import ExcelJS from "exceljs";
 import { AppError } from "../utils/appError.js";
 import { emitProductUpdated } from "../socket/index.js";
-import { nowString } from "@integracore/shared";
+import { findActiveDiscount, findActiveDiscounts } from "./discountLookup.js";
+import {
+  DEFAULT_LOW_STOCK_THRESHOLD,
+  PRODUCT_STATUS,
+} from "@integracore/shared";
+
+// Re-reads the product (with its effective discount) after a mutation and
+// pushes it to every connected client. Shared by the product, sale, and
+// discount flows so every realtime payload has the same shape.
+export async function reloadAndEmitProduct(db: DatabaseAdapter, id: number) {
+  const product = await db.get("SELECT * FROM products WHERE id = ?", [id]) as any;
+  if (!product) return null;
+  const discount = await findActiveDiscount(db, id);
+  emitProductUpdated({
+    ...product,
+    discounted_price: discount?.discounted_price ?? null,
+    discount_end_date: discount?.end_date ?? null,
+  });
+  return product;
+}
 
 export function productService(db: DatabaseAdapter) {
+  function buildProductFilter(search: string, category: string, status: string) {
+    const conditions: string[] = [];
+    const params: any[] = [];
+
+    if (search) {
+      conditions.push("(name LIKE ? OR sku LIKE ?)");
+      params.push(`%${search}%`, `%${search}%`);
+    }
+    if (category) {
+      conditions.push("category = ?");
+      params.push(category);
+    }
+    if (status && status !== "all") {
+      conditions.push("status = ?");
+      params.push(status);
+    }
+
+    const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+    return { where, params };
+  }
+
+  // Attaches the effective discount (active + covering today) to each product.
+  async function attachActiveDiscountInfo(products: any[]): Promise<void> {
+    const discountMap = await findActiveDiscounts(db, products.map((p) => p.id));
+    for (const p of products) {
+      const d = discountMap.get(p.id);
+      p.discounted_price = d ? d.discounted_price : null;
+      p.discount_end_date = d ? d.end_date : null;
+    }
+  }
+
   async function list(params: {
     page: number;
     limit: number;
@@ -20,23 +70,7 @@ export function productService(db: DatabaseAdapter) {
     const validSorts = ["name", "sku", "price", "sell_price", "stock", "created_at"];
     const sortColumn = validSorts.includes(sort) ? sort : "created_at";
 
-    const conditions: string[] = [];
-    const sqlParams: any[] = [];
-
-    if (search) {
-      conditions.push("(name LIKE ? OR sku LIKE ?)");
-      sqlParams.push(`%${search}%`, `%${search}%`);
-    }
-    if (category) {
-      conditions.push("category = ?");
-      sqlParams.push(category);
-    }
-    if (status && status !== "all") {
-      conditions.push("status = ?");
-      sqlParams.push(status);
-    }
-
-    const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+    const { where, params: sqlParams } = buildProductFilter(search, category, status);
 
     const countRow = await db.get<{ count: number }>(
       `SELECT COUNT(*) as count FROM products ${where}`,
@@ -50,25 +84,7 @@ export function productService(db: DatabaseAdapter) {
       [...sqlParams, limit, offset]
     ) as any[];
 
-    const productIds = products.map((p: any) => p.id);
-    if (productIds.length > 0) {
-      const idPlaceholders = productIds.map(() => "?").join(",");
-      const now = nowString();
-      const activeDiscounts = await db.all(
-        `SELECT product_id, discounted_price, end_date FROM product_discounts
-         WHERE product_id IN (${idPlaceholders})
-           AND status = 'active'
-           AND start_date <= ?
-           AND end_date >= ?`,
-        [...productIds, now, now]
-      ) as any[];
-      const discountMap = new Map(activeDiscounts.map((d: any) => [d.product_id, d]));
-      for (const p of products) {
-        const d = discountMap.get(p.id);
-        p.discounted_price = d ? d.discounted_price : null;
-        p.discount_end_date = d ? d.end_date : null;
-      }
-    }
+    await attachActiveDiscountInfo(products);
 
     return { products, total, page, totalPages };
   }
@@ -91,40 +107,9 @@ export function productService(db: DatabaseAdapter) {
   }
 
   async function exportToExcel(search: string, category: string, status: string) {
-    const conditions: string[] = [];
-    const params: any[] = [];
-
-    if (search) {
-      conditions.push("(name LIKE ? OR sku LIKE ?)");
-      params.push(`%${search}%`, `%${search}%`);
-    }
-    if (category) {
-      conditions.push("category = ?");
-      params.push(category);
-    }
-    if (status && status !== "all") {
-      conditions.push("status = ?");
-      params.push(status);
-    }
-
-    const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-    const products = await db.all(`SELECT * FROM products ${where} ORDER BY name ASC`) as any[];
-
-    const productIds = products.map((p: any) => p.id);
-    const discountMap = new Map<number, { discounted_price: number; end_date: string }>();
-    if (productIds.length > 0) {
-      const idPlaceholders = productIds.map(() => "?").join(",");
-      const now = nowString();
-      const activeDiscounts = await db.all(
-        `SELECT product_id, discounted_price, end_date FROM product_discounts
-         WHERE product_id IN (${idPlaceholders})
-           AND status = 'active'
-           AND start_date <= ?
-           AND end_date >= ?`,
-        [...productIds, now, now]
-      ) as any[];
-      for (const d of activeDiscounts) discountMap.set(d.product_id, d);
-    }
+    const { where, params } = buildProductFilter(search, category, status);
+    const products = await db.all(`SELECT * FROM products ${where} ORDER BY name ASC`, params) as any[];
+    await attachActiveDiscountInfo(products);
 
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet("Products");
@@ -146,12 +131,11 @@ export function productService(db: DatabaseAdapter) {
     ];
     sheet.getRow(1).font = { bold: true };
     for (const p of products) {
-      const d = discountMap.get(p.id);
       sheet.addRow({
         ...p,
-        effective_price: d ? d.discounted_price : p.sell_price,
-        has_discount: d ? "Yes" : "No",
-        discount_end_date: d ? (d.end_date || "").slice(0, 10) : "",
+        effective_price: p.discounted_price ?? p.sell_price,
+        has_discount: p.discounted_price ? "Yes" : "No",
+        discount_end_date: p.discounted_price ? (p.discount_end_date || "").slice(0, 10) : "",
       });
     }
 
@@ -170,38 +154,42 @@ export function productService(db: DatabaseAdapter) {
     let imported = 0;
     const seenSkus = new Set<string>();
 
-    const rowCount = sheet.rowCount;
-    for (let rowNumber = 2; rowNumber <= rowCount; rowNumber++) {
-      const row = sheet.getRow(rowNumber);
-      const values = row.values as any[];
-      if (!row || !values || values.length === 0 || values.every((v: any) => v === null || v === undefined)) continue;
+    // Atomic: a mid-file failure (db error, crash) rolls back the whole batch
+    // instead of leaving a partial import behind.
+    await db.transaction(async (tx) => {
+      const rowCount = sheet.rowCount;
+      for (let rowNumber = 2; rowNumber <= rowCount; rowNumber++) {
+        const row = sheet.getRow(rowNumber);
+        const values = row.values as any[];
+        if (!row || !values || values.length === 0 || values.every((v: any) => v === null || v === undefined)) continue;
 
-      const name = String(row.getCell(1).value || "").trim();
-      const sku = String(row.getCell(2).value || "").trim();
-      const category = String(row.getCell(3).value || "").trim();
-      const price = parseFloat(String(row.getCell(4).value || "0"));
-      const sellPrice = parseFloat(String(row.getCell(5).value || "0"));
-      const stock = parseInt(String(row.getCell(6).value || "0"), 10);
-      const lowStockThreshold = parseInt(String(row.getCell(7).value || "5"), 10);
-      const status = String(row.getCell(8).value || "active").trim().toLowerCase();
+        const name = String(row.getCell(1).value || "").trim();
+        const sku = String(row.getCell(2).value || "").trim();
+        const category = String(row.getCell(3).value || "").trim();
+        const price = parseFloat(String(row.getCell(4).value || "0"));
+        const sellPrice = parseFloat(String(row.getCell(5).value || "0"));
+        const stock = parseInt(String(row.getCell(6).value || "0"), 10);
+        const lowStockThreshold = parseInt(String(row.getCell(7).value || String(DEFAULT_LOW_STOCK_THRESHOLD)), 10);
+        const status = String(row.getCell(8).value || PRODUCT_STATUS.active).trim().toLowerCase();
 
-      if (!name) { errors.push({ row: rowNumber, sku: sku || "N/A", error: "Missing required field: name", code: "MISSING_NAME" }); continue; }
-      if (!sku) { errors.push({ row: rowNumber, sku: "N/A", error: "Missing required field: sku", code: "MISSING_SKU" }); continue; }
-      if (isNaN(price) || price < 0) { errors.push({ row: rowNumber, sku, error: "Invalid price", code: "INVALID_PRICE" }); continue; }
-      if (isNaN(sellPrice) || sellPrice < 0) { errors.push({ row: rowNumber, sku, error: "Invalid sell price", code: "INVALID_SELL_PRICE" }); continue; }
-      if (seenSkus.has(sku)) { errors.push({ row: rowNumber, sku, error: "Duplicate SKU in file", code: "DUPLICATE_SKU_FILE" }); continue; }
-      if (status !== "active" && status !== "discontinued") { errors.push({ row: rowNumber, sku, error: "Invalid status (must be 'active' or 'discontinued')", code: "INVALID_STATUS" }); continue; }
+        if (!name) { errors.push({ row: rowNumber, sku: sku || "N/A", error: "Missing required field: name", code: "MISSING_NAME" }); continue; }
+        if (!sku) { errors.push({ row: rowNumber, sku: "N/A", error: "Missing required field: sku", code: "MISSING_SKU" }); continue; }
+        if (isNaN(price) || price < 0) { errors.push({ row: rowNumber, sku, error: "Invalid price", code: "INVALID_PRICE" }); continue; }
+        if (isNaN(sellPrice) || sellPrice < 0) { errors.push({ row: rowNumber, sku, error: "Invalid sell price", code: "INVALID_SELL_PRICE" }); continue; }
+        if (seenSkus.has(sku)) { errors.push({ row: rowNumber, sku, error: "Duplicate SKU in file", code: "DUPLICATE_SKU_FILE" }); continue; }
+        if (status !== PRODUCT_STATUS.active && status !== PRODUCT_STATUS.discontinued) { errors.push({ row: rowNumber, sku, error: "Invalid status (must be 'active' or 'discontinued')", code: "INVALID_STATUS" }); continue; }
 
-      const existing = await db.get("SELECT id FROM products WHERE sku = ?", [sku]);
-      if (existing) { errors.push({ row: rowNumber, sku, error: "SKU already exists in database", code: "SKU_EXISTS_DB" }); continue; }
+        const existing = await tx.get("SELECT id FROM products WHERE sku = ?", [sku]);
+        if (existing) { errors.push({ row: rowNumber, sku, error: "SKU already exists in database", code: "SKU_EXISTS_DB" }); continue; }
 
-      seenSkus.add(sku);
-      await db.run(
-        "INSERT INTO products (name, sku, category, price, sell_price, stock, low_stock_threshold, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        [name, sku, category, price, sellPrice, isNaN(stock) ? 0 : stock, isNaN(lowStockThreshold) ? 5 : lowStockThreshold, status]
-      );
-      imported++;
-    }
+        seenSkus.add(sku);
+        await tx.run(
+          "INSERT INTO products (name, sku, category, price, sell_price, stock, low_stock_threshold, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+          [name, sku, category, price, sellPrice, isNaN(stock) ? 0 : stock, isNaN(lowStockThreshold) ? DEFAULT_LOW_STOCK_THRESHOLD : lowStockThreshold, status]
+        );
+        imported++;
+      }
+    });
 
     return { imported, errors };
   }
@@ -210,21 +198,14 @@ export function productService(db: DatabaseAdapter) {
     const existing = await db.get("SELECT id FROM products WHERE sku = ?", [data.sku]);
     if (existing) throw new AppError(409, "SKU already exists", "SKU_EXISTS");
 
-    const status = data.status || "active";
+    const status = data.status || PRODUCT_STATUS.active;
 
     const result = await db.run(
       "INSERT INTO products (name, sku, category, price, sell_price, stock, low_stock_threshold, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
       [data.name, data.sku, data.category, data.price, data.sell_price, data.stock, data.low_stock_threshold, status]
     );
 
-    const product = await db.get("SELECT * FROM products WHERE id = ?", [result.insertId]) as any;
-    const now = nowString();
-    const activeDiscount = await db.get(
-      "SELECT discounted_price FROM product_discounts WHERE product_id = ? AND status = 'active' AND start_date <= ? AND end_date >= ? LIMIT 1",
-      [product.id, now, now]
-    ) as any;
-    emitProductUpdated({ ...product, discounted_price: activeDiscount?.discounted_price ?? null });
-    return product;
+    return await reloadAndEmitProduct(db, result.insertId);
   }
 
   async function update(id: number, data: { name?: string; sku?: string; category?: string; price?: number; sell_price?: number; stock?: number; low_stock_threshold?: number; status?: string }) {
@@ -254,14 +235,7 @@ export function productService(db: DatabaseAdapter) {
       ]
     );
 
-    const product = await db.get("SELECT * FROM products WHERE id = ?", [id]) as any;
-    const now = nowString();
-    const activeDiscount = await db.get(
-      "SELECT discounted_price FROM product_discounts WHERE product_id = ? AND status = 'active' AND start_date <= ? AND end_date >= ? LIMIT 1",
-      [id, now, now]
-    ) as any;
-    emitProductUpdated({ ...product, discounted_price: activeDiscount?.discounted_price ?? null });
-    return product;
+    return await reloadAndEmitProduct(db, id);
   }
 
   async function remove(id: number) {
@@ -284,14 +258,7 @@ export function productService(db: DatabaseAdapter) {
       [quantity, id]
     );
 
-    const updated = await db.get("SELECT * FROM products WHERE id = ?", [id]) as any;
-    const now = nowString();
-    const activeDiscount = await db.get(
-      "SELECT discounted_price FROM product_discounts WHERE product_id = ? AND status = 'active' AND start_date <= ? AND end_date >= ? LIMIT 1",
-      [id, now, now]
-    ) as any;
-    emitProductUpdated({ ...updated, discounted_price: activeDiscount?.discounted_price ?? null });
-    return updated;
+    return await reloadAndEmitProduct(db, id);
   }
 
   async function stockOut(id: number, quantity: number) {
@@ -307,14 +274,7 @@ export function productService(db: DatabaseAdapter) {
       [quantity, id]
     );
 
-    const updated = await db.get("SELECT * FROM products WHERE id = ?", [id]) as any;
-    const now = nowString();
-    const activeDiscount = await db.get(
-      "SELECT discounted_price FROM product_discounts WHERE product_id = ? AND status = 'active' AND start_date <= ? AND end_date >= ? LIMIT 1",
-      [id, now, now]
-    ) as any;
-    emitProductUpdated({ ...updated, discounted_price: activeDiscount?.discounted_price ?? null });
-    return updated;
+    return await reloadAndEmitProduct(db, id);
   }
 
   return { list, listLowStock, getCategories, getById, exportToExcel, importFromExcel, create, update, remove, stockIn, stockOut };

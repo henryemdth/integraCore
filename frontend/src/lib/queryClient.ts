@@ -10,7 +10,7 @@ export const queryClient = new QueryClient({
       refetchOnWindowFocus: false,
     },
     mutations: {
-      onError: (err: any) => {
+      onError: (err: unknown) => {
         toast.error(getErrorMessage(err, "common.unexpectedError"))
       },
     },

@@ -2,6 +2,7 @@ import type { DatabaseAdapter } from "../db/adapter.js";
 import bcrypt from "bcryptjs";
 import { AppError } from "../utils/appError.js";
 import { emitUsersChanged } from "../socket/index.js";
+import { fetchUserProjection } from "./userProjection.js";
 
 export function userService(db: DatabaseAdapter) {
   async function list(params: { page: number; limit: number; active?: string; search?: string }) {
@@ -41,10 +42,7 @@ export function userService(db: DatabaseAdapter) {
   }
 
   async function getById(id: number) {
-    const user = await db.get(
-      "SELECT id, username, full_name, role, active, created_at, updated_at FROM users WHERE id = ?",
-      [id]
-    );
+    const user = await fetchUserProjection(db, id);
     if (!user) throw new AppError(404, "User not found", "USER_NOT_FOUND");
     return user;
   }
@@ -57,10 +55,6 @@ export function userService(db: DatabaseAdapter) {
       throw new AppError(400, "Cannot change your own role", "CANNOT_CHANGE_OWN_ROLE");
     }
 
-    if (data.role && data.role !== "admin" && data.role !== "user") {
-      throw new AppError(400, "Role must be 'admin' or 'user'", "ROLE_INVALID");
-    }
-
     await db.run(
       `UPDATE users SET
         full_name = COALESCE(?, full_name),
@@ -70,10 +64,7 @@ export function userService(db: DatabaseAdapter) {
       [data.full_name ?? null, data.role ?? null, id]
     );
 
-    const user = await db.get(
-      "SELECT id, username, full_name, role, active, created_at, updated_at FROM users WHERE id = ?",
-      [id]
-    );
+    const user = await fetchUserProjection(db, id);
     emitUsersChanged();
     return user;
   }
@@ -101,10 +92,7 @@ export function userService(db: DatabaseAdapter) {
       [0, id]
     );
 
-    const user = await db.get(
-      "SELECT id, username, full_name, role, active, created_at, updated_at FROM users WHERE id = ?",
-      [id]
-    );
+    const user = await fetchUserProjection(db, id);
     emitUsersChanged();
     return user;
   }
@@ -118,10 +106,7 @@ export function userService(db: DatabaseAdapter) {
       [1, id]
     );
 
-    const user = await db.get(
-      "SELECT id, username, full_name, role, active, created_at, updated_at FROM users WHERE id = ?",
-      [id]
-    );
+    const user = await fetchUserProjection(db, id);
     emitUsersChanged();
     return user;
   }

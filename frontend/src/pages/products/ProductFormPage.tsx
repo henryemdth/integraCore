@@ -3,8 +3,9 @@ import { useNavigate, useParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useAuth } from "@/contexts/AuthContext"
+import { useAllProducts, useProductCategories } from "@/hooks/useProductQueries"
 import api from "@/lib/api"
-import type { Product } from "@integracore/shared"
+import { PRODUCT_STATUS, DEFAULT_LOW_STOCK_THRESHOLD, type Product, type ProductStatus } from "@integracore/shared"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -17,6 +18,7 @@ import { ArrowLeft, Loader2, TriangleAlert } from "lucide-react"
 import { getErrorMessage } from "@/lib/errorMessages"
 import { normalizeForSearch } from "@/lib/text"
 import { formatCurrency } from "@/lib/format"
+import { queryKeys } from "@/lib/queryKeys"
 
 export default function ProductFormPage() {
   const { t } = useTranslation()
@@ -31,48 +33,43 @@ export default function ProductFormPage() {
   const [price, setPrice] = useState("")
   const [sellPrice, setSellPrice] = useState("")
   const [stock, setStock] = useState("")
-  const [lowStockThreshold, setLowStockThreshold] = useState("5")
-  const [status, setStatus] = useState<"active" | "discontinued">("active")
+  const [lowStockThreshold, setLowStockThreshold] = useState(String(DEFAULT_LOW_STOCK_THRESHOLD))
+  const [status, setStatus] = useState<ProductStatus>(PRODUCT_STATUS.active)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
-  const [fetching, setFetching] = useState(isEdit)
   const queryClient = useQueryClient()
 
+  // Edit mode loads the product through React Query (same cache/error handling
+  // as every other read) and hydrates the form fields when it arrives.
+  const {
+    data: product,
+    isLoading: fetching,
+    error: fetchError,
+  } = useQuery({
+    queryKey: queryKeys.products.detail(Number(id)),
+    enabled: isEdit,
+    queryFn: async () => {
+      const res = await api.get(`/api/products/${id}`)
+      return res.data.product as Product
+    },
+  })
+
   useEffect(() => {
-    if (isEdit) {
-      api
-        .get(`/api/products/${id}`)
-        .then((res) => {
-          const product = res.data.product as Product
-          setName(product.name)
-          setSku(product.sku)
-          setCategory(product.category)
-          setPrice(String(product.price))
-          setSellPrice(String(product.sell_price))
-          setStock(String(product.stock))
-          setLowStockThreshold(String(product.low_stock_threshold))
-          setStatus(product.status)
-        })
-        .catch((err: any) => setError(getErrorMessage(err, "products.editForm.notFound")))
-        .finally(() => setFetching(false))
+    if (product) {
+      setName(product.name)
+      setSku(product.sku)
+      setCategory(product.category)
+      setPrice(String(product.price))
+      setSellPrice(String(product.sell_price))
+      setStock(String(product.stock))
+      setLowStockThreshold(String(product.low_stock_threshold))
+      setStatus(product.status)
     }
-  }, [id, isEdit])
+  }, [product])
 
-  const { data: categories = [] } = useQuery({
-    queryKey: ["products", "categories"],
-    queryFn: async () => {
-      const res = await api.get("/api/products/categories")
-      return res.data.categories as string[]
-    },
-  })
+  const categories = useProductCategories().data ?? []
 
-  const { data: allProducts = [] } = useQuery({
-    queryKey: ["products", "list-all"],
-    queryFn: async () => {
-      const res = await api.get("/api/products?limit=10000")
-      return res.data.products as Product[]
-    },
-  })
+  const allProducts = useAllProducts().data ?? []
 
   // Debounce so the duplicate-name check runs after the user pauses typing.
   const [debouncedName, setDebouncedName] = useState("")
@@ -109,7 +106,7 @@ export default function ProductFormPage() {
       price: parseFloat(price),
       sell_price: parseFloat(sellPrice),
       stock: parseInt(stock) || 0,
-      low_stock_threshold: parseInt(lowStockThreshold) || 5,
+      low_stock_threshold: parseInt(lowStockThreshold) || DEFAULT_LOW_STOCK_THRESHOLD,
     }
 
     if (isEdit && isAdmin) {
@@ -122,9 +119,9 @@ export default function ProductFormPage() {
       } else {
         await api.post("/api/products", body)
       }
-      queryClient.invalidateQueries({ queryKey: ["products"] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.products.all })
       navigate("/products")
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(getErrorMessage(err, "products.createForm.failedSave"))
     } finally {
       setLoading(false)
@@ -170,9 +167,9 @@ export default function ProductFormPage() {
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
-            {error && (
+            {(error || fetchError) && (
               <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
+                <AlertDescription>{error || getErrorMessage(fetchError, "products.editForm.notFound")}</AlertDescription>
               </Alert>
             )}
             <div className="grid grid-cols-12 gap-4">
@@ -186,7 +183,7 @@ export default function ProductFormPage() {
                   required
                 />
                 {duplicateMatches.length > 0 && (
-                  <Alert className="border-amber-300 bg-amber-50 text-amber-900 [&>svg]:text-amber-600">
+                  <Alert variant="warning">
                     <TriangleAlert className="h-4 w-4" />
                     <AlertDescription>
                       <span className="font-medium">{t("products.createForm.duplicateNameTitle")}</span>
@@ -286,13 +283,13 @@ export default function ProductFormPage() {
               {isEdit && isAdmin && (
                 <div className="col-span-4 space-y-2">
                   <Label>{t("products.status")}</Label>
-                  <Select value={status} onValueChange={(v) => setStatus(v as "active" | "discontinued")}>
+                  <Select value={status} onValueChange={(v) => setStatus(v as ProductStatus)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="active">{t("products.active")}</SelectItem>
-                      <SelectItem value="discontinued">{t("products.discontinued")}</SelectItem>
+                      <SelectItem value={PRODUCT_STATUS.active}>{t("products.active")}</SelectItem>
+                      <SelectItem value={PRODUCT_STATUS.discontinued}>{t("products.discontinued")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

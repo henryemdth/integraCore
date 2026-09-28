@@ -24,6 +24,24 @@ for (const [name, version] of versions) {
   }
 }
 
+// @integracore/shared is published only to the local workspace — an exact pin
+// that no longer matches the workspace version sends npm to the public
+// registry, which fails with a confusing 404 on `npm ci`. Caret ranges keep
+// the resolution inside the monorepo (AGENTS.md "Monorepo versioning").
+const sharedConsumers = ["backend", "frontend"];
+for (const workspace of sharedConsumers) {
+  const manifest = JSON.parse(readFileSync(path.join(root, workspace, "package.json"), "utf8"));
+  const range = manifest.dependencies?.["@integracore/shared"];
+  if (range === undefined) {
+    problems.push(`${workspace}/package.json does not depend on @integracore/shared`);
+  } else if (!range.startsWith("^")) {
+    problems.push(
+      `${workspace}/package.json pins @integracore/shared to "${range}" — ` +
+        `use a caret range (^${rootVersion}) so npm resolves it from the workspace`
+    );
+  }
+}
+
 const ref = process.env.GITHUB_REF ?? "";
 if (ref.startsWith("refs/tags/")) {
   const tag = ref.slice("refs/tags/".length);

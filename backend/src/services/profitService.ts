@@ -1,11 +1,16 @@
 import type { DatabaseAdapter } from "../db/adapter.js";
 import { nowString } from "@integracore/shared";
 import { emitNotification } from "../socket/index.js";
+import { AppError } from "../utils/appError.js";
+
+// Fallback when no target row exists yet; mirrors the profit_targets DDL default.
+const DEFAULT_PROFIT_PERIOD_DAYS = 15;
+const NOTIFICATIONS_PAGE_SIZE = 50;
 
 export function profitService(db: DatabaseAdapter) {
   async function getTarget() {
     const target = await db.get("SELECT * FROM profit_targets ORDER BY id DESC LIMIT 1") as any;
-    return target || { id: 0, target_amount: 0, period_days: 15, period: "custom", created_at: "", updated_at: "" };
+    return target || { id: 0, target_amount: 0, period_days: DEFAULT_PROFIT_PERIOD_DAYS, period: "custom", created_at: "", updated_at: "" };
   }
 
   async function updateTarget(targetAmount: number, periodDays: number) {
@@ -24,9 +29,9 @@ export function profitService(db: DatabaseAdapter) {
     return await getTarget();
   }
 
-  async function checkProfit(periodDays?: number) {
+  async function checkProfit() {
     const target = await getTarget();
-    const days = periodDays || (target as any).period_days || 15;
+    const days = (target as any).period_days || DEFAULT_PROFIT_PERIOD_DAYS;
 
     const sales = await db.get(
       `SELECT COALESCE(SUM(si.subtotal), 0) as total_revenue
@@ -51,18 +56,6 @@ export function profitService(db: DatabaseAdapter) {
     };
   }
 
-  async function getRevenueSummary(periodDays: number) {
-    const sales = await db.get(
-      `SELECT COALESCE(SUM(si.subtotal), 0) as total_revenue
-       FROM sale_items si
-       JOIN sales s ON si.sale_id = s.id
-       WHERE s.created_at >= datetime('now', '-' || ? || ' days')`,
-      [periodDays]
-    ) as { total_revenue: number };
-
-    return { total_revenue: sales.total_revenue, period_days: periodDays };
-  }
-
   async function createNotification(type: string, message: string) {
     // Explicit local wall-clock timestamp (same convention as discount
     // ranges) instead of the column's datetime('now') UTC default — day-based
@@ -85,11 +78,12 @@ export function profitService(db: DatabaseAdapter) {
 
   async function listNotifications(unreadOnly = false) {
     const where = unreadOnly ? "WHERE read = 0" : "";
-    return await db.all(`SELECT * FROM notifications ${where} ORDER BY created_at DESC LIMIT 50`);
+    return await db.all(`SELECT * FROM notifications ${where} ORDER BY created_at DESC LIMIT ${NOTIFICATIONS_PAGE_SIZE}`);
   }
 
   async function markAsRead(id: number) {
-    await db.run("UPDATE notifications SET read = 1 WHERE id = ?", [id]);
+    const result = await db.run("UPDATE notifications SET read = 1 WHERE id = ?", [id]);
+    if (result.changes === 0) throw new AppError(404, "Notification not found", "NOTIFICATION_NOT_FOUND");
     return { success: true };
   }
 
@@ -103,5 +97,5 @@ export function profitService(db: DatabaseAdapter) {
     return row!.count;
   }
 
-  return { getTarget, updateTarget, checkProfit, getRevenueSummary, createNotification, listNotifications, markAsRead, markAllAsRead, getUnreadCount };
+  return { getTarget, updateTarget, checkProfit, createNotification, listNotifications, markAsRead, markAllAsRead, getUnreadCount };
 }

@@ -20,13 +20,12 @@ export default tseslint.config(
     rules: {
       ...reactHooks.configs.recommended.rules,
       "react-refresh/only-export-components": "warn",
-      // The codebase intentionally uses `any` casts at API boundaries;
-      // tsc strict mode covers genuine type safety.
+      // API responses are cast to shared types (`res.data as Product[]`) at the
+      // query boundary; tsc strict mode covers the rest of type safety.
       "@typescript-eslint/no-explicit-any": "off",
-      // Several dialogs/pages load server data into local form state inside
-      // effects (fetch → setState). That pattern is flagged by the new
-      // react-hooks v7 rule but is intentional here; kept as a warning so it
-      // stays visible without failing the build.
+      // Form fields hydrate from fetched server data inside effects
+      // (query data → setState per field). The react-hooks v7 rule flags that
+      // pattern; kept as a warning so it stays visible without failing the build.
       "react-hooks/set-state-in-effect": "warn",
     },
   }

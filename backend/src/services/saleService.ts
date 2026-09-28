@@ -1,8 +1,9 @@
 import type { DatabaseAdapter } from "../db/adapter.js";
 import ExcelJS from "exceljs";
 import { AppError } from "../utils/appError.js";
-import { emitProductUpdated } from "../socket/index.js";
-import { nowString } from "@integracore/shared";
+import { findActiveDiscounts } from "./discountLookup.js";
+import { reloadAndEmitProduct } from "./productService.js";
+import { endOfDay, PRODUCT_STATUS } from "@integracore/shared";
 
 function getSaleItems(db: DatabaseAdapter, saleId: number) {
   return db.all(
@@ -53,7 +54,9 @@ function buildFilterQuery(filters: {
   }
   if (filters.dateTo) {
     conditions.push("s.created_at <= ?");
-    params.push(filters.dateTo + " 23:59:59");
+    // Inclusive last-instant of the day (shared convention) so a sale at
+    // 23:59:59.500 still lands inside its own day's filter.
+    params.push(endOfDay(filters.dateTo));
   }
   if (filters.productId) {
     conditions.push("s.id IN (SELECT sale_id FROM sale_items WHERE product_id = ?)");
@@ -62,17 +65,6 @@ function buildFilterQuery(filters: {
 
   const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
   return { where, params };
-}
-
-async function getActiveDiscount(db: DatabaseAdapter, productId: number) {
-  const now = nowString();
-  const discount = await db.get(
-    `SELECT id, discounted_price FROM product_discounts
-     WHERE product_id = ? AND status = 'active' AND start_date <= ? AND end_date >= ?
-     ORDER BY start_date DESC LIMIT 1`,
-    [productId, now, now]
-  ) as any;
-  return discount || null;
 }
 
 export function saleService(db: DatabaseAdapter) {
@@ -94,7 +86,7 @@ export function saleService(db: DatabaseAdapter) {
       }
       for (const item of items) {
         const product = productMap.get(item.product_id)!;
-        if (product.status === "discontinued") {
+        if (product.status === PRODUCT_STATUS.discontinued) {
           throw new AppError(400, `Cannot sell discontinued product: "${product.name}"`, "PRODUCT_DISCONTINUED", { name: product.name });
         }
         if (product.stock < item.quantity) {
@@ -107,17 +99,7 @@ export function saleService(db: DatabaseAdapter) {
       }
 
       const productIdsList = items.map((i) => i.product_id);
-      const discountPlaceholders = productIdsList.map(() => "?").join(",");
-      const now = nowString();
-      const activeDiscountsRaw = await tx.all(
-        `SELECT pd.* FROM product_discounts pd
-         WHERE pd.product_id IN (${discountPlaceholders})
-           AND pd.status = 'active'
-           AND pd.start_date <= ?
-           AND pd.end_date >= ?`,
-        [...productIdsList, now, now]
-      ) as any[];
-      const discountMap = new Map(activeDiscountsRaw.map((d: any) => [d.product_id, d]));
+      const discountMap = await findActiveDiscounts(tx, productIdsList);
 
       let total = 0;
       const saleItems = items.map((item) => {
@@ -160,13 +142,11 @@ export function saleService(db: DatabaseAdapter) {
     });
 
     const sale = await buildSaleDetail(db, saleId);
+    if (!sale) throw new AppError(500, "Sale disappeared after creation", "SALE_NOT_FOUND");
 
-    for (const item of sale!.items) {
-      const product = await db.get("SELECT id, name, sku, price, sell_price, stock, status FROM products WHERE id = ?", [item.product_id]) as any;
-      if (product) {
-        const activeDiscount = await getActiveDiscount(db, product.id);
-        emitProductUpdated({ ...product, discounted_price: activeDiscount?.discounted_price ?? null });
-      }
+    const emittedProductIds = new Set<number>(sale.items.map((item: any) => item.product_id));
+    for (const productId of emittedProductIds) {
+      await reloadAndEmitProduct(db, productId);
     }
 
     return { sale };
@@ -333,12 +313,8 @@ export function saleService(db: DatabaseAdapter) {
       await tx.run("DELETE FROM sales WHERE id = ?", [id]);
     });
 
-    for (const item of items) {
-      const product = await db.get("SELECT id, name, sku, price, sell_price, stock, status FROM products WHERE id = ?", [item.product_id]) as any;
-      if (product) {
-        const activeDiscount = await getActiveDiscount(db, product.id);
-        emitProductUpdated({ ...product, discounted_price: activeDiscount?.discounted_price ?? null });
-      }
+    for (const productId of new Set(items.map((item) => item.product_id))) {
+      await reloadAndEmitProduct(db, productId);
     }
 
     return { success: true };

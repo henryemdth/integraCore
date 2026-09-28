@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import api from "@/lib/api"
+import { queryKeys } from "@/lib/queryKeys"
 
 interface DashboardSummary {
   totalProducts: number
@@ -15,7 +16,7 @@ interface DashboardSummary {
 
 export function useDashboardSummary() {
   return useQuery({
-    queryKey: ["dashboard-summary"],
+    queryKey: queryKeys.dashboard.summary,
     queryFn: async () => {
       const res = await api.get("/api/dashboard/summary")
       return res.data as DashboardSummary

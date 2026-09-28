@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import api from "@/lib/api"
 import { toast } from "sonner"
+import { fileToBase64 } from "@/lib/files"
+import { queryKeys } from "@/lib/queryKeys"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -24,19 +26,18 @@ export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
   const mutation = useMutation({
     mutationFn: async () => {
       if (!file) return
-      const buffer = await file.arrayBuffer()
-      const base64 = btoa(new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), ""))
+      const base64 = await fileToBase64(file)
       const res = await api.post("/api/products/import", { file: base64 })
       setResult(res.data)
       return res.data
     },
-    onSuccess: (data: any) => {
+    onSuccess: (data: { imported: number }) => {
       if (data?.imported > 0) {
-        queryClient.invalidateQueries({ queryKey: ["products"] })
+        queryClient.invalidateQueries({ queryKey: queryKeys.products.all })
         toast.success(t("products.import.imported", { count: data.imported }))
       }
     },
-    onError: (err: any) => toast.error(getErrorMessage(err, "products.import.failedImport")),
+    onError: (err: unknown) => toast.error(getErrorMessage(err, "products.import.failedImport")),
   })
 
   const handleClose = () => { setFile(null); setResult(null); onOpenChange(false) }

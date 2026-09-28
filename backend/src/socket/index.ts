@@ -3,14 +3,10 @@ import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
 import { config } from "../config.js";
 import { getAdapter } from "../db/index.js";
+import { fetchUserProjection } from "../services/userProjection.js";
+import type { JwtPayload } from "../types/auth.js";
 
 let io: Server;
-
-interface JwtPayload {
-  id: number;
-  username: string;
-  role: "admin" | "user";
-}
 
 export function initSocket(server: HttpServer): Server {
   io = new Server(server, {
@@ -30,10 +26,7 @@ export function initSocket(server: HttpServer): Server {
     try {
       const decoded = jwt.verify(token, config.jwtSecret) as JwtPayload;
       const db = getAdapter();
-      const user = await db.get(
-        "SELECT id, username, role, active FROM users WHERE id = ?",
-        [decoded.id]
-      ) as { id: number; username: string; role: "admin" | "user"; active: number | boolean } | undefined;
+      const user = await fetchUserProjection(db, decoded.id);
 
       if (!user || !user.active) return next(new Error("Not authenticated"));
       (socket as any).data.user = { id: user.id, username: user.username, role: user.role };
@@ -41,13 +34,6 @@ export function initSocket(server: HttpServer): Server {
     } catch {
       next(new Error("Not authenticated"));
     }
-  });
-
-  io.on("connection", (socket) => {
-    console.log(`[socket] Client connected: ${socket.id}`);
-    socket.on("disconnect", () => {
-      console.log(`[socket] Client disconnected: ${socket.id}`);
-    });
   });
 
   return io;

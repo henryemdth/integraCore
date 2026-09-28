@@ -2,8 +2,9 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import api from "@/lib/api"
-import type { Product } from "@integracore/shared"
+import { PRODUCT_STATUS, type Product } from "@integracore/shared"
 import { toast } from "sonner"
+import { queryKeys } from "@/lib/queryKeys"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -38,7 +39,8 @@ export function CreateDiscountDialog({ product, open, onOpenChange }: CreateDisc
       })
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["products"] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.products.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.discounts.all })
       toast.success(t("discounts.created"))
       setDiscountedPrice("")
       setStartDate("")
@@ -47,7 +49,7 @@ export function CreateDiscountDialog({ product, open, onOpenChange }: CreateDisc
       setError("")
       onOpenChange(false)
     },
-    onError: (err: any) => {
+    onError: (err: unknown) => {
       const msg = getErrorMessage(err, "discounts.failedCreate")
       setError(msg)
     },
@@ -57,7 +59,7 @@ export function CreateDiscountDialog({ product, open, onOpenChange }: CreateDisc
     e.preventDefault()
     setError("")
     if (!product) return
-    if (product.status === "discontinued") { setError(t("discounts.discontinuedBlocked")); return }
+    if (product.status === PRODUCT_STATUS.discontinued) { setError(t("discounts.discontinuedBlocked")); return }
     const price = parseFloat(discountedPrice)
     if (!discountedPrice || price < 0) { setError(t("discounts.priceInvalid")); return }
     if (product && price >= product.sell_price) { setError(t("errors.discountPriceAboveSell")); return }

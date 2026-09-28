@@ -31,7 +31,7 @@ export function ChangePasswordDialog({ open, onOpenChange }: ChangePasswordDialo
       setCurrentPassword(""); setNewPassword("")
       onOpenChange(false)
     },
-    onError: (err: any) => setError(getErrorMessage(err, "changePassword.failed")),
+    onError: (err: unknown) => setError(getErrorMessage(err, "changePassword.failed")),
   })
 
   return (

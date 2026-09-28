@@ -2,7 +2,8 @@ import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import api from "@/lib/api"
-import type { User } from "@integracore/shared"
+import { ROLES, type User } from "@integracore/shared"
+import { useAllUsers } from "@/hooks/useUserQueries"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -16,6 +17,8 @@ import { CreateUserDialog } from "@/components/users/CreateUserDialog"
 import { EditUserDialog } from "@/components/users/EditUserDialog"
 import { ResetPasswordDialog } from "@/components/users/ResetPasswordDialog"
 import { StatCard } from "@/components/StatCard"
+import { Pagination } from "@/components/Pagination"
+import { queryKeys } from "@/lib/queryKeys"
 import { QueryErrorState } from "@/components/ui/query-error"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Plus, MoreHorizontal, Users, UserCheck, Shield } from "lucide-react"
@@ -39,7 +42,7 @@ export default function UserListPage() {
   if (search) params.search = search
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ["users", params],
+    queryKey: queryKeys.users.list(params),
     queryFn: async () => {
       const res = await api.get(`/api/users?${new URLSearchParams(params)}`)
       return { users: res.data.users as User[], total: res.data.total as number, totalPages: res.data.totalPages as number }
@@ -51,27 +54,21 @@ export default function UserListPage() {
   const total = data?.total ?? 0
   const totalPages = data?.totalPages ?? 1
 
-  const { data: allUsers } = useQuery({
-    queryKey: ["users", "stats"],
-    queryFn: async () => {
-      const res = await api.get("/api/users?limit=1000")
-      return res.data.users as User[]
-    },
-  })
+  const { data: allUsers, isLoading: statsLoading } = useAllUsers()
 
   const activeCount = allUsers?.filter((u) => u.active).length ?? 0
-  const adminCount = allUsers?.filter((u) => u.role === "admin").length ?? 0
+  const adminCount = allUsers?.filter((u) => u.role === ROLES.admin).length ?? 0
 
   const deactivateMutation = useMutation({
     mutationFn: (id: number) => api.patch(`/api/users/${id}/deactivate`),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["users"] }); toast.success(t("users.deactivated")) },
-    onError: (err: any) => toast.error(getErrorMessage(err, "users.failedDeactivate")),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.users.all }); toast.success(t("users.deactivated")) },
+    onError: (err: unknown) => toast.error(getErrorMessage(err, "users.failedDeactivate")),
   })
 
   const activateMutation = useMutation({
     mutationFn: (id: number) => api.patch(`/api/users/${id}/activate`),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["users"] }); toast.success(t("users.activated")) },
-    onError: (err: any) => toast.error(getErrorMessage(err, "users.failedActivate")),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.users.all }); toast.success(t("users.activated")) },
+    onError: (err: unknown) => toast.error(getErrorMessage(err, "users.failedActivate")),
   })
 
   const resetPage = () => setPage(1)
@@ -84,9 +81,9 @@ export default function UserListPage() {
       </div>
 
       <div className="grid gap-4 grid-cols-3">
-        <StatCard label={t("users.stats.total")} value={total} icon={Users} loading={isLoading || !allUsers} />
-        <StatCard label={t("users.stats.active")} value={activeCount} icon={UserCheck} loading={isLoading || !allUsers} />
-        <StatCard label={t("users.stats.admins")} value={adminCount} icon={Shield} loading={isLoading || !allUsers} />
+        <StatCard label={t("users.stats.total")} value={total} icon={Users} loading={isLoading || statsLoading} />
+        <StatCard label={t("users.stats.active")} value={activeCount} icon={UserCheck} loading={isLoading || statsLoading} />
+        <StatCard label={t("users.stats.admins")} value={adminCount} icon={Shield} loading={isLoading || statsLoading} />
       </div>
 
       <Card>
@@ -109,7 +106,7 @@ export default function UserListPage() {
               placeholder={t("users.searchPlaceholder")}
             />
             <div className="space-y-1.5">
-              <Select value={filter} onValueChange={(v) => { setFilter(v as any); resetPage() }}>
+              <Select value={filter} onValueChange={(v) => { setFilter(v as typeof filter); resetPage() }}>
                 <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="active">{t("users.active")}</SelectItem>
@@ -177,15 +174,7 @@ export default function UserListPage() {
               ))}
             </TableBody>
           </Table>
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4">
-              <span className="text-sm text-muted-foreground">{t("users.pageInfo", { page, totalPages, total })}</span>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>{t("common.previous")}</Button>
-                <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>{t("common.next")}</Button>
-              </div>
-            </div>
-          )}
+          <Pagination page={page} totalPages={totalPages} total={total} pageInfoKey="users.pageInfo" onPageChange={setPage} />
         </CardContent>
       </Card>
       <CreateUserDialog open={createOpen} onOpenChange={setCreateOpen} />

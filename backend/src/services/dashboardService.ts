@@ -1,4 +1,5 @@
 import { DatabaseAdapter } from "../db/adapter.js";
+import { productService } from "./productService.js";
 
 export function dashboardService(db: DatabaseAdapter) {
   async function getSummary() {
@@ -7,10 +8,9 @@ export function dashboardService(db: DatabaseAdapter) {
     );
     const totalProducts = productRow?.total ?? 0;
 
-    const lowStockRow = await db.get<{ total: number }>(
-      "SELECT COUNT(*) as total FROM products WHERE stock <= low_stock_threshold AND status = 'active'"
-    );
-    const lowStockCount = lowStockRow?.total ?? 0;
+    // Same predicate as the low-stock alerts, so the dashboard count can never
+    // diverge from what the alerts report.
+    const lowStockCount = (await productService(db).listLowStock()).length;
 
     // sales.created_at is stored in UTC (datetime('now') default), but the
     // dashboard counts "today" in local wall-clock terms. Compute the UTC

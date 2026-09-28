@@ -1,9 +1,13 @@
 import { useState, useMemo } from "react"
 import { useTranslation } from "react-i18next"
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import api from "@/lib/api"
 import type { Product } from "@integracore/shared"
+import { PRODUCT_STATUS } from "@integracore/shared"
 import { toast } from "sonner"
+import { useAllProducts } from "@/hooks/useProductQueries"
+import { queryKeys } from "@/lib/queryKeys"
+import { PriceWithDiscount } from "@/components/PriceWithDiscount"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -12,7 +16,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Separator } from "@/components/ui/separator"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { X, Search, Loader2, Tag } from "lucide-react"
+import { X, Search, Loader2 } from "lucide-react"
 import { formatCurrency } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { getErrorMessage } from "@/lib/errorMessages"
@@ -27,15 +31,12 @@ export function CreateSaleForm() {
   const [error, setError] = useState("")
   const queryClient = useQueryClient()
 
-  const { data: products = [] } = useQuery({
-    queryKey: ["products", "list-all"],
-    queryFn: async () => { const res = await api.get("/api/products?limit=100"); return res.data.products as Product[] },
-  })
+  const products = useAllProducts().data ?? []
 
   const filteredProducts = useMemo(() => {
     if (!search) return []
     const q = search.toLowerCase()
-    return products.filter((p) => p.status !== "discontinued" && (p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q)) && !cart.some((c) => c.product.id === p.id)).slice(0, 10)
+    return products.filter((p) => p.status !== PRODUCT_STATUS.discontinued && (p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q)) && !cart.some((c) => c.product.id === p.id)).slice(0, 10)
   }, [search, products, cart])
 
   const total = cart.reduce((sum, item) => sum + (item.product.discounted_price ?? item.product.sell_price) * item.quantity, 0)
@@ -70,18 +71,19 @@ export function CreateSaleForm() {
       })
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["sales"] })
-      queryClient.invalidateQueries({ queryKey: ["products"] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.sales.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.products.all })
       toast.success(t("sales.create.created"))
       setCart([])
       setNotes("")
       setError("")
       setSearch("")
     },
-    onError: (err: any) => {
-      const msg = err.message || getErrorMessage(err, "sales.create.failedCreate")
-      setError(msg)
-      if (!err.message) toast.error(msg)
+    onError: (err: unknown) => {
+      // getErrorMessage keeps translated client-side validation messages as-is
+      // and maps axios failures through the backend code (never the raw
+      // English axios message).
+      setError(getErrorMessage(err, "sales.create.failedCreate"))
     },
   })
 
@@ -121,15 +123,7 @@ export function CreateSaleForm() {
                         )}
                       </span>
                       <span className="flex items-center gap-3">
-                        {product.discounted_price ? (
-                          <span className="flex items-center gap-1">
-                            <Tag className="h-3 w-3 text-amber-500" />
-                            <span className="line-through text-muted-foreground font-data">{formatCurrency(product.sell_price)}</span>
-                            <span className="font-semibold text-amber-600 font-data">{formatCurrency(product.discounted_price)}</span>
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground font-data">{formatCurrency(product.sell_price)}</span>
-                        )}
+                        <PriceWithDiscount original={product.sell_price} discounted={product.discounted_price} />
                         <span className={cn("text-body-sm font-data", outOfStock ? "text-destructive font-medium" : "text-muted-foreground")}>
                           {outOfStock ? t("sales.create.outOfStock") : t("sales.create.stockLabel", { stock: product.stock })}
                         </span>
@@ -162,16 +156,8 @@ export function CreateSaleForm() {
                           {item.product.name}
                           <code className="text-xs text-muted-foreground ml-2 font-data">{item.product.category}</code>
                         </TableCell>
-                        <TableCell className="text-right font-data">
-                          {item.product.discounted_price ? (
-                            <span className="flex items-center justify-end gap-1">
-                              <Tag className="h-3 w-3 text-amber-500" />
-                              <span className="line-through text-muted-foreground">{formatCurrency(item.product.sell_price)}</span>
-                              <span className="font-semibold text-amber-600">{formatCurrency(item.product.discounted_price)}</span>
-                            </span>
-                          ) : (
-                            formatCurrency(item.product.sell_price)
-                          )}
+                        <TableCell className="text-right">
+                          <PriceWithDiscount original={item.product.sell_price} discounted={item.product.discounted_price} align="right" />
                         </TableCell>
                         <TableCell className="text-right">
                           <Input

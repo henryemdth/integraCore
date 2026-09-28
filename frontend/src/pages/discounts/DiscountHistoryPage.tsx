@@ -2,8 +2,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import { useSearchParams } from "react-router-dom"
 import { useExportExcel } from "@/hooks/useExportExcel"
+import { useAllProducts } from "@/hooks/useProductQueries"
 import api from "@/lib/api"
 import type { Product, ProductDiscount } from "@integracore/shared"
+import { queryKeys } from "@/lib/queryKeys"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -46,7 +48,7 @@ export default function DiscountHistoryPage() {
   if (statusFilter !== "all") filterParams.status = statusFilter
 
   const { data: discounts = [], isLoading, isError, refetch } = useQuery({
-    queryKey: ["discounts", filterParams],
+    queryKey: queryKeys.discounts.list(filterParams),
     queryFn: async () => {
       const qs = new URLSearchParams(filterParams).toString()
       const res = await api.get(`/api/discounts${qs ? `?${qs}` : ""}`)
@@ -55,22 +57,16 @@ export default function DiscountHistoryPage() {
     placeholderData: (prev) => prev,
   })
 
-  const { data: products = [] } = useQuery({
-    queryKey: ["products", "list-all"],
-    queryFn: async () => {
-      const res = await api.get("/api/products?limit=10000")
-      return res.data.products as Product[]
-    },
-  })
+  const allProducts = useAllProducts().data ?? []
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => api.delete(`/api/discounts/${id}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["discounts"] })
-      queryClient.invalidateQueries({ queryKey: ["products"] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.discounts.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.products.all })
       toast.success(t("discounts.deleted"))
     },
-    onError: (err: any) => {
+    onError: (err: unknown) => {
       const msg = getErrorMessage(err, "discounts.failedDelete")
       toast.error(msg)
     },
@@ -79,11 +75,11 @@ export default function DiscountHistoryPage() {
   const cancelMutation = useMutation({
     mutationFn: (id: number) => api.patch(`/api/discounts/${id}/cancel`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["discounts"] })
-      queryClient.invalidateQueries({ queryKey: ["products"] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.discounts.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.products.all })
       toast.success(t("discounts.cancelSuccess"))
     },
-    onError: () => toast.error(t("discounts.cancelFailed")),
+    onError: (err: unknown) => toast.error(getErrorMessage(err, "discounts.cancelFailed")),
   })
 
   const handleExport = () => {
@@ -113,7 +109,7 @@ export default function DiscountHistoryPage() {
               <SearchableSelect
                 value={productFilter}
                 onValueChange={setProductFilter}
-                options={products.map((p: Product) => ({ value: String(p.id), label: p.name, keywords: [p.sku] }))}
+                options={allProducts.map((p: Product) => ({ value: String(p.id), label: p.name, keywords: [p.sku] }))}
                 allLabel={t("discounts.allProducts")}
                 searchPlaceholder={t("common.search")}
                 noResultsText={t("common.noMatches")}
@@ -203,7 +199,7 @@ export default function DiscountHistoryPage() {
                             size="sm"
                             onClick={() => setPendingAction({ type: "cancel", discount: d })}
                           >
-                            <Ban className="h-4 w-4 text-amber-500" />
+                            <Ban className="h-4 w-4 text-warning" />
                           </Button>
                         )}
                         <Button

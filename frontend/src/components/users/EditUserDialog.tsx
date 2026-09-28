@@ -3,8 +3,9 @@ import { useTranslation } from "react-i18next"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useAuth } from "@/contexts/AuthContext"
 import api from "@/lib/api"
-import type { User } from "@integracore/shared"
+import { ROLES, type User } from "@integracore/shared"
 import { toast } from "sonner"
+import { queryKeys } from "@/lib/queryKeys"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -24,7 +25,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
   const { t } = useTranslation()
   const { user: currentUser } = useAuth()
   const [fullName, setFullName] = useState("")
-  const [role, setRole] = useState<"admin" | "user">("user")
+  const [role, setRole] = useState<(typeof ROLES)[keyof typeof ROLES]>(ROLES.user)
   const [error, setError] = useState("")
   const queryClient = useQueryClient()
 
@@ -38,11 +39,11 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
       await api.put(`/api/users/${user.id}`, { full_name: fullName, role: isSelf ? undefined : role })
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["users"] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.all })
       toast.success(t("users.edit.saved"))
       onOpenChange(false)
     },
-    onError: (err: any) => setError(getErrorMessage(err, "users.edit.failedSave")),
+    onError: (err: unknown) => setError(getErrorMessage(err, "users.edit.failedSave")),
   })
 
   if (!user) return null

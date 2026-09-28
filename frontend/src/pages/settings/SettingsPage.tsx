@@ -15,6 +15,12 @@ import { ChangePasswordDialog } from "@/components/users/ChangePasswordDialog"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Save, TrendingUp, TrendingDown, Globe, DollarSign, Shield, Download, Upload, Database, Loader2, Wifi, CheckCircle2, XCircle } from "lucide-react"
 import { getErrorMessage } from "@/lib/errorMessages"
+import { fileToBase64, downloadBlob } from "@/lib/files"
+import { queryKeys } from "@/lib/queryKeys"
+
+interface SystemInfo {
+  dbDriver: string
+}
 
 export default function SettingsPage() {
   const queryClient = useQueryClient()
@@ -34,10 +40,10 @@ export default function SettingsPage() {
   const [testingConnection, setTestingConnection] = useState(false)
 
   const { data: systemInfo } = useQuery({
-    queryKey: ["system-info"],
+    queryKey: queryKeys.system.info,
     queryFn: async () => {
       const res = await api.get("/api/system/info")
-      return res.data
+      return res.data as SystemInfo
     },
   })
 
@@ -58,8 +64,7 @@ export default function SettingsPage() {
   const handleRestore = async (file: File) => {
     setRestoreLoading(true)
     try {
-      const buf = await file.arrayBuffer()
-      const base64 = btoa(new Uint8Array(buf).reduce((data, byte) => data + String.fromCharCode(byte), ""))
+      const base64 = await fileToBase64(file)
       await api.post("/api/backup/restore", { file: base64 }, { timeout: 60000 })
       toast.success(t("settings.backup.restoreSuccess"))
       // The restored DB may have different users/roles/passwords — always
@@ -69,7 +74,7 @@ export default function SettingsPage() {
       // Everything may have changed (users, prices, sales): a full reload is the
       // only safe state. Without a token the app redirects to /login.
       setTimeout(() => window.location.reload(), 1500)
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error(getErrorMessage(err, "settings.backup.failedRestore"))
     } finally {
       setRestoreLoading(false)
@@ -78,7 +83,7 @@ export default function SettingsPage() {
   }
 
   const { data: target, isLoading: targetLoading } = useQuery({
-    queryKey: ["profit-target"],
+    queryKey: queryKeys.profit.target,
     queryFn: async () => {
       const res = await api.get("/api/profit/target")
       return res.data.target
@@ -86,7 +91,7 @@ export default function SettingsPage() {
   })
 
   const { data: check, isLoading: checkLoading } = useQuery({
-    queryKey: ["profit-check"],
+    queryKey: queryKeys.profit.check,
     queryFn: async () => {
       const res = await api.get("/api/profit/check")
       return res.data
@@ -106,11 +111,10 @@ export default function SettingsPage() {
       period_days: parseInt(periodDays),
     }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["profit-target"] })
-      queryClient.invalidateQueries({ queryKey: ["profit-check"] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.profit.all })
       toast.success(t("settings.profit.saved"))
     },
-    onError: (err: any) => toast.error(getErrorMessage(err, "settings.profit.failedSave")),
+    onError: (err: unknown) => toast.error(getErrorMessage(err, "settings.profit.failedSave")),
   })
 
   const handleLanguageChange = (lang: string) => {
@@ -310,14 +314,9 @@ export default function SettingsPage() {
                           const disposition = res.headers["content-disposition"] || ""
                           const match = disposition.match(/filename="?(.+?)"?$/)
                           const fileName = match?.[1] || `backup-${new Date().toISOString().split("T")[0]}.sqlite`
-                          const url = URL.createObjectURL(blob)
-                          const a = document.createElement("a")
-                          a.href = url
-                          a.download = fileName
-                          a.click()
-                          URL.revokeObjectURL(url)
+                          downloadBlob(blob, fileName)
                           toast.success(t("settings.backup.exported"))
-                        } catch (err: any) {
+                        } catch (err: unknown) {
                           toast.error(getErrorMessage(err, "settings.backup.failedExport"))
                         } finally {
                           setBackupLoading(false)

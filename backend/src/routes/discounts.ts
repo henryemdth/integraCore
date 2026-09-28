@@ -5,8 +5,8 @@ import { writeLockGuard } from "../middleware/writeLock.js";
 import { discountService } from "../services/discountService.js";
 import { parseId } from "../utils/parseId.js";
 
-// Mounted at /api/discounts. Product-scoped discount endpoints
-// (GET/POST /api/products/:productId/discounts) live in routes/products.ts.
+// Mounted at /api/discounts. Discount creation is product-scoped
+// (POST /api/products/:productId/discounts in routes/products.ts).
 const router = Router();
 
 router.get("/", authenticate, requireRole("admin"), async (req: Request, res: Response) => {

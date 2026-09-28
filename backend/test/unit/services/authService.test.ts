@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { createTestDb, seedTestUser } from "../../helpers/test-helper.js";
 import type { SqliteAdapter } from "../../../src/db/sqlite.js";
 import type { DatabaseAdapter } from "../../../src/db/adapter.js";
-import { authService, AppError } from "../../../src/services/authService.js";
+import { authService } from "../../../src/services/authService.js";
+import { AppError } from "../../../src/utils/appError.js";
 import { emitUsersChanged } from "../../../src/socket/index.js";
 
 vi.mock("../../../src/socket/index.js", () => ({

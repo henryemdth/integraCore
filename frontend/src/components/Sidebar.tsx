@@ -82,7 +82,7 @@ export default function Sidebar({ collapsed }: SidebarProps) {
         <div className={cn("flex items-center", collapsed ? "flex-col gap-2" : "gap-3 px-2 py-1.5")}>
           <Avatar
             initials={getInitials(user?.full_name ?? "?")}
-            className={cn("shrink-0", collapsed ? "h-8 w-8 text-[11px]" : "h-8 w-8 text-[11px]")}
+            className="shrink-0 h-8 w-8 text-[11px]"
           />
           {!collapsed && (
             <div className="flex-1 min-w-0">

@@ -2,12 +2,8 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { config } from "../config.js";
 import { getAdapter } from "../db/index.js";
-
-interface JwtPayload {
-  id: number;
-  username: string;
-  role: "admin" | "user";
-}
+import { fetchUserProjection } from "../services/userProjection.js";
+import type { JwtPayload } from "../types/auth.js";
 
 export async function authenticate(req: Request, res: Response, next: NextFunction): Promise<void> {
   const authHeader = req.headers.authorization;
@@ -26,10 +22,7 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
     // access immediately and role changes apply without waiting for the
     // 24h token to expire.
     const db = getAdapter();
-    const user = await db.get(
-      "SELECT id, username, role, active FROM users WHERE id = ?",
-      [decoded.id]
-    ) as { id: number; username: string; role: "admin" | "user"; active: number | boolean } | undefined;
+    const user = await fetchUserProjection(db, decoded.id);
 
     if (!user) {
       res.status(401).json({ error: "Invalid token" });

@@ -33,7 +33,7 @@ export function ResetPasswordDialog({ user, open, onOpenChange }: ResetPasswordD
       setPassword("")
       onOpenChange(false)
     },
-    onError: (err: any) => setError(getErrorMessage(err, "users.resetPwd.failed")),
+    onError: (err: unknown) => setError(getErrorMessage(err, "users.resetPwd.failed")),
   })
 
   if (!user) return null
