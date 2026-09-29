@@ -250,11 +250,14 @@ const importFieldLabel: Record<ImportProductField, (labels: ReportLabels) => str
   status: (l) => l.status,
 };
 
-// Hand-written files often shorten "Precio de compra" to "Precio"; the price
-// field is the only such legacy alias worth accepting (exact token match, so
-// "Precio de venta" never collides with it).
+// Hand-written files often shorten the canonical headers: "Precio" /
+// "Price" for the purchase price, "Umbral" for the stock threshold. The
+// price field is the only place a cross-language alias is needed ("price"
+// vs "precio"); exact token matching keeps "Sell Price"/"Precio de venta"
+// from ever colliding with them.
 const importColumnExtras: Partial<Record<ImportProductField, string[]>> = {
-  price: ["precio"],
+  price: ["precio", "price"],
+  lowStockThreshold: ["umbral"],
 };
 
 /** Accepted header tokens per import field, across every supported language. */

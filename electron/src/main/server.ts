@@ -2,15 +2,35 @@ import { app, BrowserWindow, dialog } from "electron"
 import path from "path"
 import fs from "fs"
 import { fork, ChildProcess } from "child_process"
+import { CONFIG_FILENAME, ensureConfigFile, pickAllowedEnv, readJsonConfig, type ServerEnvKey } from "./config.js"
 
-const BACKEND_PORT = "3001"
+const DEFAULT_BACKEND_PORT = "3001"
 const MAX_START_ATTEMPTS = 3
 const MAX_CRASH_RESTARTS = 5
+
+// Documented defaults written to config.json on first run so the admin
+// always has a file to edit. Keys not in SERVER_ENV_ALLOWLIST are ignored.
+const DEFAULT_SERVER_CONFIG = {
+  _comments: [
+    "integraCore Server runtime configuration. Keys are backend environment variables;",
+    "unknown keys are ignored. Restart the app after editing for changes to apply.",
+    "Cloud deployments do not use this file (they read a standard .env).",
+    "Recognized keys: PORT, CORS_ORIGIN, DB_DRIVER, DB_PATH, DATA_DIR, JWT_SECRET,",
+    "PG_HOST, PG_PORT, PG_DATABASE, PG_USER, PG_PASSWORD, PG_SSL,",
+    "PG_SSL_REJECT_UNAUTHORIZED, RATE_LIMIT_WINDOW_MINUTES, RATE_LIMIT_MAX.",
+  ],
+  PORT: DEFAULT_BACKEND_PORT,
+  CORS_ORIGIN: "*",
+}
 
 let mainWindow: BrowserWindow | null = null
 let backendProcess: ChildProcess | null = null
 let stopping = false
 let crashRestarts = 0
+
+// Set by loadDesktopConfig() during startup, before the backend is forked.
+let backendPort = DEFAULT_BACKEND_PORT
+let configEnv: Partial<Record<ServerEnvKey, string>> = {}
 
 // ---- file logging ---------------------------------------------------------
 // Packaged Windows apps have no visible console: everything important is also
@@ -65,6 +85,26 @@ function getDataDir(): string {
   return path.join(app.getPath("userData"), "data")
 }
 
+// ---- desktop config.json ---------------------------------------------------
+
+function getConfigPath(): string {
+  return path.join(app.getPath("userData"), CONFIG_FILENAME)
+}
+
+// Reads (creating with defaults on first run) the admin-editable config and
+// derives everything the backend fork needs from it. Runs once at startup.
+function loadDesktopConfig(): void {
+  const configPath = getConfigPath()
+  if (ensureConfigFile(configPath, DEFAULT_SERVER_CONFIG)) {
+    log(`[server] Created default config at ${configPath}`)
+  }
+  const { values, error } = readJsonConfig(configPath)
+  if (error) log(`[server] ${error}`)
+  configEnv = pickAllowedEnv(values, (key) => log(`[server] config.json: ignoring unknown key "${key}"`))
+  backendPort = configEnv.PORT || DEFAULT_BACKEND_PORT
+  log(`[server] Config: ${configPath} (port ${backendPort})`)
+}
+
 // ---- transient startup splash --------------------------------------------
 // Shown while the backend boots so the user never sees a broken login page.
 
@@ -83,13 +123,16 @@ const STARTING_HTML = `data:text/html;charset=utf-8,${encodeURIComponent(`<!doct
 function forkBackend(): void {
   const backendEnv: NodeJS.ProcessEnv = {
     ...process.env,
-    PORT: BACKEND_PORT,
+    PORT: backendPort,
     DATA_DIR: getDataDir(),
     DB_DRIVER: "sqlite",
     // "*" lets the packaged frontend (loaded from file://, Origin "null")
-    // reach its own local backend. Tighten via env for cloud/Postgres.
+    // reach its own local backend. Tighten via config.json for cloud/Postgres.
     CORS_ORIGIN: "*",
     NODE_ENV: "production",
+    // config.json overrides the built-in defaults above (allowlisted keys
+    // only) — this is the packaged app's supported configuration surface.
+    ...configEnv,
   }
   // When set, honor an explicit JWT_SECRET; otherwise the backend generates
   // and persists a per-install secret under DATA_DIR/.jwt-secret. Never pass a
@@ -154,7 +197,7 @@ function startBackend(): Promise<void> {
       if (settled) return
       try {
         const http = await import("http")
-        const req = http.get(`http://localhost:${BACKEND_PORT}/api/health`, (res) => {
+        const req = http.get(`http://localhost:${backendPort}/api/health`, (res) => {
           if (res.statusCode === 200) {
             settleResolve()
           } else {
@@ -193,7 +236,7 @@ function showFatalError(detail: string): void {
   dialog.showErrorBox(
     "integraCore Server",
     `The server could not start.\n\n${detail}\n\nPossible causes:\n` +
-      `- Port ${BACKEND_PORT} is already in use (another integraCore Server instance or another application).\n` +
+      `- Port ${backendPort} is already in use (another integraCore Server instance or another application).\n` +
       `- Antivirus software blocked the server.\n\n` +
       `Details were written to:\n${logFile ?? "(log file unavailable)"}`
   )
@@ -260,7 +303,7 @@ async function createWindow(): Promise<void> {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, "..", "preload.js"),
-      additionalArguments: ["--platform=server"],
+      additionalArguments: ["--platform=server", `--backend-url=http://localhost:${backendPort}`],
     },
   })
 
@@ -292,6 +335,7 @@ if (!gotLock) {
 
   app.whenReady().then(async () => {
     initLogging()
+    loadDesktopConfig()
 
     await createWindow()
     if (!app.isPackaged) {

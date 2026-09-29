@@ -177,15 +177,17 @@ export function productService(db: DatabaseAdapter) {
 
     // Column detection: headers are matched against the vocabulary of every
     // supported language (the same labels the exports emit), so a file's
-    // language never has to match the importer's UI language. Files whose
-    // headers match nothing fall back to the legacy positional template.
+    // language never has to match the importer's UI language. Header mode
+    // engages only when both required identifier columns (name + sku) are
+    // found — anything else falls back to the legacy positional template so
+    // partially-labeled files are never misread column-by-column.
     const aliases = buildImportColumnAliases();
     const positional: ImportProductField[] = ["name", "sku", "category", "price", "sellPrice", "stock", "lowStockThreshold", "status"];
     const headerRow = sheet.getRow(1);
     const columnMap = new Map<number, ImportProductField>();
     const assigned = new Set<ImportProductField>();
-    headerRow.eachCell({ includeEmpty: false }, (cell, colNumber) => {
-      const token = normalizeHeaderToken(String(cell.value ?? ""));
+    headerRow.eachCell({ includeEmpty: false }, (cellValue, colNumber) => {
+      const token = normalizeHeaderToken(String(cellValue.value ?? ""));
       if (!token) return;
       for (const field of Object.keys(aliases) as ImportProductField[]) {
         if (!assigned.has(field) && aliases[field].includes(token)) {
@@ -195,7 +197,7 @@ export function productService(db: DatabaseAdapter) {
         }
       }
     });
-    const headerMode = columnMap.size > 0;
+    const headerMode = assigned.has("name") && assigned.has("sku");
     const colFor = new Map<ImportProductField, number>();
     if (headerMode) {
       for (const [col, field] of columnMap) colFor.set(field, col);
@@ -220,7 +222,12 @@ export function productService(db: DatabaseAdapter) {
         const values = row.values as any[];
         if (!row || !values || values.length === 0 || values.every((v: any) => v === null || v === undefined)) continue;
 
-        const cell = (field: ImportProductField): unknown => row.getCell(colFor.get(field)!).value;
+        // Header mode may legitimately omit optional columns (e.g. no Sell
+        // Price header): they read as empty, same tolerance as an empty cell.
+        const cell = (field: ImportProductField): unknown => {
+          const col = colFor.get(field);
+          return col === undefined ? undefined : row.getCell(col).value;
+        };
         const name = String(cell("name") ?? "").trim();
         const sku = String(cell("sku") ?? "").trim();
         const category = String(cell("category") ?? "").trim();

@@ -12,6 +12,7 @@ directories:
 
 files:
   - dist/main/server.js
+  - dist/main/config.js
   - dist/preload.js
 
 extraMetadata:

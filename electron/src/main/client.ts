@@ -2,8 +2,21 @@ import { app, BrowserWindow, ipcMain } from "electron"
 import path from "path"
 import fs from "fs"
 import http from "http"
+import { CONFIG_FILENAME, ensureConfigFile, readJsonConfig } from "./config.js"
 
 let mainWindow: BrowserWindow | null = null
+
+// Documented defaults written to config.json on first run. The `serverUrl`
+// key is kept for backward compatibility with already-installed clients.
+const DEFAULT_CLIENT_CONFIG = {
+  _comments: [
+    "integraCore Client runtime configuration. Restart the app after editing",
+    "for changes to apply (the in-app Settings screen edits this same file).",
+    "serverUrl: address of the machine running integraCore Server,",
+    "e.g. \"http://192.168.1.50:3001\".",
+  ],
+  serverUrl: "http://localhost:3001",
+}
 
 // ---- file logging ---------------------------------------------------------
 // Packaged Windows apps have no visible console: append to
@@ -41,26 +54,31 @@ function getResourcesPath(): string {
 }
 
 function getConfigPath(): string {
-  return path.join(app.getPath("userData"), "config.json")
+  return path.join(app.getPath("userData"), CONFIG_FILENAME)
 }
 
 function getFrontendPath(): string {
   return path.join(getResourcesPath(), "frontend", "dist", "index.html")
 }
 
-function loadConfig(): { serverUrl?: string } {
-  try {
-    const p = getConfigPath()
-    if (fs.existsSync(p)) {
-      return JSON.parse(fs.readFileSync(p, "utf-8"))
-    }
-  } catch { /* ignore */ }
-  return {}
+function loadServerUrl(): string {
+  const configPath = getConfigPath()
+  if (ensureConfigFile(configPath, DEFAULT_CLIENT_CONFIG)) {
+    log(`[client] Created default config at ${configPath}`)
+  }
+  const { values, error } = readJsonConfig(configPath)
+  if (error) log(`[client] ${error} — using the default server URL`)
+  return values?.serverUrl || "http://localhost:3001"
 }
 
-function saveConfig(config: { serverUrl?: string }): void {
+function saveServerUrl(url: string): void {
   try {
-    fs.writeFileSync(getConfigPath(), JSON.stringify(config, null, 2))
+    const configPath = getConfigPath()
+    ensureConfigFile(configPath, DEFAULT_CLIENT_CONFIG)
+    const { values } = readJsonConfig(configPath)
+    // Preserve the documentation block and any extra keys the admin added.
+    const next = { ...DEFAULT_CLIENT_CONFIG, ...(values ?? {}), serverUrl: url }
+    fs.writeFileSync(configPath, JSON.stringify(next, null, 2))
   } catch (err) {
     log(`[client] Failed to save config: ${err instanceof Error ? err.message : err}`)
   }
@@ -88,12 +106,11 @@ function testConnection(url: string): Promise<boolean> {
 
 function setupIpc(): void {
   ipcMain.handle("get-backend-url", () => {
-    const config = loadConfig()
-    return config.serverUrl || "http://localhost:3001"
+    return loadServerUrl()
   })
 
   ipcMain.handle("set-backend-url", (_event, url: string) => {
-    saveConfig({ serverUrl: url })
+    saveServerUrl(url)
     return true
   })
 
@@ -146,6 +163,7 @@ if (!gotLock) {
   app.whenReady().then(async () => {
     initLogging()
     setupIpc()
+    log(`[client] Config: ${getConfigPath()} (server URL: ${loadServerUrl()})`)
     await createWindow()
   })
 

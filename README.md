@@ -163,8 +163,8 @@ Two rules that keep releases buildable:
 - **SmartScreen warning**: the installers are not code-signed, so Windows 11 shows "Windows protected your PC" on first run. Click **More info → Run anyway**. Removing this warning permanently requires a code-signing certificate.
 - **Windows Defender Firewall prompt (Server only)**: the server listens on `0.0.0.0:3001` so LAN clients can reach it — Windows asks for permission on first launch. Choose **Allow** (private networks), otherwise client machines cannot connect.
 - **Port 3001 must be free** on the server machine; if another application uses it, the app shows an error dialog explaining the conflict.
-- **Where data lives**: all runtime data is written under `AppData\Roaming\<integraCore Server | integraCore Client>\` — the SQLite database and backups under `data\`, per-install secrets in `data\.jwt-secret`, and app logs in `logs\` (`server-main.log` / `client-main.log`). Nothing is written to the installation directory.
-- **Server settings are built into the installer** (per-install JWT secret, `CORS_ORIGIN: *`, SQLite driver); the CI-provided `backend/.env` is not part of the packaged app.
+- **Where data lives**: all runtime data is written under `AppData\Roaming\<integraCore Server | integraCore Client>\` — the SQLite database and backups under `data\`, per-install secrets in `data\.jwt-secret`, app logs in `logs\` (`server-main.log` / `client-main.log`), and the configuration file as `config.json`. Nothing is written to the installation directory.
+- **Runtime configuration = `config.json`** (see [Configuration](#configuration-backend)): created with documented defaults on first launch. Edit it and restart the app — no recompile needed. Unknown keys are ignored; the Client's server address lives in the same file (`serverUrl`) and can also be changed from the in-app Settings screen.
 - **Launching the Server twice** is safe: the second instance just focuses the already-running window.
 
 ### Backend tests
@@ -191,6 +191,14 @@ Layout: `backend/test/unit/services` (business logic), `test/unit/cron`, `test/u
 | `PG_HOST` / `PG_PORT` / `PG_DATABASE` / `PG_USER` / `PG_PASSWORD` / `PG_SSL` | — | Used when `DB_DRIVER=postgresql` |
 | `PG_SSL_REJECT_UNAUTHORIZED` | *(verify in prod)* | TLS certificate verification; defaults to verifying when `NODE_ENV=production`, skipping otherwise |
 | `RATE_LIMIT_WINDOW_MINUTES` / `RATE_LIMIT_MAX` | `15` / `20` | Login/setup rate limiting per IP |
+
+### Packaged Windows installs (`config.json`)
+
+The Windows installers ship **without** a `.env` file. Instead, each app creates a `config.json` in its data directory (`%APPDATA%\integraCore Server\config.json` / `%APPDATA%\integraCore Client\config.json`) on first launch. Edit it and restart the app — no recompile needed. The Electron main process applies the file's values as environment variables before starting the backend, so the table above applies unchanged: any listed env var (e.g. `PORT`, `CORS_ORIGIN`, `DB_PATH`, the `PG_*` set for a remote Postgres) can be placed in the file as a string.
+
+- Unknown keys are ignored (and reported in the log); keys starting with `_` are documentation.
+- The Client's server address lives in the same file as `"serverUrl"` (also editable from the in-app Settings screen, which writes this file).
+- Cloud deployments do **not** use this file — Render reads `.env`/dashboard env vars and Vercel bakes `VITE_BACKEND_URL` at build time, exactly as before.
 
 ---
 
