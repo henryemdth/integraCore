@@ -1,23 +1,21 @@
 import { useQuery } from "@tanstack/react-query"
 import api from "@/lib/api"
 import { queryKeys } from "@/lib/queryKeys"
-import type { SaleDetail } from "@integracore/shared"
+import type { SalesStats } from "@integracore/shared"
 
 /**
- * Revenue totals for the sales-page stat cards, derived from the full sales
- * history. Kept out of the page component so the aggregation lives in one
- * place; the backend should own this eventually (a /api/sales/stats endpoint)
- * once the history outgrows a single fetch.
+ * Server-computed totals for the sales-page stat cards, over the same
+ * filters the history table uses (seller/product/date range). Profit and
+ * cost fields are admin-only — the backend returns null for sellers, and
+ * the page only renders the profit card for admins.
  */
-export function useSalesStats() {
+export function useSalesStats(params: Record<string, string>) {
   return useQuery({
-    queryKey: queryKeys.sales.stats,
+    queryKey: queryKeys.sales.stats(params),
     queryFn: async () => {
-      const res = await api.get("/api/sales?limit=10000")
-      const sales = res.data.sales as SaleDetail[]
-      const totalRevenue = sales.reduce((sum, s) => sum + Number(s.total), 0)
-      const avgSaleValue = sales.length > 0 ? totalRevenue / sales.length : 0
-      return { totalRevenue, avgSaleValue }
+      const res = await api.get(`/api/sales/stats?${new URLSearchParams(params)}`)
+      return res.data as SalesStats
     },
+    placeholderData: (prev) => prev,
   })
 }

@@ -113,7 +113,9 @@
     },
     "import": {
       "title": "Importar productos desde Excel",
-      "desc": "Sube un archivo .xlsx. Columnas esperadas: Nombre, SKU, Categoría, Precio, Stock, Umbral de stock bajo",
+      "desc": "Sube un archivo .xlsx. Las columnas se detectan por su encabezado, en español o inglés: Nombre, SKU, Categoría, Precio de compra, Precio de venta, Stock, Umbral de stock bajo, Estado.",
+      "downloadTemplate": "Descargar plantilla",
+      "templateFilename": "plantilla-importacion.xlsx",
       "importing": "Importando...",
       "imported": "Importado(s) {{count}} producto(s)",
       "errors": "{{count}} error(es):",
@@ -146,6 +148,7 @@
     "stats": {
       "totalSales": "Total ventas",
       "totalRevenue": "Ingresos totales",
+      "totalProfit": "Ganancia total",
       "avgSale": "Valor promedio"
     },
     "create": {

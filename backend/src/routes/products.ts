@@ -3,7 +3,7 @@ import { getAdapter } from "../db/index.js";
 import { authenticate, requireRole } from "../middleware/auth.js";
 import { writeLockGuard } from "../middleware/writeLock.js";
 import { validate } from "../middleware/validate.js";
-import { CreateProductSchema, UpdateProductSchema, StockMovementSchema, CreateDiscountSchema } from "@integracore/shared";
+import { CreateProductSchema, UpdateProductSchema, StockMovementSchema, CreateDiscountSchema, resolveReportLanguage } from "@integracore/shared";
 import { productService } from "../services/productService.js";
 import { discountService } from "../services/discountService.js";
 import { parseId } from "../utils/parseId.js";
@@ -37,10 +37,24 @@ router.get("/export", authenticate, async (req: Request, res: Response) => {
   const workbook = await svc.exportToExcel(
     (req.query.search as string) || "",
     (req.query.category as string) || "",
-    (req.query.status as string) || ""
+    (req.query.status as string) || "",
+    resolveReportLanguage(req.query.lang as string)
   );
   res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
   res.setHeader("Content-Disposition", "attachment; filename=products.xlsx");
+  await workbook.xlsx.write(res);
+  res.end();
+});
+
+// Header-only template so users always have a correctly-shaped file to fill
+// in; column names come in the requested language (frontend sends lang).
+// Registered before GET /:id so "import-template" isn't captured as an id.
+router.get("/import-template", authenticate, requireRole("admin"), async (req: Request, res: Response) => {
+  const db = getAdapter();
+  const svc = productService(db);
+  const workbook = await svc.buildImportTemplate(resolveReportLanguage(req.query.lang as string));
+  res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  res.setHeader("Content-Disposition", "attachment; filename=product-import-template.xlsx");
   await workbook.xlsx.write(res);
   res.end();
 });

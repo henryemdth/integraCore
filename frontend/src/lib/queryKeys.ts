@@ -22,7 +22,7 @@ export const queryKeys = {
   sales: {
     all: ["sales"] as const,
     list: (params: Record<string, string>) => ["sales", params] as const,
-    stats: ["sales", "stats"] as const,
+    stats: (params: Record<string, string>) => ["sales", "stats", params] as const,
   },
   users: {
     all: ["users"] as const,

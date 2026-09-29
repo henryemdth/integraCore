@@ -47,6 +47,7 @@ const sqliteMigrations: string[] = [
     subtotal REAL NOT NULL,
     discount_id INTEGER REFERENCES product_discounts(id),
     original_price REAL NOT NULL DEFAULT 0,
+    cost_price REAL,
     FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE CASCADE,
     FOREIGN KEY (product_id) REFERENCES products(id)
   );`,
@@ -98,6 +99,10 @@ const columnMigrations: { table: string; column: string; definition: string }[] 
   { table: "product_discounts", column: "status", definition: "TEXT NOT NULL DEFAULT 'active'" },
   { table: "sale_items", column: "discount_id", definition: "INTEGER" },
   { table: "sale_items", column: "original_price", definition: "REAL NOT NULL DEFAULT 0" },
+  // sale_items.cost_price stays nullable: NULL marks items sold before cost
+  // tracking existed (profit falls back to the product's current purchase
+  // price, products.price).
+  { table: "sale_items", column: "cost_price", definition: "REAL" },
 ];
 
 function addColumnIfMissing(db: Database.Database, table: string, column: string, definition: string) {
@@ -155,6 +160,7 @@ const postgresColumnMigrations: string[] = [
   `ALTER TABLE product_discounts ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active'`,
   `ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS discount_id INTEGER REFERENCES product_discounts(id)`,
   `ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS original_price NUMERIC NOT NULL DEFAULT 0`,
+  `ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS cost_price NUMERIC`,
 ];
 
 const postgresMigrations: string[] = [
@@ -199,7 +205,8 @@ const postgresMigrations: string[] = [
     unit_price NUMERIC NOT NULL,
     subtotal NUMERIC NOT NULL,
     discount_id INTEGER REFERENCES product_discounts(id),
-    original_price NUMERIC NOT NULL DEFAULT 0
+    original_price NUMERIC NOT NULL DEFAULT 0,
+    cost_price NUMERIC
   );`,
 
   `CREATE TABLE IF NOT EXISTS profit_targets (

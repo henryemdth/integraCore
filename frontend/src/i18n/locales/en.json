@@ -113,7 +113,9 @@
     },
     "import": {
       "title": "Import Products from Excel",
-      "desc": "Upload an .xlsx file. Expected columns: Name, SKU, Category, Price, Stock, Low Stock Threshold",
+      "desc": "Upload an .xlsx file. Columns are detected by their header names, in English or Spanish: Name, SKU, Category, Purchase Price, Sell Price, Stock, Low Stock Threshold, Status.",
+      "downloadTemplate": "Download template",
+      "templateFilename": "product-import-template.xlsx",
       "importing": "Importing...",
       "imported": "Imported {{count}} product(s)",
       "errors": "{{count}} error(s):",
@@ -146,6 +148,7 @@
     "stats": {
       "totalSales": "Total Sales",
       "totalRevenue": "Total Revenue",
+      "totalProfit": "Total Profit",
       "avgSale": "Avg. Sale Value"
     },
     "create": {

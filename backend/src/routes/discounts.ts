@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { getAdapter } from "../db/index.js";
 import { authenticate, requireRole } from "../middleware/auth.js";
 import { writeLockGuard } from "../middleware/writeLock.js";
+import { resolveReportLanguage } from "@integracore/shared";
 import { discountService } from "../services/discountService.js";
 import { parseId } from "../utils/parseId.js";
 import { parsePagination } from "../utils/pagination.js";
@@ -27,7 +28,7 @@ router.get("/export", authenticate, requireRole("admin"), async (req: Request, r
   const workbook = await svc.exportHistory({
     productId: req.query.product_id ? Number(req.query.product_id) : undefined,
     status: (req.query.status as string) || undefined,
-  });
+  }, resolveReportLanguage(req.query.lang as string));
   res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
   res.setHeader("Content-Disposition", "attachment; filename=discount-history.xlsx");
   await workbook.xlsx.write(res);

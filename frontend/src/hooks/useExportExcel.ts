@@ -13,6 +13,9 @@ export function useExportExcel() {
           if (v && v !== "all") searchParams.set(k, v)
         }
       }
+      // Reports render in the requesting user's language: the backend picks
+      // its label dictionary from this param (unknown values fall back to en).
+      searchParams.set("lang", i18n.language)
       const res = await api.get(`${endpoint}?${searchParams}`, { responseType: "blob" })
       downloadBlob(res.data, filename)
       toast.success(i18n.t("export.exported", { filename }))

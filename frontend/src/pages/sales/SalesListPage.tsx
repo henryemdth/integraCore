@@ -24,7 +24,7 @@ import { StatCard } from "@/components/StatCard"
 import { Pagination } from "@/components/Pagination"
 import { QueryErrorState } from "@/components/ui/query-error"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
-import { Eye, Trash2, Download, ShoppingCart, TrendingUp } from "lucide-react"
+import { Eye, Trash2, Download, ShoppingCart, TrendingUp, CircleDollarSign } from "lucide-react"
 import { getErrorMessage } from "@/lib/errorMessages"
 
 interface UserListItem { id: number; full_name: string; username: string }
@@ -51,6 +51,14 @@ export default function SalesListPage() {
   if (dateFrom) filterParams.date_from = dateFrom
   if (dateTo) filterParams.date_to = dateTo
 
+  // Stat totals cover the whole filtered set (no paging) — same filters the
+  // table and the Excel export use.
+  const statsParams: Record<string, string> = {}
+  if (sellerFilter !== "all") statsParams.user_id = sellerFilter
+  if (productFilter !== "all") statsParams.product_id = productFilter
+  if (dateFrom) statsParams.date_from = dateFrom
+  if (dateTo) statsParams.date_to = dateTo
+
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: queryKeys.sales.list(filterParams),
     queryFn: async () => {
@@ -71,7 +79,7 @@ export default function SalesListPage() {
 
   const products = useAllProducts().data ?? []
 
-  const { data: stats, isLoading: statsLoading } = useSalesStats()
+  const { data: stats, isLoading: statsLoading } = useSalesStats(statsParams)
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => api.delete(`/api/sales/${id}`),
@@ -93,10 +101,13 @@ export default function SalesListPage() {
           <CreateSaleForm />
         </TabsContent>
         <TabsContent value="history" className="space-y-4">
-          <div className="grid gap-4 grid-cols-2 lg:grid-cols-3">
+          <div className={`grid gap-4 grid-cols-2 ${isAdmin ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
             <StatCard label={t("sales.stats.totalSales")} value={total} icon={ShoppingCart} loading={isLoading} />
-            <StatCard label={t("sales.stats.totalRevenue")} value={formatCurrency(stats?.totalRevenue ?? 0)} icon={TrendingUp} loading={statsLoading} />
-            <StatCard label={t("sales.stats.avgSale")} value={formatCurrency(stats?.avgSaleValue ?? 0)} icon={TrendingUp} loading={statsLoading} />
+            <StatCard label={t("sales.stats.totalRevenue")} value={formatCurrency(stats?.total_revenue ?? 0)} icon={TrendingUp} loading={statsLoading} />
+            {isAdmin && (
+              <StatCard label={t("sales.stats.totalProfit")} value={formatCurrency(stats?.total_profit ?? 0)} icon={CircleDollarSign} loading={statsLoading} />
+            )}
+            <StatCard label={t("sales.stats.avgSale")} value={formatCurrency(stats?.avg_sale_value ?? 0)} icon={TrendingUp} loading={statsLoading} />
           </div>
           <Card>
             <CardHeader className="pb-3">

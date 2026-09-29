@@ -3,7 +3,7 @@ import { getAdapter } from "../db/index.js";
 import { authenticate, requireRole } from "../middleware/auth.js";
 import { writeLockGuard } from "../middleware/writeLock.js";
 import { validate } from "../middleware/validate.js";
-import { CreateSaleSchema } from "@integracore/shared";
+import { CreateSaleSchema, resolveReportLanguage } from "@integracore/shared";
 import { saleService } from "../services/saleService.js";
 import { parseId } from "../utils/parseId.js";
 import { parsePagination } from "../utils/pagination.js";
@@ -42,11 +42,25 @@ router.get("/export", authenticate, async (req: Request, res: Response) => {
     dateFrom: (req.query.date_from as string) || undefined,
     dateTo: (req.query.date_to as string) || undefined,
     productId: parseInt(req.query.product_id as string) || undefined,
-  });
+  }, resolveReportLanguage(req.query.lang as string));
   res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
   res.setHeader("Content-Disposition", "attachment; filename=sales.xlsx");
   await workbook.xlsx.write(res);
   res.end();
+});
+
+router.get("/stats", authenticate, async (req: Request, res: Response) => {
+  const db = getAdapter();
+  const svc = saleService(db);
+  const result = await svc.stats({
+    isAdmin: req.user!.role === "admin",
+    requesterId: req.user!.id,
+    userId: parseInt(req.query.user_id as string) || undefined,
+    dateFrom: (req.query.date_from as string) || undefined,
+    dateTo: (req.query.date_to as string) || undefined,
+    productId: parseInt(req.query.product_id as string) || undefined,
+  });
+  res.json(result);
 });
 
 router.get("/:id", authenticate, async (req: Request, res: Response) => {

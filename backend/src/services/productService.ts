@@ -6,21 +6,40 @@ import { findActiveDiscount, findActiveDiscounts } from "./discountLookup.js";
 import {
   DEFAULT_LOW_STOCK_THRESHOLD,
   PRODUCT_STATUS,
+  reportLabels,
+  buildImportColumnAliases,
+  importTemplateHeaders,
+  normalizeHeaderToken,
+  resolveImportStatus,
+  type ImportProductField,
+  type ReportLanguage,
 } from "@integracore/shared";
 
 // Re-reads the product (with its effective discount) after a mutation and
 // pushes it to every connected client. Shared by the product, sale, and
-// discount flows so every realtime payload has the same shape.
+// discount flows so every realtime payload has the same shape — only the
+// fields every client may see, so realtime push never carries more than
+// the declared price/stock/discount contract.
 export async function reloadAndEmitProduct(db: DatabaseAdapter, id: number) {
   const product = await db.get("SELECT * FROM products WHERE id = ?", [id]) as any;
   if (!product) return null;
   const discount = await findActiveDiscount(db, id);
   emitProductUpdated({
-    ...product,
+    id: product.id,
+    name: product.name,
+    sku: product.sku,
+    price: product.price,
+    sell_price: product.sell_price,
+    stock: product.stock,
+    status: product.status,
     discounted_price: discount?.discounted_price ?? null,
     discount_end_date: discount?.end_date ?? null,
   });
-  return product;
+  return {
+    ...product,
+    discounted_price: discount?.discounted_price ?? null,
+    discount_end_date: discount?.end_date ?? null,
+  };
 }
 
 export function productService(db: DatabaseAdapter) {
@@ -106,36 +125,38 @@ export function productService(db: DatabaseAdapter) {
     return product;
   }
 
-  async function exportToExcel(search: string, category: string, status: string) {
+  async function exportToExcel(search: string, category: string, status: string, lang: ReportLanguage) {
     const { where, params } = buildProductFilter(search, category, status);
     const products = await db.all(`SELECT * FROM products ${where} ORDER BY name ASC`, params) as any[];
     await attachActiveDiscountInfo(products);
 
+    const L = reportLabels[lang];
     const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet("Products");
+    const sheet = workbook.addWorksheet(L.sheetProducts);
     sheet.columns = [
-      { header: "ID", key: "id", width: 8 },
-      { header: "Name", key: "name", width: 30 },
-      { header: "SKU", key: "sku", width: 15 },
-      { header: "Category", key: "category", width: 20 },
-      { header: "Price", key: "price", width: 12 },
-      { header: "Sell Price", key: "sell_price", width: 12 },
-      { header: "Effective Price", key: "effective_price", width: 18 },
-      { header: "Has Discount", key: "has_discount", width: 14 },
-      { header: "Discount End Date", key: "discount_end_date", width: 18 },
-      { header: "Stock", key: "stock", width: 10 },
-      { header: "Low Stock Threshold", key: "low_stock_threshold", width: 20 },
-      { header: "Status", key: "status", width: 15 },
-      { header: "Created At", key: "created_at", width: 20 },
-      { header: "Updated At", key: "updated_at", width: 20 },
+      { header: L.id, key: "id", width: 8 },
+      { header: L.name, key: "name", width: 30 },
+      { header: L.sku, key: "sku", width: 15 },
+      { header: L.category, key: "category", width: 20 },
+      { header: L.purchasePrice, key: "price", width: 14 },
+      { header: L.sellPrice, key: "sell_price", width: 12 },
+      { header: L.effectivePrice, key: "effective_price", width: 18 },
+      { header: L.hasDiscount, key: "has_discount", width: 14 },
+      { header: L.discountEndDate, key: "discount_end_date", width: 18 },
+      { header: L.stock, key: "stock", width: 10 },
+      { header: L.lowStockThreshold, key: "low_stock_threshold", width: 20 },
+      { header: L.status, key: "status", width: 15 },
+      { header: L.createdAt, key: "created_at", width: 20 },
+      { header: L.updatedAt, key: "updated_at", width: 20 },
     ];
     sheet.getRow(1).font = { bold: true };
     for (const p of products) {
       sheet.addRow({
         ...p,
         effective_price: p.discounted_price ?? p.sell_price,
-        has_discount: p.discounted_price ? "Yes" : "No",
+        has_discount: p.discounted_price ? L.yes : L.no,
         discount_end_date: p.discounted_price ? (p.discount_end_date || "").slice(0, 10) : "",
+        status: p.status === PRODUCT_STATUS.discontinued ? L.discontinued : L.active,
       });
     }
 
@@ -154,6 +175,42 @@ export function productService(db: DatabaseAdapter) {
     let imported = 0;
     const seenSkus = new Set<string>();
 
+    // Column detection: headers are matched against the vocabulary of every
+    // supported language (the same labels the exports emit), so a file's
+    // language never has to match the importer's UI language. Files whose
+    // headers match nothing fall back to the legacy positional template.
+    const aliases = buildImportColumnAliases();
+    const positional: ImportProductField[] = ["name", "sku", "category", "price", "sellPrice", "stock", "lowStockThreshold", "status"];
+    const headerRow = sheet.getRow(1);
+    const columnMap = new Map<number, ImportProductField>();
+    const assigned = new Set<ImportProductField>();
+    headerRow.eachCell({ includeEmpty: false }, (cell, colNumber) => {
+      const token = normalizeHeaderToken(String(cell.value ?? ""));
+      if (!token) return;
+      for (const field of Object.keys(aliases) as ImportProductField[]) {
+        if (!assigned.has(field) && aliases[field].includes(token)) {
+          columnMap.set(colNumber, field);
+          assigned.add(field);
+          return;
+        }
+      }
+    });
+    const headerMode = columnMap.size > 0;
+    const colFor = new Map<ImportProductField, number>();
+    if (headerMode) {
+      for (const [col, field] of columnMap) colFor.set(field, col);
+    } else {
+      positional.forEach((field, i) => colFor.set(field, i + 1));
+    }
+
+    // Excel-native numbers pass through; text with a single comma decimal
+    // ("12,5") is converted. Ambiguous formats ("1.234,56") are deliberately
+    // left to parseFloat's existing behavior rather than guessed.
+    const parseCellNumber = (value: unknown): number => {
+      const raw = String(value ?? "").trim();
+      return parseFloat((/^(-?\d+),(\d+)$/.test(raw) ? raw.replace(",", ".") : raw) || "0");
+    };
+
     // Atomic: a mid-file failure (db error, crash) rolls back the whole batch
     // instead of leaving a partial import behind.
     await db.transaction(async (tx) => {
@@ -163,21 +220,23 @@ export function productService(db: DatabaseAdapter) {
         const values = row.values as any[];
         if (!row || !values || values.length === 0 || values.every((v: any) => v === null || v === undefined)) continue;
 
-        const name = String(row.getCell(1).value || "").trim();
-        const sku = String(row.getCell(2).value || "").trim();
-        const category = String(row.getCell(3).value || "").trim();
-        const price = parseFloat(String(row.getCell(4).value || "0"));
-        const sellPrice = parseFloat(String(row.getCell(5).value || "0"));
-        const stock = parseInt(String(row.getCell(6).value || "0"), 10);
-        const lowStockThreshold = parseInt(String(row.getCell(7).value || String(DEFAULT_LOW_STOCK_THRESHOLD)), 10);
-        const status = String(row.getCell(8).value || PRODUCT_STATUS.active).trim().toLowerCase();
+        const cell = (field: ImportProductField): unknown => row.getCell(colFor.get(field)!).value;
+        const name = String(cell("name") ?? "").trim();
+        const sku = String(cell("sku") ?? "").trim();
+        const category = String(cell("category") ?? "").trim();
+        const price = parseCellNumber(cell("price"));
+        const sellPrice = parseCellNumber(cell("sellPrice"));
+        const stock = parseInt(String(cell("stock") ?? "0"), 10);
+        const lowStockThreshold = parseInt(String(cell("lowStockThreshold") ?? String(DEFAULT_LOW_STOCK_THRESHOLD)), 10);
+        const statusRaw = String(cell("status") ?? "").trim();
+        const status = statusRaw ? resolveImportStatus(statusRaw) : PRODUCT_STATUS.active;
 
         if (!name) { errors.push({ row: rowNumber, sku: sku || "N/A", error: "Missing required field: name", code: "MISSING_NAME" }); continue; }
         if (!sku) { errors.push({ row: rowNumber, sku: "N/A", error: "Missing required field: sku", code: "MISSING_SKU" }); continue; }
         if (isNaN(price) || price < 0) { errors.push({ row: rowNumber, sku, error: "Invalid price", code: "INVALID_PRICE" }); continue; }
         if (isNaN(sellPrice) || sellPrice < 0) { errors.push({ row: rowNumber, sku, error: "Invalid sell price", code: "INVALID_SELL_PRICE" }); continue; }
         if (seenSkus.has(sku)) { errors.push({ row: rowNumber, sku, error: "Duplicate SKU in file", code: "DUPLICATE_SKU_FILE" }); continue; }
-        if (status !== PRODUCT_STATUS.active && status !== PRODUCT_STATUS.discontinued) { errors.push({ row: rowNumber, sku, error: "Invalid status (must be 'active' or 'discontinued')", code: "INVALID_STATUS" }); continue; }
+        if (!status) { errors.push({ row: rowNumber, sku, error: "Invalid status (must be 'active' or 'discontinued')", code: "INVALID_STATUS" }); continue; }
 
         const existing = await tx.get("SELECT id FROM products WHERE sku = ?", [sku]);
         if (existing) { errors.push({ row: rowNumber, sku, error: "SKU already exists in database", code: "SKU_EXISTS_DB" }); continue; }
@@ -192,6 +251,16 @@ export function productService(db: DatabaseAdapter) {
     });
 
     return { imported, errors };
+  }
+
+  // Header-only template (no sample data row that could be imported by
+  // accident) with column names in the requested language.
+  async function buildImportTemplate(lang: ReportLanguage) {
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet(reportLabels[lang].sheetProducts);
+    sheet.columns = importTemplateHeaders(lang).map((t) => ({ header: t.header, key: t.field, width: 22 }));
+    sheet.getRow(1).font = { bold: true };
+    return workbook;
   }
 
   async function create(data: { name: string; sku: string; category: string; price: number; sell_price: number; stock: number; low_stock_threshold: number; status?: string }) {
@@ -277,5 +346,5 @@ export function productService(db: DatabaseAdapter) {
     return await reloadAndEmitProduct(db, id);
   }
 
-  return { list, listLowStock, getCategories, getById, exportToExcel, importFromExcel, create, update, remove, stockIn, stockOut };
+  return { list, listLowStock, getCategories, getById, exportToExcel, importFromExcel, buildImportTemplate, create, update, remove, stockIn, stockOut };
 }

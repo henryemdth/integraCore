@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+export * from "./reportI18n.js";
+
 // ─── Date Helpers ─────────────────────────────────────────────────────
 // Discount ranges are stored as full-day wall-clock timestamps (local time):
 //   start_date = "YYYY-MM-DD 00:00:00.000"
@@ -109,6 +111,16 @@ interface SaleItemDetail {
   subtotal: number;
   discount_id: number | null;
   original_price: number;
+}
+
+export interface SalesStats {
+  total_sales: number;
+  total_revenue: number;
+  total_savings: number;
+  avg_sale_value: number;
+  /** Present for admins only; sellers get null (margins stay private). */
+  total_cost: number | null;
+  total_profit: number | null;
 }
 
 export interface SaleDetail {

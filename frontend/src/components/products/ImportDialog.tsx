@@ -5,10 +5,11 @@ import api from "@/lib/api"
 import { toast } from "sonner"
 import { fileToBase64 } from "@/lib/files"
 import { queryKeys } from "@/lib/queryKeys"
+import { useExportExcel } from "@/hooks/useExportExcel"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Loader2 } from "lucide-react"
+import { Download, Loader2 } from "lucide-react"
 import { getErrorMessage, getImportRowError } from "@/lib/errorMessages"
 
 interface ImportDialogProps {
@@ -22,6 +23,7 @@ export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
   const [result, setResult] = useState<{ imported: number; errors: { row: number; sku: string; error: string; code?: string }[] } | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const queryClient = useQueryClient()
+  const { exportToExcel } = useExportExcel()
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -66,6 +68,10 @@ export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
             <input ref={fileRef} type="file" accept=".xlsx"
               className="block w-full text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
               onChange={(e) => setFile(e.target.files?.[0] || null)} />
+            <Button type="button" variant="outline" size="sm"
+              onClick={() => exportToExcel("/api/products/import-template", {}, t("products.import.templateFilename"))}>
+              <Download className="h-4 w-4 mr-2" />{t("products.import.downloadTemplate")}
+            </Button>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={handleClose}>{result ? t("common.close") : t("common.cancel")}</Button>

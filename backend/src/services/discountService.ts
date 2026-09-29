@@ -12,6 +12,8 @@ import {
   formatDateString,
   DISCOUNT_STATUS,
   PRODUCT_STATUS,
+  reportLabels,
+  type ReportLanguage,
 } from "@integracore/shared";
 
 export function discountService(db: DatabaseAdapter) {
@@ -188,23 +190,24 @@ export function discountService(db: DatabaseAdapter) {
   }
 
   // The Excel export always covers everything matching the filters — unbounded.
-  async function exportHistory(filters: { productId?: number; status?: string } = {}) {
+  async function exportHistory(filters: { productId?: number; status?: string } = {}, lang: ReportLanguage) {
     const discounts = (await queryDiscountHistory(filters)) as any[];
 
+    const L = reportLabels[lang];
     const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet("Discount History");
+    const sheet = workbook.addWorksheet(L.sheetDiscountHistory);
     sheet.columns = [
-      { header: "Product", key: "product_name", width: 30 },
-      { header: "SKU", key: "product_sku", width: 15 },
-      { header: "Normal Price", key: "normal_price", width: 14 },
-      { header: "Discounted Price", key: "discounted_price", width: 18 },
-      { header: "% Discount", key: "pct_discount", width: 12 },
-      { header: "Start Date", key: "start_date", width: 14 },
-      { header: "End Date", key: "end_date", width: 14 },
-      { header: "Status", key: "status", width: 12 },
-      { header: "Units Sold", key: "units_sold", width: 12 },
-      { header: "Worked?", key: "worked", width: 10 },
-      { header: "Reason", key: "reason", width: 25 },
+      { header: L.product, key: "product_name", width: 30 },
+      { header: L.sku, key: "product_sku", width: 15 },
+      { header: L.normalPrice, key: "normal_price", width: 14 },
+      { header: L.discountedPrice, key: "discounted_price", width: 18 },
+      { header: L.pctDiscount, key: "pct_discount", width: 12 },
+      { header: L.startDate, key: "start_date", width: 14 },
+      { header: L.endDate, key: "end_date", width: 14 },
+      { header: L.status, key: "status", width: 12 },
+      { header: L.unitsSold, key: "units_sold", width: 12 },
+      { header: L.worked, key: "worked", width: 10 },
+      { header: L.reason, key: "reason", width: 25 },
     ];
     sheet.getRow(1).font = { bold: true };
 
@@ -223,9 +226,9 @@ export function discountService(db: DatabaseAdapter) {
         pct_discount: `${pct}%`,
         start_date: formatDateString(d.start_date || ""),
         end_date: formatDateString(d.end_date || ""),
-        status: d.status === DISCOUNT_STATUS.cancelled ? "Cancelled" : "Active",
+        status: d.status === DISCOUNT_STATUS.cancelled ? L.cancelled : L.active,
         units_sold: unitsSold,
-        worked: unitsSold > 0 ? "Yes" : "No",
+        worked: unitsSold > 0 ? L.yes : L.no,
         reason: d.reason || "",
       });
     }
