@@ -17,3 +17,6 @@ DESIGN.md
 .zcode
 .code
 .perch
+
+# Vendor signing key for customer license keys — NEVER commit (see scripts/license/)
+scripts/license/private-key.pem

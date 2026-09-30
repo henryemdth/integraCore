@@ -1,10 +1,13 @@
-import { app, BrowserWindow, ipcMain } from "electron"
+import { app, BrowserWindow, dialog, ipcMain } from "electron"
 import path from "path"
 import fs from "fs"
 import http from "http"
 import { CONFIG_FILENAME, ensureConfigFile, readJsonConfig } from "./config.js"
+import { getMachineId, verifyLicenseKey, type LicenseReason } from "./license.js"
 
 let mainWindow: BrowserWindow | null = null
+// Activation key from config.json (set by loadServerUrl).
+let licenseKey = ""
 
 // Documented defaults written to config.json on first run. The `serverUrl`
 // key is kept for backward compatibility with already-installed clients.
@@ -14,8 +17,11 @@ const DEFAULT_CLIENT_CONFIG = {
     "for changes to apply (the in-app Settings screen edits this same file).",
     "serverUrl: address of the machine running integraCore Server,",
     "e.g. \"http://192.168.1.50:3001\".",
+    "LICENSE_KEY: activation key provided by the vendor (required to run;",
+    "the app shows this machine's ID when it is missing or invalid).",
   ],
   serverUrl: "http://localhost:3001",
+  LICENSE_KEY: "",
 }
 
 // ---- file logging ---------------------------------------------------------
@@ -68,7 +74,42 @@ function loadServerUrl(): string {
   }
   const { values, error } = readJsonConfig(configPath)
   if (error) log(`[client] ${error} — using the default server URL`)
+  // Activation key from config.json — Electron-side only, never sent anywhere.
+  licenseKey = values?.LICENSE_KEY || ""
   return values?.serverUrl || "http://localhost:3001"
+}
+
+// ---- license gate ----------------------------------------------------------
+// A packaged install runs only with a valid LICENSE_KEY in config.json. On
+// failure: one native dialog (reason + this machine's ID + where the key
+// goes) and quit — no window.
+
+const LICENSE_REASON_TEXT: Record<LicenseReason, string> = {
+  MISSING: "Falta la clave de activación (LICENSE_KEY).",
+  MALFORMED: "La clave de activación no es válida.",
+  BAD_SIGNATURE: "La clave de activación no es válida (firma incorrecta o clave de otro cliente).",
+  WRONG_MACHINE: "Esta clave pertenece a otra computadora.",
+  EXPIRED: "La licencia ha expirado. Solicite una renovación a su proveedor.",
+}
+
+function enforceLicense(): boolean {
+  const machineId = getMachineId()
+  const result = verifyLicenseKey(licenseKey, machineId)
+  if (result.ok) {
+    log(`[license] Activated: ${result.payload.customer} (${result.payload.type})`)
+    return true
+  }
+  log(`[license] Locked (${result.reason})${result.detail ? `: ${result.detail}` : ""}`)
+  const detail = result.reason === "EXPIRED" && result.detail ? `\n${result.detail}` : ""
+  dialog.showErrorBox(
+    "integraCore Client — Activación requerida",
+    `${LICENSE_REASON_TEXT[result.reason]}${detail}\n\n` +
+      `ID de esta máquina (envíelo a su proveedor):\n${machineId}\n\n` +
+      `Coloque su clave en el archivo:\n${getConfigPath()}\n` +
+      `con:  "LICENSE_KEY": "<clave proporcionada por su proveedor>"\n` +
+      `y reinicie la aplicación.`
+  )
+  return false
 }
 
 function saveServerUrl(url: string): void {
@@ -164,6 +205,17 @@ if (!gotLock) {
     initLogging()
     setupIpc()
     log(`[client] Config: ${getConfigPath()} (server URL: ${loadServerUrl()})`)
+
+    // License gate: a packaged install requires a valid LICENSE_KEY in
+    // config.json — without one the app shows a dialog and quits before the
+    // UI exists. Dev runs skip it; force with INTEGRA_FORCE_LICENSE_GATE=1.
+    if (app.isPackaged || process.env.INTEGRA_FORCE_LICENSE_GATE === "1") {
+      if (!enforceLicense()) {
+        app.quit()
+        return
+      }
+    }
+
     await createWindow()
   })
 

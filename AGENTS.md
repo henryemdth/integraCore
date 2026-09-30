@@ -149,7 +149,7 @@ The architecture must allow future expansion to a cloud-based backend without re
 - Cloud hosting / remote access from outside the local network (architecture should allow this later, but it is **not** built now)
 - Thermal printer / ticket printing integration
 - Accounts receivable / credit sales
-- Software licensing / anti-piracy protection (hardware ID, activation keys) — **deferred to a future phase**
+- Software licensing / anti-piracy protection — **implemented for the Windows installers** as a config-file gate: the packaged apps run only with a valid vendor-signed `LICENSE_KEY` in `config.json` (Ed25519, per-customer, machine-locked optional; `perpetual` and `temporary` types). Missing/invalid/expired → one native dialog (reason + machine ID) and quit. Residual limits accepted by design: expiry enforced at startup only, and the JS/Electron bundle is a business-grade lock rather than tamper-proof DRM. Cloud deployments are vendor-operated and ungated.
 - Multi-branch / multi-location management
 - Automated schema migrations for SQLite databases across app versions (e.g., restoring a backup taken on an older version with a different schema) — **deferred to a future phase**; handled manually for this MVP
 

@@ -3,6 +3,7 @@ import path from "path"
 import fs from "fs"
 import { fork, ChildProcess } from "child_process"
 import { CONFIG_FILENAME, ensureConfigFile, pickAllowedEnv, readJsonConfig, type ServerEnvKey } from "./config.js"
+import { getMachineId, verifyLicenseKey, type LicenseReason } from "./license.js"
 
 const DEFAULT_BACKEND_PORT = "3001"
 const MAX_START_ATTEMPTS = 3
@@ -18,9 +19,12 @@ const DEFAULT_SERVER_CONFIG = {
     "Recognized keys: PORT, CORS_ORIGIN, DB_DRIVER, DB_PATH, DATA_DIR, JWT_SECRET,",
     "PG_HOST, PG_PORT, PG_DATABASE, PG_USER, PG_PASSWORD, PG_SSL,",
     "PG_SSL_REJECT_UNAUTHORIZED, RATE_LIMIT_WINDOW_MINUTES, RATE_LIMIT_MAX.",
+    "LICENSE_KEY: activation key provided by the vendor (required to run;",
+    "the app shows this machine's ID when it is missing or invalid).",
   ],
   PORT: DEFAULT_BACKEND_PORT,
   CORS_ORIGIN: "*",
+  LICENSE_KEY: "",
 }
 
 let mainWindow: BrowserWindow | null = null
@@ -31,6 +35,9 @@ let crashRestarts = 0
 // Set by loadDesktopConfig() during startup, before the backend is forked.
 let backendPort = DEFAULT_BACKEND_PORT
 let configEnv: Partial<Record<ServerEnvKey, string>> = {}
+// Activation key from config.json. Deliberately kept out of the backend env
+// (SERVER_ENV_ALLOWLIST) — it is an Electron-side secret, never a backend var.
+let licenseKey = ""
 
 // ---- file logging ---------------------------------------------------------
 // Packaged Windows apps have no visible console: everything important is also
@@ -100,9 +107,47 @@ function loadDesktopConfig(): void {
   }
   const { values, error } = readJsonConfig(configPath)
   if (error) log(`[server] ${error}`)
-  configEnv = pickAllowedEnv(values, (key) => log(`[server] config.json: ignoring unknown key "${key}"`))
+  licenseKey = values?.LICENSE_KEY || ""
+  // LICENSE_KEY is a known key (consumed above), not an "unknown" — don't let
+  // the ignore-log accuse it.
+  configEnv = pickAllowedEnv(values, (key) => {
+    if (key !== "LICENSE_KEY") log(`[server] config.json: ignoring unknown key "${key}"`)
+  })
   backendPort = configEnv.PORT || DEFAULT_BACKEND_PORT
   log(`[server] Config: ${configPath} (port ${backendPort})`)
+}
+
+// ---- license gate ----------------------------------------------------------
+// A packaged install runs only with a valid LICENSE_KEY in config.json. On
+// failure: one native dialog (reason + this machine's ID + where the key
+// goes) and quit — no window, no backend.
+
+const LICENSE_REASON_TEXT: Record<LicenseReason, string> = {
+  MISSING: "Falta la clave de activación (LICENSE_KEY).",
+  MALFORMED: "La clave de activación no es válida.",
+  BAD_SIGNATURE: "La clave de activación no es válida (firma incorrecta o clave de otro cliente).",
+  WRONG_MACHINE: "Esta clave pertenece a otra computadora.",
+  EXPIRED: "La licencia ha expirado. Solicite una renovación a su proveedor.",
+}
+
+function enforceLicense(): boolean {
+  const machineId = getMachineId()
+  const result = verifyLicenseKey(licenseKey, machineId)
+  if (result.ok) {
+    log(`[license] Activated: ${result.payload.customer} (${result.payload.type})`)
+    return true
+  }
+  log(`[license] Locked (${result.reason})${result.detail ? `: ${result.detail}` : ""}`)
+  const detail = result.reason === "EXPIRED" && result.detail ? `\n${result.detail}` : ""
+  dialog.showErrorBox(
+    "integraCore Server — Activación requerida",
+    `${LICENSE_REASON_TEXT[result.reason]}${detail}\n\n` +
+      `ID de esta máquina (envíelo a su proveedor):\n${machineId}\n\n` +
+      `Coloque su clave en el archivo:\n${getConfigPath()}\n` +
+      `con:  "LICENSE_KEY": "<clave proporcionada por su proveedor>"\n` +
+      `y reinicie la aplicación.`
+  )
+  return false
 }
 
 // ---- transient startup splash --------------------------------------------
@@ -336,6 +381,17 @@ if (!gotLock) {
   app.whenReady().then(async () => {
     initLogging()
     loadDesktopConfig()
+
+    // License gate: a packaged install requires a valid LICENSE_KEY in
+    // config.json — without one the app shows a dialog and quits before any
+    // window or backend exists. Dev runs skip it; force with
+    // INTEGRA_FORCE_LICENSE_GATE=1 to exercise the flow locally.
+    if (app.isPackaged || process.env.INTEGRA_FORCE_LICENSE_GATE === "1") {
+      if (!enforceLicense()) {
+        app.quit()
+        return
+      }
+    }
 
     await createWindow()
     if (!app.isPackaged) {

@@ -167,6 +167,22 @@ Two rules that keep releases buildable:
 - **Runtime configuration = `config.json`** (see [Configuration](#configuration-backend)): created with documented defaults on first launch. Edit it and restart the app — no recompile needed. Unknown keys are ignored; the Client's server address lives in the same file (`serverUrl`) and can also be changed from the in-app Settings screen.
 - **Launching the Server twice** is safe: the second instance just focuses the already-running window.
 
+### Activation (LICENSE_KEY)
+
+Both installers are **locked until activated**: without a valid `LICENSE_KEY` in `config.json` the app shows a dialog with the reason and this machine's **ID**, then quits — the Server never starts its backend and the Client never opens the UI. There is no trial mode.
+
+**To activate an install (customer):**
+
+1. Launch the app — the dialog shows the reason (missing/invalid/expired key) and the **machine ID** to send to the vendor.
+2. The vendor runs the license tool with that machine ID and returns a `LICENSE_KEY` string.
+3. Add it to `config.json` as `"LICENSE_KEY": "<string>"` and restart the app.
+
+**License types:** `perpetual` (never expires) and `temporary` (valid through the end of its expiry date; afterwards the app locks again at startup until a renewed key is provided). Keys are **locked to one machine** — copying a key to another PC is rejected. Enforcement happens at startup; a running instance continues until restart.
+
+**Vendor workflow:** one-time, run `node scripts/license/generate-keys.mjs` and paste the printed public key into `electron/src/main/license.ts` (`scripts/license/private-key.pem` is gitignored — losing it forces a new keypair and a new build; existing keys stop working). Then per machine: `node scripts/license/generate-license.mjs --customer "Name" --machine-id <machine-id>` (add `--type temporary --expires YYYY-MM-DD` for a time-limited key) — it prints the exact `LICENSE_KEY` value to send.
+
+**Limits:** the gate protects the packaged Windows installers only (cloud deployments are vendor-operated and ungated). It is a business-grade lock, not unbreakable DRM — the Electron bundle is readable by a determined attacker. A Windows reinstall changes the machine ID → re-issue the key. Development runs are never gated; set `INTEGRA_FORCE_LICENSE_GATE=1` to exercise the dialog locally.
+
 ### Backend tests
 
 ```bash
