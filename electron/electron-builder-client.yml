@@ -24,8 +24,11 @@ extraResources:
     to: frontend/dist
     filter:
       - "**/*"
+  - from: build/icon.png
+    to: icon.png
 
 win:
+  icon: build/icon.ico
   target:
     - target: nsis
       arch: [x64]

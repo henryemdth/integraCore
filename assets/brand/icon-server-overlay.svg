@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Server-edition badge: composited over the brand tile by scripts/generate-icons.mjs.
+       Teal matches the artwork's bars (#3bb09b). Badge outer edge (center 776,776 r195)
+       stays inside the tile's rx=228 rounded-corner arc, so the ring is never clipped. -->
+  <circle cx="776" cy="776" r="186" fill="#3bb09b" stroke="#ffffff" stroke-width="18"/>
+  <!-- server rack: three white slabs with teal LED + vent cutouts -->
+  <g fill="#ffffff">
+    <rect x="671" y="683" width="210" height="50" rx="13"/>
+    <rect x="671" y="751" width="210" height="50" rx="13"/>
+    <rect x="671" y="819" width="210" height="50" rx="13"/>
+  </g>
+  <g fill="#3bb09b" stroke="#3bb09b" stroke-width="13" stroke-linecap="round">
+    <circle cx="712" cy="708" r="10" stroke="none"/>
+    <circle cx="712" cy="776" r="10" stroke="none"/>
+    <circle cx="712" cy="844" r="10" stroke="none"/>
+    <line x1="800" y1="708" x2="856" y2="708"/>
+    <line x1="800" y1="776" x2="856" y2="776"/>
+    <line x1="800" y1="844" x2="856" y2="844"/>
+  </g>
+</svg>

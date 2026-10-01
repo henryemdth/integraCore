@@ -1,5 +1,5 @@
-import { Package2 } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import { BrandMark } from "@/components/BrandMark"
 
 export function AuthLayout({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation()
@@ -9,9 +9,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
       <div className="hidden lg:flex lg:w-1/2 bg-surface-container-low items-center justify-center p-12">
         <div className="max-w-md">
           <div className="flex items-center gap-3 mb-8">
-            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <Package2 className="h-7 w-7" />
-            </div>
+            <BrandMark className="h-12 w-12" />
             <h1 className="text-headline-lg text-primary tracking-tight">integraCore</h1>
           </div>
           <h2 className="text-headline-md text-foreground mb-3">{t("auth.brandTitle")}</h2>
@@ -26,9 +24,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
       <div className="flex-1 flex items-center justify-center p-6 bg-background">
         <div className="w-full max-w-md">
           <div className="lg:hidden flex items-center gap-2.5 mb-8">
-            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
-              <Package2 className="h-5 w-5" />
-            </div>
+            <BrandMark className="h-9 w-9" />
             <h1 className="text-headline-sm text-primary">integraCore</h1>
           </div>
           {children}

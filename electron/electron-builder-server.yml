@@ -37,8 +37,11 @@ extraResources:
     to: "frontend/dist"
     filter:
       - "**/*"
+  - from: "build/icon-server.png"
+    to: "icon.png"
 
 win:
+  icon: build/icon-server.ico
   target:
     - target: nsis
       arch:

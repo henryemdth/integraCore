@@ -1,10 +1,11 @@
 import { NavLink } from "react-router-dom"
 import { useAuth } from "@/contexts/AuthContext"
 import { useTranslation } from "react-i18next"
-import { LayoutDashboard, Package, ShoppingCart, Users, Settings, Package2, LogOut, Tag } from "lucide-react"
+import { LayoutDashboard, Package, ShoppingCart, Users, Settings, LogOut, Tag } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Avatar } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
+import { BrandMark } from "@/components/BrandMark"
 
 const navItems = [
   { to: "/", key: "sidebar.dashboard", icon: LayoutDashboard, roles: ["admin", "user"] },
@@ -41,9 +42,7 @@ export default function Sidebar({ collapsed }: SidebarProps) {
     >
       <div className={cn("border-b border-border", collapsed ? "p-3 flex justify-center" : "p-5")}>
         <div className={cn("flex items-center", collapsed ? "justify-center" : "gap-2.5")}>
-          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary text-primary-foreground shrink-0">
-            <Package2 className="h-5 w-5" />
-          </div>
+          <BrandMark className="h-9 w-9 shrink-0" />
           {!collapsed && (
             <div>
               <h1 className="text-headline-sm tracking-tight">integraCore</h1>

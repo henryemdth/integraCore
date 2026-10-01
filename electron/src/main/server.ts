@@ -88,6 +88,13 @@ function getBackendEntry(): string {
   return path.join(getResourcesPath(), "backend", "dist", "index.cjs")
 }
 
+function getIconPath(): string {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, "icon.png")
+  }
+  return path.resolve(__dirname, "..", "..", "build", "icon.png")
+}
+
 function getDataDir(): string {
   return path.join(app.getPath("userData"), "data")
 }
@@ -344,6 +351,7 @@ async function createWindow(): Promise<void> {
     width: 1280,
     height: 800,
     title: "integraCore Server",
+    icon: getIconPath(),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -365,6 +373,10 @@ async function createWindow(): Promise<void> {
 }
 
 // ---- app lifecycle --------------------------------------------------------
+
+// Must be set before the window exists so Windows groups the taskbar button
+// under this id (matching the electron-builder appId) instead of generic Electron.
+app.setAppUserModelId("com.integracore.server")
 
 const gotLock = app.requestSingleInstanceLock()
 if (!gotLock) {

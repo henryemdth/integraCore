@@ -67,6 +67,13 @@ function getFrontendPath(): string {
   return path.join(getResourcesPath(), "frontend", "dist", "index.html")
 }
 
+function getIconPath(): string {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, "icon.png")
+  }
+  return path.resolve(__dirname, "..", "..", "build", "icon.png")
+}
+
 function loadServerUrl(): string {
   const configPath = getConfigPath()
   if (ensureConfigFile(configPath, DEFAULT_CLIENT_CONFIG)) {
@@ -169,6 +176,7 @@ async function createWindow(): Promise<void> {
     width: 1280,
     height: 800,
     title: "integraCore Client",
+    icon: getIconPath(),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -200,6 +208,10 @@ if (!gotLock) {
       mainWindow.focus()
     }
   })
+
+  // Must be set before the window exists so Windows groups the taskbar button
+  // under this id (matching the electron-builder appId) instead of generic Electron.
+  app.setAppUserModelId("com.integracore.client")
 
   app.whenReady().then(async () => {
     initLogging()
