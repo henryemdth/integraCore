@@ -30,7 +30,7 @@ async function resolveBackendUrl(): Promise<void> {
 resolveBackendUrl().then(() => {
   ReactDOM.createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
-      <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-muted-foreground">Cargando...</div>}>
+      <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-muted-foreground">…</div>}>
         <QueryClientProvider client={queryClient}>
           <Router>
             <App />

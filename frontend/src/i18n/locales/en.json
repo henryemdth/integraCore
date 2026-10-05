@@ -4,6 +4,7 @@
     "error": "An error occurred",
     "unexpectedError": "Something went wrong. Please try again.",
     "loadError": "Couldn't load this data.",
+    "serverUnreachable": "Couldn't reach the server. Check that the server computer is turned on.",
     "retry": "Retry",
     "or": "or",
     "save": "Save",
@@ -19,7 +20,9 @@
     "actions": "Actions",
     "search": "Search…",
     "noMatches": "No matches",
-    "clearFilter": "Clear filter"
+    "clearFilter": "Clear filter",
+    "increase": "Increase quantity",
+    "decrease": "Decrease quantity"
   },
   "auth": {
     "signIn": "Sign In",
@@ -29,6 +32,9 @@
     "password": "Password",
     "confirmPassword": "Confirm Password",
     "passwordMismatch": "Passwords do not match",
+    "passwordHint": "Use at least 6 characters",
+    "usernameTooShort": "Username must be at least 3 characters",
+    "passwordTooShort": "Password must be at least 6 characters",
     "fullName": "Full Name",
     "loginFailed": "Login failed",
     "setupDesc": "Create your admin account to get started",
@@ -66,13 +72,19 @@
     "purchasePrice": "Purchase Price",
     "sellPrice": "Sell Price",
     "stock": "Stock",
-    "lowStockThreshold": "Low Stock Threshold",
+    "lowStockThreshold": "Alert when stock reaches",
     "status": "Status",
     "statusFilter": "All statuses",
     "active": "Active",
     "discontinued": "Discontinued",
     "effectivePrice": "Effective Price",
     "noProducts": "No products found",
+    "noProductsFilters": "No products match the current filters.",
+    "clearFilters": "Clear filters",
+    "emptyTitle": "No products yet",
+    "emptyDescAdmin": "Add your first product to start selling.",
+    "emptyDescSeller": "Products added by the administrator will appear here.",
+    "lowStockHint": "Alerts when {{count}} or fewer units remain",
     "confirmDelete": "Delete \"{{name}}\"?",
     "confirmDeleteTitle": "Delete product?",
     "deleted": "Product deleted",
@@ -83,7 +95,7 @@
       "title": "Create Product",
       "desc": "Fill in the product details below",
       "namePlaceholder": "Product name",
-      "skuPlaceholder": "Stock Keeping Unit",
+      "skuPlaceholder": "Product code (barcode or internal)",
       "categoryPlaceholder": "e.g. Electronics, Hardware",
       "failedSave": "Failed to save product",
       "duplicateNameTitle": "A product with a similar name already exists",
@@ -113,7 +125,7 @@
     },
     "import": {
       "title": "Import Products from Excel",
-      "desc": "Upload an .xlsx file. Columns are detected by their header names, in English or Spanish: Name, SKU, Category, Purchase Price, Sell Price, Stock, Low Stock Threshold, Status.",
+      "desc": "Upload an .xlsx file. Columns are detected by their header names, in English or Spanish: Name, SKU, Category, Purchase Price, Sell Price, Stock, Low-Stock Alert, Status.",
       "downloadTemplate": "Download template",
       "templateFilename": "product-import-template.xlsx",
       "importing": "Importing...",
@@ -136,10 +148,20 @@
     "allSellers": "All sellers",
     "allProducts": "All products",
     "saleId": "Sale ID",
+    "viewSale": "View details",
     "date": "Date",
     "items": "Items",
     "total": "Total",
     "noSales": "No sales found",
+    "noSalesFilters": "No sales match the current filters.",
+    "clearFilters": "Clear filters",
+    "emptyTitle": "No sales yet",
+    "emptyDesc": "Switch to the \"New Sale\" tab to register the first one.",
+    "presets": {
+      "today": "Today",
+      "week": "Last 7 days",
+      "month": "This month"
+    },
     "confirmDelete": "Delete sale #{{id}}? This will restore stock.",
     "confirmDeleteTitle": "Delete sale?",
     "deleted": "Sale deleted, stock restored",
@@ -168,7 +190,16 @@
       "outOfStock": "Out of stock",
       "insufficientStock": "Insufficient stock — remove or reduce items with insufficient stock",
       "created": "Sale created",
-      "failedCreate": "Failed to create sale"
+      "failedCreate": "Failed to create sale",
+      "qtyCapped": "Only {{stock}} units of \"{{name}}\" available",
+      "cartRestored": "Your in-progress sale was restored ({{count}} products)",
+      "removeItem": "Remove from sale",
+      "receipt": {
+        "title": "Sale registered",
+        "saleNumber": "Sale #{{id}}",
+        "itemLine": "{{quantity}} × {{price}}",
+        "newSale": "New Sale"
+      }
     },
     "detail": {
       "title": "Sale #{{id}}",
@@ -190,6 +221,10 @@
     "status": "Status",
     "created": "Created",
     "noUsers": "No users found",
+    "noUsersFilters": "No users match the current filters.",
+    "clearFilters": "Clear filters",
+    "emptyTitle": "No users yet",
+    "emptyDesc": "Create an account for each person who uses the system.",
     "searchPlaceholder": "Search by name or username...",
     "pageInfo": "Page {{page}} of {{totalPages}} ({{total}} users)",
     "stats": {
@@ -277,7 +312,9 @@
     },
     "currency": {
       "title": "Currency",
-      "label": "Currency symbol for the interface"
+      "label": "Currency symbol for the interface",
+      "bsLabel": "Bs. (Bolívar)",
+      "dollarLabel": "$ (Dollar)"
     },
     "backup": {
       "title": "Database Backup & Restore",
@@ -296,6 +333,7 @@
     "connection": {
       "title": "Server Connection",
       "desc": "Configure the server address this client connects to.",
+      "howToFind": "Not sure what to enter? On the computer where integraCore Server is installed, find its IP address (something like 192.168.1.100) and enter it here as http://<IP>:3001.",
       "serverUrl": "Server URL",
       "test": "Test Connection",
       "testOk": "Connection successful",
@@ -307,11 +345,21 @@
   "notifications": {
     "title": "Notifications",
     "markAllRead": "Mark all read",
-    "noNotifications": "No notifications"
+    "noNotifications": "No notifications",
+    "lowStock": "Low stock: {{count}} product(s) below threshold — {{names}}",
+    "moreProducts": " (+{{count}} more)",
+    "profitBehind": "Profit behind pace: {{revenue}} of {{target}} ({{percentage}}%). Gap: {{gap}}"
   },
   "layout": {
     "changePassword": "Change Password",
-    "logout": "Logout"
+    "logout": "Logout",
+    "expandSidebar": "Expand sidebar",
+    "collapseSidebar": "Collapse sidebar",
+    "serverDisconnected": "Disconnected from the server — Check that the server computer is on and connected to the network."
+  },
+  "roles": {
+    "admin": "Admin",
+    "seller": "Seller"
   },
   "dashboard": {
     "welcome": "Welcome back, {{name}}",
@@ -359,6 +407,10 @@
     "history": "Discount History",
     "allProducts": "All products",
     "allStatuses": "All statuses",
+    "noDiscountsFilters": "No discounts match the current filters.",
+    "clearFilters": "Clear filters",
+    "emptyDesc": "Discounts are created from the product list, with the \"Set Discount\" action.",
+    "goToProducts": "Go to products",
     "createDiscount": "Set Discount",
     "discountedPrice": "Discounted Price",
     "startDate": "Start Date",

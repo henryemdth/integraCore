@@ -53,6 +53,16 @@ export default function SetupPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
+    // App-side validation (noValidate on the form) keeps every message in the
+    // user's language — browser-native checks would show in the OS language.
+    if (username.trim().length < 3) {
+      setError(t("auth.usernameTooShort"))
+      return
+    }
+    if (password.length < 6) {
+      setError(t("auth.passwordTooShort"))
+      return
+    }
     if (password !== confirmPassword) {
       setError(t("auth.passwordMismatch"))
       return
@@ -173,7 +183,7 @@ export default function SetupPage() {
             <CardDescription>{t("auth.setupDesc")}</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} noValidate className="space-y-4">
               {error && (
                 <Alert variant="destructive">
                   <AlertDescription>{error}</AlertDescription>
@@ -209,10 +219,9 @@ export default function SetupPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder={t("users.create.min6chars")}
-                  required
-                  minLength={6}
                   autoComplete="new-password"
                 />
+                <p className="text-xs text-muted-foreground">{t("auth.passwordHint")}</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="confirmPassword" className="text-label-caps">{t("auth.confirmPassword")}</Label>

@@ -258,8 +258,8 @@ export default function SettingsPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Bs.">Bs. (Bolívar)</SelectItem>
-                    <SelectItem value="$">$ (Dólar)</SelectItem>
+                    <SelectItem value="Bs.">{t("settings.currency.bsLabel")}</SelectItem>
+                    <SelectItem value="$">{t("settings.currency.dollarLabel")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -374,6 +374,9 @@ export default function SettingsPage() {
                   <span className="text-body-md font-medium">{t("settings.connection.title")}</span>
                 </div>
                 <p className="text-body-sm text-muted-foreground">{t("settings.connection.desc")}</p>
+                <p className="text-body-sm text-muted-foreground bg-surface-container rounded-md px-3 py-2">
+                  {t("settings.connection.howToFind")}
+                </p>
                 <div className="space-y-2">
                   <Label htmlFor="serverUrl">{t("settings.connection.serverUrl")}</Label>
                   <div className="flex gap-2">

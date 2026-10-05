@@ -10,13 +10,14 @@ router.get("/", authenticate, async (req: Request, res: Response) => {
   const db = getAdapter();
   const svc = profitService(db);
   const unreadOnly = req.query.unread === "true";
-  res.json({ notifications: await svc.listNotifications(unreadOnly) });
+  const isAdmin = req.user!.role === "admin";
+  res.json({ notifications: await svc.listNotifications(unreadOnly, isAdmin) });
 });
 
-router.get("/unread-count", authenticate, async (_req: Request, res: Response) => {
+router.get("/unread-count", authenticate, async (req: Request, res: Response) => {
   const db = getAdapter();
   const svc = profitService(db);
-  res.json({ count: await svc.getUnreadCount() });
+  res.json({ count: await svc.getUnreadCount(req.user!.role === "admin") });
 });
 
 // Static segment first so it can never be shadowed by /:id routes.

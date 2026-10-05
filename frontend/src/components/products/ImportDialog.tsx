@@ -53,16 +53,25 @@ export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
         </DialogHeader>
         <form onSubmit={(e) => { e.preventDefault(); mutation.mutate() }} className="space-y-4">
           {result && (
-            <Alert>
-              <AlertDescription>
-                {t("products.import.imported", { count: result.imported })}
-                {result.errors.length > 0 && (
-                  <span className="block mt-1 text-destructive">
-                    {t("products.import.errors", { count: result.errors.length, details: result.errors.map((e) => t("products.import.rowError", { row: e.row, error: getImportRowError(e) })).join("; ") })}
-                  </span>
-                )}
-              </AlertDescription>
-            </Alert>
+            <div className="space-y-3">
+              <Alert>
+                <AlertDescription>{t("products.import.imported", { count: result.imported })}</AlertDescription>
+              </Alert>
+              {result.errors.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-body-sm font-medium text-destructive">
+                    {t("products.import.errors", { count: result.errors.length })}
+                  </p>
+                  <ul className="max-h-40 overflow-y-auto space-y-1 border border-border rounded-md p-2 list-none">
+                    {result.errors.map((e, i) => (
+                      <li key={i} className="text-body-sm text-destructive">
+                        {t("products.import.rowError", { row: e.row, error: getImportRowError(e) })}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
           )}
           <div className="space-y-2">
             <input ref={fileRef} type="file" accept=".xlsx"

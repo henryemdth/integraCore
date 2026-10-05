@@ -21,7 +21,8 @@ import { Pagination } from "@/components/Pagination"
 import { queryKeys } from "@/lib/queryKeys"
 import { QueryErrorState } from "@/components/ui/query-error"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
-import { Plus, MoreHorizontal, Users, UserCheck, Shield } from "lucide-react"
+import { EmptyState } from "@/components/ui/empty-state"
+import { Plus, MoreHorizontal, Users, UserCheck, Shield, SearchX } from "lucide-react"
 import { formatDateTime } from "@/lib/format"
 import { getErrorMessage } from "@/lib/errorMessages"
 
@@ -41,7 +42,7 @@ export default function UserListPage() {
   if (filter !== "all") params.active = filter
   if (search) params.search = search
 
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: queryKeys.users.list(params),
     queryFn: async () => {
       const res = await api.get(`/api/users?${new URLSearchParams(params)}`)
@@ -132,7 +133,7 @@ export default function UserListPage() {
             </TableHeader>
             <TableBody>
               {isError ? (
-                <TableRow><TableCell colSpan={6} className="py-4"><QueryErrorState onRetry={refetch} /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="py-4"><QueryErrorState onRetry={refetch} error={error} /></TableCell></TableRow>
               ) : isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={i}>
@@ -145,19 +146,37 @@ export default function UserListPage() {
                   </TableRow>
                 ))
               ) : users.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-12 text-muted-foreground">{t("users.noUsers")}</TableCell></TableRow>
+                <TableRow>
+                  <TableCell colSpan={6}>
+                    {search !== "" || filter !== "active" ? (
+                      <EmptyState
+                        icon={SearchX}
+                        title={t("users.noUsers")}
+                        description={t("users.noUsersFilters")}
+                        action={<Button variant="outline" size="sm" onClick={() => { setSearch(""); setFilter("active"); resetPage() }}>{t("users.clearFilters")}</Button>}
+                      />
+                    ) : (
+                      <EmptyState
+                        icon={Users}
+                        title={t("users.emptyTitle")}
+                        description={t("users.emptyDesc")}
+                        action={<Button onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4 mr-2" />{t("users.newUser")}</Button>}
+                      />
+                    )}
+                  </TableCell>
+                </TableRow>
               ) : users.map((user) => (
                 <TableRow key={user.id}>
                   <TableCell className="font-medium">{user.username}</TableCell>
                   <TableCell>{user.full_name}</TableCell>
-                  <TableCell><Badge variant={user.role === "admin" ? "info" : "secondary"}>{user.role}</Badge></TableCell>
+                  <TableCell><Badge variant={user.role === "admin" ? "info" : "secondary"}>{user.role === "admin" ? t("roles.admin") : t("roles.seller")}</Badge></TableCell>
                   <TableCell><Badge variant={user.active ? "success-light" : "error-light"}>{user.active ? t("users.active") : t("users.inactive")}</Badge></TableCell>
                   <TableCell className="text-body-sm text-muted-foreground">{formatDateTime(user.created_at)}</TableCell>
                   <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button>
-                      </DropdownMenuTrigger>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0" aria-label={t("common.actions")}><MoreHorizontal className="h-4 w-4" /></Button>
+                        </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => setEditUser(user)}>{t("common.edit")}</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => setResetPwdUser(user)}>{t("users.resetPassword")}</DropdownMenuItem>

@@ -56,29 +56,48 @@ export function profitService(db: DatabaseAdapter) {
     };
   }
 
-  async function createNotification(type: string, message: string) {
+  async function createNotification(
+    type: string,
+    message: string,
+    params?: Record<string, unknown>,
+    audience: "all" | "admin" = "all"
+  ) {
     // Explicit local wall-clock timestamp (same convention as discount
     // ranges) instead of the column's datetime('now') UTC default — day-based
     // dedup queries compare against local calendar days, and PG display would
     // otherwise render UTC times as if they were local.
+    // `params` is a JSON blob the client interpolates into a translated
+    // message; `audience` keeps admin-only texts (profit pace) away from
+    // sellers. Old rows have NULL params / 'all' audience and render as before.
     const result = await db.run(
-      "INSERT INTO notifications (type, message, created_at) VALUES (?, ?, ?)",
-      [type, message, nowString()]
+      "INSERT INTO notifications (type, message, params, audience, created_at) VALUES (?, ?, ?, ?, ?)",
+      [type, message, params ? JSON.stringify(params) : null, audience, nowString()]
     );
 
     const notification = {
       id: result.insertId,
       type,
       message,
+      params: params ?? null,
+      audience,
     };
 
     emitNotification(notification);
     return notification;
   }
 
-  async function listNotifications(unreadOnly = false) {
-    const where = unreadOnly ? "WHERE read = 0" : "";
-    return await db.all(`SELECT * FROM notifications ${where} ORDER BY created_at DESC LIMIT ${NOTIFICATIONS_PAGE_SIZE}`);
+  async function listNotifications(unreadOnly = false, isAdmin = false) {
+    // audience 'all' rows go to everyone; 'admin' rows only when the requester
+    // is an admin. `? = 1` keeps the boolean filter identical on SQLite
+    // (INTEGER 0/1) and PostgreSQL.
+    const visibility = "(audience = 'all' OR (? = 1 AND audience = 'admin'))";
+    const where = unreadOnly
+      ? `WHERE read = 0 AND ${visibility}`
+      : `WHERE ${visibility}`;
+    return await db.all(
+      `SELECT * FROM notifications ${where} ORDER BY created_at DESC LIMIT ${NOTIFICATIONS_PAGE_SIZE}`,
+      [isAdmin ? 1 : 0]
+    );
   }
 
   async function markAsRead(id: number) {
@@ -92,8 +111,11 @@ export function profitService(db: DatabaseAdapter) {
     return { success: true };
   }
 
-  async function getUnreadCount() {
-    const row = await db.get<{ count: number }>("SELECT COUNT(*) as count FROM notifications WHERE read = 0");
+  async function getUnreadCount(isAdmin = false) {
+    const row = await db.get<{ count: number }>(
+      "SELECT COUNT(*) as count FROM notifications WHERE read = 0 AND (audience = 'all' OR (? = 1 AND audience = 'admin'))",
+      [isAdmin ? 1 : 0]
+    );
     return row!.count;
   }
 

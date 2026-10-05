@@ -125,7 +125,7 @@ export function productService(db: DatabaseAdapter) {
     return product;
   }
 
-  async function exportToExcel(search: string, category: string, status: string, lang: ReportLanguage) {
+  async function exportToExcel(search: string, category: string, status: string, lang: ReportLanguage, isAdmin = false) {
     const { where, params } = buildProductFilter(search, category, status);
     const products = await db.all(`SELECT * FROM products ${where} ORDER BY name ASC`, params) as any[];
     await attachActiveDiscountInfo(products);
@@ -138,7 +138,9 @@ export function productService(db: DatabaseAdapter) {
       { header: L.name, key: "name", width: 30 },
       { header: L.sku, key: "sku", width: 15 },
       { header: L.category, key: "category", width: 20 },
-      { header: L.purchasePrice, key: "price", width: 14 },
+      // Purchase price is admin-only data: sellers get the inventory sheet
+      // without it, matching the on-screen column visibility.
+      ...(isAdmin ? [{ header: L.purchasePrice, key: "price", width: 14 }] : []),
       { header: L.sellPrice, key: "sell_price", width: 12 },
       { header: L.effectivePrice, key: "effective_price", width: 18 },
       { header: L.hasDiscount, key: "has_discount", width: 14 },

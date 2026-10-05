@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { SearchableSelect } from "@/components/ui/searchable-select"
 import { SuggestiveInput } from "@/components/ui/suggestive-input"
@@ -24,7 +25,8 @@ import { ImportDialog } from "@/components/products/ImportDialog"
 import { CreateDiscountDialog } from "@/components/discounts/CreateDiscountDialog"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { QueryErrorState } from "@/components/ui/query-error"
-import { Plus, MoreHorizontal, PackagePlus, PackageMinus, Download, Upload, Tag, Percent, Info } from "lucide-react"
+import { EmptyState } from "@/components/ui/empty-state"
+import { Plus, MoreHorizontal, PackagePlus, PackageMinus, Download, Upload, Tag, Percent, Info, SearchX } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import { getErrorMessage } from "@/lib/errorMessages"
@@ -37,6 +39,9 @@ export default function ProductListPage() {
   const { exportToExcel } = useExportExcel()
 
   const [page, setPage] = useState(1)
+  // `searchInput` is what the user types; `search` follows it debounced so a
+  // keystroke-per-query doesn't flash the table on slow LAN links.
+  const [searchInput, setSearchInput] = useState("")
   const [search, setSearch] = useState("")
   const [category, setCategory] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
@@ -51,7 +56,7 @@ export default function ProductListPage() {
   const [limit, setLimit] = useState(20)
   const params = { page: String(page), limit: String(limit), sort, order, ...(search && { search }), ...(category !== "all" && { category }), ...(statusFilter !== "all" && { status: statusFilter }) }
 
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: queryKeys.products.list(params),
     queryFn: async () => {
       const res = await api.get(`/api/products?${new URLSearchParams(params)}`)
@@ -59,6 +64,11 @@ export default function ProductListPage() {
     },
     placeholderData: (prev) => prev,
   })
+
+  useEffect(() => {
+    const id = setTimeout(() => { setSearch(searchInput); setPage(1) }, 300)
+    return () => clearTimeout(id)
+  }, [searchInput])
 
   const products = data?.products ?? []
   const total = data?.total ?? 0
@@ -92,7 +102,10 @@ export default function ProductListPage() {
 
   const openStock = (product: Product, type: "in" | "out") => { setStockProduct(product); setStockType(type) }
 
-  const colCount = isAdmin ? 8 : 7
+  const hasFilters = searchInput !== "" || category !== "all" || statusFilter !== "all"
+  const clearFilters = () => { setSearchInput(""); setSearch(""); setCategory("all"); setStatusFilter("all"); setPage(1) }
+
+  const colCount = isAdmin ? 8 : 6
 
   return (
     <div className="space-y-4">
@@ -104,8 +117,8 @@ export default function ProductListPage() {
         <CardHeader className="pb-3">
           <div className="flex items-center gap-3 flex-wrap">
             <SuggestiveInput
-              value={search}
-              onValueChange={(v) => { setSearch(v); setPage(1) }}
+              value={searchInput}
+              onValueChange={setSearchInput}
               className="flex-1 min-w-[200px] max-w-sm"
               items={allProducts}
               itemKey={(p) => p.id}
@@ -149,29 +162,79 @@ export default function ProductListPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="cursor-pointer" onClick={() => handleSort("name")}>{t("products.name")} {sort === "name" && (order === "ASC" ? "↑" : "↓")}</TableHead>
-                <TableHead className="cursor-pointer" onClick={() => handleSort("sku")}>{t("products.sku")} {sort === "sku" && (order === "ASC" ? "↑" : "↓")}</TableHead>
+                <TableHead aria-sort={sort === "name" ? (order === "ASC" ? "ascending" : "descending") : undefined}>
+                  <button type="button" className="inline-flex items-center gap-1 uppercase tracking-wider hover:text-foreground" onClick={() => handleSort("name")}>
+                    {t("products.name")} {sort === "name" && <span aria-hidden>{order === "ASC" ? "↑" : "↓"}</span>}
+                  </button>
+                </TableHead>
+                <TableHead aria-sort={sort === "sku" ? (order === "ASC" ? "ascending" : "descending") : undefined}>
+                  <button type="button" className="inline-flex items-center gap-1 uppercase tracking-wider hover:text-foreground" onClick={() => handleSort("sku")}>
+                    {t("products.sku")} {sort === "sku" && <span aria-hidden>{order === "ASC" ? "↑" : "↓"}</span>}
+                  </button>
+                </TableHead>
                 <TableHead>{t("products.category")}</TableHead>
-                <TableHead className="cursor-pointer text-right" onClick={() => handleSort("price")}>{t("products.purchasePrice")} {sort === "price" && (order === "ASC" ? "↑" : "↓")}</TableHead>
+                {isAdmin && (
+                  <TableHead className="text-right" aria-sort={sort === "price" ? (order === "ASC" ? "ascending" : "descending") : undefined}>
+                    <button type="button" className="inline-flex items-center gap-1 uppercase tracking-wider hover:text-foreground" onClick={() => handleSort("price")}>
+                      {t("products.purchasePrice")} {sort === "price" && <span aria-hidden>{order === "ASC" ? "↑" : "↓"}</span>}
+                    </button>
+                  </TableHead>
+                )}
                 <TableHead className="text-right">{t("products.effectivePrice")}</TableHead>
-                <TableHead className="cursor-pointer text-right" onClick={() => handleSort("stock")}>{t("products.stock")} {sort === "stock" && (order === "ASC" ? "↑" : "↓")}</TableHead>
+                <TableHead className="text-right" aria-sort={sort === "stock" ? (order === "ASC" ? "ascending" : "descending") : undefined}>
+                  <button type="button" className="inline-flex items-center gap-1 uppercase tracking-wider hover:text-foreground" onClick={() => handleSort("stock")}>
+                    {t("products.stock")} {sort === "stock" && <span aria-hidden>{order === "ASC" ? "↑" : "↓"}</span>}
+                  </button>
+                </TableHead>
                 <TableHead>{t("products.status")}</TableHead>
                 {isAdmin && <TableHead className="w-[50px]">{t("common.actions")}</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {isError ? (
-                <TableRow><TableCell colSpan={colCount} className="py-4"><QueryErrorState onRetry={refetch} /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={colCount} className="py-4"><QueryErrorState onRetry={refetch} error={error} /></TableCell></TableRow>
               ) : isLoading ? (
-                <TableRow><TableCell colSpan={colCount} className="text-center py-8 text-muted-foreground">{t("common.loading")}</TableCell></TableRow>
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                    {isAdmin && <TableCell className="text-right"><Skeleton className="h-4 w-16 ml-auto" /></TableCell>}
+                    <TableCell className="text-right"><Skeleton className="h-4 w-16 ml-auto" /></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-4 w-8 ml-auto" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                    {isAdmin && <TableCell><Skeleton className="h-8 w-8" /></TableCell>}
+                  </TableRow>
+                ))
               ) : products.length === 0 ? (
-                <TableRow><TableCell colSpan={colCount} className="text-center py-8 text-muted-foreground">{t("products.noProducts")}</TableCell></TableRow>
+                <TableRow>
+                  <TableCell colSpan={colCount}>
+                    {hasFilters ? (
+                      <EmptyState
+                        icon={SearchX}
+                        title={t("products.noProducts")}
+                        description={t("products.noProductsFilters")}
+                        action={<Button variant="outline" size="sm" onClick={clearFilters}>{t("products.clearFilters")}</Button>}
+                      />
+                    ) : (
+                      <EmptyState
+                        title={t("products.emptyTitle")}
+                        description={isAdmin ? t("products.emptyDescAdmin") : t("products.emptyDescSeller")}
+                        action={isAdmin && (
+                          <Button onClick={() => navigate("/products/new")}>
+                            <Plus className="h-4 w-4 mr-2" />{t("products.addProduct")}
+                          </Button>
+                        )}
+                      />
+                    )}
+                  </TableCell>
+                </TableRow>
               ) : products.map((product) => (
                 <TableRow key={product.id} className={cn((product.status ?? PRODUCT_STATUS.active) === PRODUCT_STATUS.discontinued && "opacity-60")}>
                   <TableCell className="font-medium">{product.name}</TableCell>
                   <TableCell><code className="text-xs bg-muted px-1.5 py-0.5 rounded">{product.sku}</code></TableCell>
                   <TableCell>{product.category || "—"}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(product.price)}</TableCell>
+                  {isAdmin && <TableCell className="text-right">{formatCurrency(product.price)}</TableCell>}
                   <TableCell className="text-right">
                     {product.discounted_price ? (
                       <span className="flex items-center justify-end gap-1">
@@ -198,7 +261,18 @@ export default function ProductListPage() {
                     )}
                   </TableCell>
                   <TableCell className="text-right">
-                    {product.stock <= product.low_stock_threshold ? <Badge variant="destructive">{product.stock}</Badge> : <span>{product.stock}</span>}
+                    {product.stock <= product.low_stock_threshold ? (
+                      <TooltipProvider delayDuration={200}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span><Badge variant="destructive">{product.stock}</Badge></span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            {t("products.lowStockHint", { count: product.low_stock_threshold })}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    ) : <span>{product.stock}</span>}
                   </TableCell>
                   <TableCell>
                     <Badge variant={(product.status ?? PRODUCT_STATUS.active) === PRODUCT_STATUS.active ? "success-light" : "secondary"}>
@@ -209,7 +283,9 @@ export default function ProductListPage() {
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 min-h-0 p-0"><MoreHorizontal className="h-4 w-4" /></Button>
+                          <Button variant="ghost" className="h-8 w-8 min-h-0 p-0" aria-label={t("common.actions")}>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => navigate(`/products/${product.id}/edit`)}>{t("common.edit")}</DropdownMenuItem>

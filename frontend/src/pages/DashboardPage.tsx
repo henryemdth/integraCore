@@ -14,7 +14,7 @@ import { QueryErrorState } from "@/components/ui/query-error"
 export default function DashboardPage() {
   const { user, isAdmin } = useAuth()
   const { t } = useTranslation()
-  const { data, isLoading, isError, refetch } = useDashboardSummary()
+  const { data, isLoading, isError, error, refetch } = useDashboardSummary()
 
   return (
     <div className="space-y-6">
@@ -24,7 +24,7 @@ export default function DashboardPage() {
       </div>
 
       {isError ? (
-        <QueryErrorState onRetry={refetch} />
+        <QueryErrorState onRetry={refetch} error={error} />
       ) : (
       <>
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
@@ -56,7 +56,7 @@ export default function DashboardPage() {
         />
       </div>
 
-      {(data || isLoading) && (
+      {(data || isLoading) && isAdmin && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-headline-sm">{t("dashboard.kpi.monthlyTarget")}</CardTitle>

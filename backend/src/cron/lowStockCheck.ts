@@ -32,10 +32,12 @@ export async function runLowStockCheck(db: DatabaseAdapter) {
   if (lowStock.length === 0) return;
 
   const names = lowStock.slice(0, 5).map((p: any) => p.name).join(", ");
-  const extra = lowStock.length > 5 ? ` (+${lowStock.length - 5} more)` : "";
+  const more = lowStock.length > 5 ? lowStock.length - 5 : 0;
   await svc.createNotification(
     "low_stock",
-    `Low stock: ${lowStock.length} product(s) below threshold — ${names}${extra}`
+    `Low stock: ${lowStock.length} product(s) below threshold — ${names}${more ? ` (+${more} more)` : ""}`,
+    { count: lowStock.length, names, more },
+    "all"
   );
   console.log(`[cron] Low stock alert: ${lowStock.length} product(s) below threshold`);
 }

@@ -6,6 +6,8 @@ export interface NotificationItem {
   id: number
   type: string
   message: string
+  /** JSON blob of interpolation values for cron-generated texts (null on old rows). */
+  params: string | null
   read: number
   created_at: string
 }

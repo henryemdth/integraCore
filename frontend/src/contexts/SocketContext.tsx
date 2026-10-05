@@ -1,14 +1,26 @@
-import { useEffect, useState, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
 import { io } from "socket.io-client"
 import { useQueryClient } from "@tanstack/react-query"
 import { useAuth } from "@/contexts/AuthContext"
 import { getBackendUrl, subscribeBackendUrl } from "@/lib/api"
 import { queryKeys } from "@/lib/queryKeys"
 
+interface SocketState {
+  /** True while the realtime channel to the backend is connected. */
+  connected: boolean
+}
+
+const SocketStateContext = createContext<SocketState>({ connected: true })
+
+export function useSocketState(): SocketState {
+  return useContext(SocketStateContext)
+}
+
 export function SocketProvider({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth()
   const queryClient = useQueryClient()
   const [backendUrl, setBackendUrl] = useState(getBackendUrl())
+  const [connected, setConnected] = useState(true)
 
   useEffect(() => {
     return subscribeBackendUrl(setBackendUrl)
@@ -41,9 +53,13 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       queryClient.invalidateQueries()
     })
 
+    socket.on("connect", () => setConnected(true))
+    socket.on("disconnect", () => setConnected(false))
+
     // Server rejected the handshake JWT (expired token, deactivated account):
     // the API 401 path only triggers on requests, so end the session here too.
     socket.on("connect_error", (err) => {
+      setConnected(false)
       if (err.message === "Not authenticated") {
         logout()
       }
@@ -54,5 +70,5 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     }
   }, [user, backendUrl, queryClient, logout])
 
-  return <>{children}</>
+  return <SocketStateContext.Provider value={{ connected }}>{children}</SocketStateContext.Provider>
 }

@@ -17,7 +17,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select"
 import { ArrowLeft, Loader2, TriangleAlert } from "lucide-react"
 import { getErrorMessage } from "@/lib/errorMessages"
 import { normalizeForSearch } from "@/lib/text"
-import { formatCurrency } from "@/lib/format"
+import { formatCurrency, parseDecimalInput } from "@/lib/format"
 import { queryKeys } from "@/lib/queryKeys"
 
 export default function ProductFormPage() {
@@ -103,8 +103,8 @@ export default function ProductFormPage() {
       name,
       sku,
       category,
-      price: parseFloat(price),
-      sell_price: parseFloat(sellPrice),
+      price: parseDecimalInput(price),
+      sell_price: parseDecimalInput(sellPrice),
       stock: parseInt(stock) || 0,
       low_stock_threshold: parseInt(lowStockThreshold) || DEFAULT_LOW_STOCK_THRESHOLD,
     }

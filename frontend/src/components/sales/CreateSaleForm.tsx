@@ -1,8 +1,8 @@
-import { useState, useMemo } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import api from "@/lib/api"
-import type { Product } from "@integracore/shared"
+import type { Product, SaleDetail } from "@integracore/shared"
 import { PRODUCT_STATUS } from "@integracore/shared"
 import { toast } from "sonner"
 import { useAllProducts } from "@/hooks/useProductQueries"
@@ -16,12 +16,22 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Separator } from "@/components/ui/separator"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { X, Search, Loader2 } from "lucide-react"
+import { X, Search, Loader2, Minus, Plus } from "lucide-react"
 import { formatCurrency } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { getErrorMessage } from "@/lib/errorMessages"
+import { SaleSuccessDialog } from "@/components/sales/SaleSuccessDialog"
 
 interface CartItem { product: Product; quantity: number }
+
+// The half-built sale survives accidental navigation and page refreshes:
+// only product ids + quantities are stored and rebuilt against the fresh
+// catalogue on return (prices/stock may have changed in the meantime).
+const CART_STORAGE_KEY = "sales.cart.inProgress"
+
+interface StoredCart { items: { id: number; quantity: number }[]; notes: string }
+
+const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
 
 export function CreateSaleForm() {
   const { t } = useTranslation()
@@ -29,9 +39,66 @@ export function CreateSaleForm() {
   const [cart, setCart] = useState<CartItem[]>([])
   const [notes, setNotes] = useState("")
   const [error, setError] = useState("")
+  const [completedSale, setCompletedSale] = useState<SaleDetail | null>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const restoredRef = useRef(false)
   const queryClient = useQueryClient()
 
   const products = useAllProducts().data ?? []
+
+  // Restore an interrupted sale once the catalogue is available.
+  const [pendingRestore, setPendingRestore] = useState<StoredCart | null>(() => {
+    try {
+      const raw = sessionStorage.getItem(CART_STORAGE_KEY)
+      return raw ? (JSON.parse(raw) as StoredCart) : null
+    } catch {
+      return null
+    }
+  })
+  useEffect(() => {
+    if (restoredRef.current || !pendingRestore || products.length === 0) return
+    restoredRef.current = true
+    const rebuilt: CartItem[] = []
+    for (const saved of pendingRestore.items) {
+      const product = products.find((p) => p.id === saved.id)
+      if (product && product.status !== PRODUCT_STATUS.discontinued && product.stock > 0) {
+        rebuilt.push({ product, quantity: Math.min(saved.quantity, product.stock) })
+      }
+    }
+    setPendingRestore(null)
+    if (rebuilt.length > 0) {
+      setCart(rebuilt)
+      setNotes(pendingRestore.notes)
+      toast.info(t("sales.create.cartRestored", { count: rebuilt.length }))
+    }
+  }, [products, pendingRestore, t])
+
+  // Keep the stored copy in sync while the cart is being built.
+  useEffect(() => {
+    if (pendingRestore) return
+    if (cart.length === 0) {
+      sessionStorage.removeItem(CART_STORAGE_KEY)
+      return
+    }
+    const stored: StoredCart = {
+      items: cart.map((item) => ({ id: item.product.id, quantity: item.quantity })),
+      notes,
+    }
+    sessionStorage.setItem(CART_STORAGE_KEY, JSON.stringify(stored))
+  }, [cart, notes, pendingRestore])
+
+  // Warn before closing/refreshing the tab with an unfinished sale.
+  useEffect(() => {
+    if (cart.length === 0) return
+    const handler = (e: BeforeUnloadEvent) => e.preventDefault()
+    window.addEventListener("beforeunload", handler)
+    return () => window.removeEventListener("beforeunload", handler)
+  }, [cart.length])
+
+  // Focus the search box on mount so scanning/typing starts immediately.
+  useEffect(() => {
+    searchInputRef.current?.focus()
+  }, [])
 
   const filteredProducts = useMemo(() => {
     if (!search) return []
@@ -48,32 +115,63 @@ export function CreateSaleForm() {
     if (product.stock === 0) return
     setCart([...cart, { product, quantity: 1 }])
     setSearch("")
+    searchInputRef.current?.focus()
   }
 
   const updateQuantity = (productId: number, qty: number) => {
-    if (qty < 1) return
     setCart(cart.map((item) => {
       if (item.product.id !== productId) return item
-      const maxQty = item.product.stock
-      return { ...item, quantity: Math.min(qty, maxQty) }
+      if (qty > item.product.stock) {
+        toast.warning(t("sales.create.qtyCapped", { name: item.product.name, stock: item.product.stock }), {
+          id: `qty-cap-${productId}`,
+        })
+        return { ...item, quantity: item.product.stock }
+      }
+      return { ...item, quantity: Math.max(1, qty) }
     }))
   }
 
   const removeFromCart = (productId: number) => setCart(cart.filter((item) => item.product.id !== productId))
 
+  // Enter in the search box adds the exact SKU match (barcode scanners send
+  // typed text + Enter); falling back to the first suggestion. Scanning an
+  // item already in the cart bumps its quantity instead.
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== "Enter") return
+    e.preventDefault()
+    const query = normalize(search.trim())
+    if (!query) return
+    const saleable = products.filter((p) => p.status !== PRODUCT_STATUS.discontinued && p.stock > 0)
+    const exact = saleable.find((p) => normalize(p.sku) === query)
+    if (exact) {
+      const inCart = cart.find((c) => c.product.id === exact.id)
+      if (inCart) {
+        updateQuantity(exact.id, inCart.quantity + 1)
+        setSearch("")
+        searchInputRef.current?.focus()
+        return
+      }
+      addToCart(exact)
+      return
+    }
+    if (filteredProducts[0]) addToCart(filteredProducts[0])
+  }
+
   const createSale = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (): Promise<SaleDetail> => {
       if (cart.length === 0) throw new Error(t("sales.create.minOneProduct"))
       if (hasInsufficientStock) throw new Error(t("sales.create.insufficientStock"))
-      await api.post("/api/sales", {
+      const res = await api.post("/api/sales", {
         items: cart.map((item) => ({ product_id: item.product.id, quantity: item.quantity })),
         notes: notes || undefined,
       })
+      return res.data.sale
     },
-    onSuccess: () => {
+    onSuccess: (sale) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.sales.all })
       queryClient.invalidateQueries({ queryKey: queryKeys.products.all })
       toast.success(t("sales.create.created"))
+      setCompletedSale(sale)
       setCart([])
       setNotes("")
       setError("")
@@ -96,10 +194,19 @@ export function CreateSaleForm() {
         <form onSubmit={(e) => { e.preventDefault(); setError(""); createSale.mutate() }} className="space-y-4">
           {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
           <div className="space-y-2">
-            <Label>{t("sales.create.addProduct")}</Label>
+            <Label htmlFor="sale-search">{t("sales.create.addProduct")}</Label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder={t("sales.create.searchProduct")} value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+              <Input
+                id="sale-search"
+                ref={searchInputRef}
+                placeholder={t("sales.create.searchProduct")}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
+                autoComplete="off"
+                className="pl-9"
+              />
             </div>
             {filteredProducts.length > 0 && (
               <div className="border border-border rounded-md max-h-40 overflow-y-auto">
@@ -141,14 +248,13 @@ export function CreateSaleForm() {
                   <TableRow>
                     <TableHead>{t("sales.product")}</TableHead>
                     <TableHead className="text-right">{t("products.sellPrice")}</TableHead>
-                    <TableHead className="text-right w-[100px]">{t("sales.create.qty")}</TableHead>
+                    <TableHead className="text-right w-[140px]">{t("sales.create.qty")}</TableHead>
                     <TableHead className="text-right">{t("sales.create.subtotal")}</TableHead>
                     <TableHead className="w-[40px]" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {cart.map((item) => {
-                    const atLimit = item.quantity >= item.product.stock
                     const effectivePrice = item.product.discounted_price ?? item.product.sell_price
                     return (
                       <TableRow key={item.product.id}>
@@ -159,18 +265,51 @@ export function CreateSaleForm() {
                         <TableCell className="text-right">
                           <PriceWithDiscount original={item.product.sell_price} discounted={item.product.discounted_price} align="right" />
                         </TableCell>
-                        <TableCell className="text-right">
-                          <Input
-                            type="number"
-                            min="1"
-                            max={item.product.stock}
-                            value={item.quantity}
-                            onChange={(e) => updateQuantity(item.product.id, parseInt(e.target.value) || 1)}
-                            className={cn("h-8 w-16 text-right font-data", atLimit && "text-destructive")}
-                          />
+                        <TableCell>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8"
+                              disabled={item.quantity <= 1}
+                              aria-label={t("common.decrease")}
+                              onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                            >
+                              <Minus className="h-4 w-4" />
+                            </Button>
+                            <Input
+                              type="number"
+                              min="1"
+                              value={item.quantity}
+                              aria-label={t("sales.create.qty")}
+                              onChange={(e) => updateQuantity(item.product.id, parseInt(e.target.value) || 1)}
+                              className="h-8 w-14 text-center font-data"
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8"
+                              aria-label={t("common.increase")}
+                              onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                         <TableCell className="text-right font-data font-semibold">{formatCurrency(effectivePrice * item.quantity)}</TableCell>
-                        <TableCell><Button type="button" variant="ghost" className="h-8 w-8 p-0" onClick={() => removeFromCart(item.product.id)}><X className="h-4 w-4" /></Button></TableCell>
+                        <TableCell>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className="h-8 w-8 p-0"
+                            aria-label={t("sales.create.removeItem")}
+                            onClick={() => removeFromCart(item.product.id)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     )
                   })}
@@ -202,6 +341,16 @@ export function CreateSaleForm() {
           </div>
         </form>
       </CardContent>
+      <SaleSuccessDialog
+        sale={completedSale}
+        open={!!completedSale}
+        onNewSale={() => {
+          setCompletedSale(null)
+          // The dialog unmounts synchronously and Radix's focus restore runs
+          // after this handler; refocus the search box once it has finished.
+          window.setTimeout(() => searchInputRef.current?.focus(), 100)
+        }}
+      />
     </Card>
   )
 }

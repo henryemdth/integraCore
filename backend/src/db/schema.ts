@@ -65,6 +65,8 @@ const sqliteMigrations: string[] = [
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     type TEXT NOT NULL,
     message TEXT NOT NULL,
+    params TEXT,
+    audience TEXT NOT NULL DEFAULT 'all',
     read INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );`,
@@ -103,6 +105,11 @@ const columnMigrations: { table: string; column: string; definition: string }[] 
   // tracking existed (profit falls back to the product's current purchase
   // price, products.price).
   { table: "sale_items", column: "cost_price", definition: "REAL" },
+  // notifications.params holds a JSON blob of interpolation values so the
+  // client can render cron-generated texts in the user's language; audience
+  // restricts profit-related notifications to admin users.
+  { table: "notifications", column: "params", definition: "TEXT" },
+  { table: "notifications", column: "audience", definition: "TEXT NOT NULL DEFAULT 'all'" },
 ];
 
 function addColumnIfMissing(db: Database.Database, table: string, column: string, definition: string) {
@@ -161,6 +168,8 @@ const postgresColumnMigrations: string[] = [
   `ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS discount_id INTEGER REFERENCES product_discounts(id)`,
   `ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS original_price NUMERIC NOT NULL DEFAULT 0`,
   `ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS cost_price NUMERIC`,
+  `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS params TEXT`,
+  `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS audience TEXT NOT NULL DEFAULT 'all'`,
 ];
 
 const postgresMigrations: string[] = [
@@ -222,6 +231,8 @@ const postgresMigrations: string[] = [
     id SERIAL PRIMARY KEY,
     type TEXT NOT NULL,
     message TEXT NOT NULL,
+    params TEXT,
+    audience TEXT NOT NULL DEFAULT 'all',
     read INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
   );`,

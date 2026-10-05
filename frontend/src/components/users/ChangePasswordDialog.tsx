@@ -24,6 +24,7 @@ export function ChangePasswordDialog({ open, onOpenChange }: ChangePasswordDialo
 
   const mutation = useMutation({
     mutationFn: async () => {
+      if (newPassword.length < 6) throw new Error(t("auth.passwordTooShort"))
       await api.put("/api/auth/password", { current_password: currentPassword, new_password: newPassword })
     },
     onSuccess: () => {
@@ -41,15 +42,16 @@ export function ChangePasswordDialog({ open, onOpenChange }: ChangePasswordDialo
           <DialogTitle>{t("changePassword.title")}</DialogTitle>
           <DialogDescription>{t("changePassword.desc")}</DialogDescription>
         </DialogHeader>
-        <form onSubmit={(e) => { e.preventDefault(); setError(""); mutation.mutate() }} className="space-y-4">
+        <form onSubmit={(e) => { e.preventDefault(); setError(""); mutation.mutate() }} noValidate className="space-y-4">
           {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
           <div className="space-y-2">
             <Label htmlFor="cp-current">{t("changePassword.currentPassword")}</Label>
-            <Input id="cp-current" type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required />
+            <Input id="cp-current" type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} autoComplete="current-password" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="cp-new">{t("changePassword.newPassword")}</Label>
-            <Input id="cp-new" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder={t("users.create.min6chars")} required />
+            <Input id="cp-new" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} autoComplete="new-password" />
+            <p className="text-xs text-muted-foreground">{t("auth.passwordHint")}</p>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>

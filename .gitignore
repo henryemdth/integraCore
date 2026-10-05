@@ -12,6 +12,7 @@ coverage/
 # Local working docs — intentionally not part of the repo (AGENTS.md is the tracked spec)
 MEMORY.md
 DESIGN.md
+REPORT.md
 
 .roo
 .zcode
@@ -20,3 +21,6 @@ DESIGN.md
 
 # Vendor signing key for customer license keys — NEVER commit (see scripts/license/)
 scripts/license/private-key.pem
+
+.zcodeignore
+

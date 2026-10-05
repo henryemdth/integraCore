@@ -24,7 +24,8 @@ import { StatCard } from "@/components/StatCard"
 import { Pagination } from "@/components/Pagination"
 import { QueryErrorState } from "@/components/ui/query-error"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
-import { Eye, Trash2, Download, ShoppingCart, TrendingUp, CircleDollarSign } from "lucide-react"
+import { EmptyState } from "@/components/ui/empty-state"
+import { Eye, Trash2, Download, ShoppingCart, TrendingUp, CircleDollarSign, SearchX, X } from "lucide-react"
 import { getErrorMessage } from "@/lib/errorMessages"
 
 interface UserListItem { id: number; full_name: string; username: string }
@@ -59,7 +60,7 @@ export default function SalesListPage() {
   if (dateFrom) statsParams.date_from = dateFrom
   if (dateTo) statsParams.date_to = dateTo
 
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: queryKeys.sales.list(filterParams),
     queryFn: async () => {
       const res = await api.get(`/api/sales?${new URLSearchParams(filterParams)}`)
@@ -88,6 +89,25 @@ export default function SalesListPage() {
   })
 
   const resetPage = () => setPage(1)
+
+  // One-tap date ranges so sellers never have to fill the two native date
+  // fields for the common "how did we do today?" questions.
+  const applyDatePreset = (preset: "today" | "week" | "month") => {
+    const now = new Date()
+    const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+    if (preset === "today") {
+      setDateFrom(fmt(now)); setDateTo(fmt(now))
+    } else if (preset === "week") {
+      const start = new Date(now); start.setDate(now.getDate() - 6)
+      setDateFrom(fmt(start)); setDateTo(fmt(now))
+    } else {
+      setDateFrom(fmt(new Date(now.getFullYear(), now.getMonth(), 1))); setDateTo(fmt(now))
+    }
+    resetPage()
+  }
+
+  const hasFilters = productFilter !== "all" || dateFrom !== "" || dateTo !== "" || (isAdmin && sellerFilter !== "all")
+  const clearFilters = () => { setSellerFilter("all"); setProductFilter("all"); setDateFrom(""); setDateTo(""); resetPage() }
 
   return (
     <div className="space-y-4">
@@ -146,6 +166,17 @@ export default function SalesListPage() {
                   <Label className="text-label-caps text-muted-foreground">{t("sales.to")}</Label>
                   <Input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); resetPage() }} className="w-[170px]" />
                 </div>
+                <div className="space-y-1.5">
+                  <Label className="text-label-caps text-transparent">·</Label>
+                  <div className="flex items-center gap-1.5">
+                    <Button variant="outline" size="sm" onClick={() => applyDatePreset("today")}>{t("sales.presets.today")}</Button>
+                    <Button variant="outline" size="sm" onClick={() => applyDatePreset("week")}>{t("sales.presets.week")}</Button>
+                    <Button variant="outline" size="sm" onClick={() => applyDatePreset("month")}>{t("sales.presets.month")}</Button>
+                    {hasFilters && (
+                      <Button variant="ghost" size="sm" onClick={clearFilters}><X className="h-4 w-4 mr-1" />{t("sales.clearFilters")}</Button>
+                    )}
+                  </div>
+                </div>
                 <div className="flex-1" />
                 <Button variant="outline" size="sm" onClick={() => {
                   const p: Record<string, string> = {}
@@ -171,7 +202,7 @@ export default function SalesListPage() {
                 </TableHeader>
                 <TableBody>
                   {isError ? (
-                    <TableRow><TableCell colSpan={6} className="py-4"><QueryErrorState onRetry={refetch} /></TableCell></TableRow>
+                    <TableRow><TableCell colSpan={6} className="py-4"><QueryErrorState onRetry={refetch} error={error} /></TableCell></TableRow>
                   ) : isLoading ? (
                     Array.from({ length: 5 }).map((_, i) => (
                       <TableRow key={i}>
@@ -184,7 +215,25 @@ export default function SalesListPage() {
                       </TableRow>
                     ))
                   ) : sales.length === 0 ? (
-                    <TableRow><TableCell colSpan={6} className="text-center py-12 text-muted-foreground">{t("sales.noSales")}</TableCell></TableRow>
+                    <TableRow>
+                      <TableCell colSpan={6}>
+                        {hasFilters ? (
+                          <EmptyState
+                            icon={SearchX}
+                            title={t("sales.noSales")}
+                            description={t("sales.noSalesFilters")}
+                            action={<Button variant="outline" size="sm" onClick={clearFilters}>{t("sales.clearFilters")}</Button>}
+                          />
+                        ) : (
+                          <EmptyState
+                            icon={ShoppingCart}
+                            title={t("sales.emptyTitle")}
+                            description={t("sales.emptyDesc")}
+                            action={<Button onClick={() => setActiveTab("new-sale")}>{t("sales.tabs.newSale")}</Button>}
+                          />
+                        )}
+                      </TableCell>
+                    </TableRow>
                   ) : sales.map((sale) => (
                     <TableRow key={sale.id}>
                       <TableCell className="font-data">#{sale.id}</TableCell>
@@ -194,9 +243,9 @@ export default function SalesListPage() {
                       <TableCell className="text-right font-data font-semibold">{formatCurrency(sale.total)}</TableCell>
                       <TableCell>
                         <div className="flex gap-1">
-                          <Button variant="ghost" className="h-8 w-8 p-0" onClick={() => setDetailSale(sale)}><Eye className="h-4 w-4" /></Button>
+                          <Button variant="ghost" className="h-8 w-8 p-0" aria-label={t("sales.viewSale")} onClick={() => setDetailSale(sale)}><Eye className="h-4 w-4" /></Button>
                           {isAdmin && (
-                            <Button variant="ghost" className="h-8 w-8 p-0 text-destructive"
+                            <Button variant="ghost" className="h-8 w-8 p-0 text-destructive" aria-label={t("common.delete")}
                               onClick={() => setConfirmDeleteSaleId(sale.id)}>
                               <Trash2 className="h-4 w-4" />
                             </Button>

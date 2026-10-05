@@ -11,9 +11,17 @@ import { parsePagination } from "../utils/pagination.js";
 
 const router = Router();
 
+// Purchase price (products.price) is admin-only data: sellers work with sell
+// prices and stock, so the field is stripped from every payload they receive.
+function stripPurchasePrice<T extends { price?: unknown }>(product: T): Omit<T, "price"> {
+  const { price: _price, ...rest } = product;
+  return rest;
+}
+
 router.get("/", authenticate, async (req: Request, res: Response) => {
   const db = getAdapter();
   const svc = productService(db);
+  const isAdmin = req.user!.role === "admin";
   const result = await svc.list({
     ...parsePagination(req.query, 20),
     search: (req.query.search as string) || "",
@@ -22,7 +30,7 @@ router.get("/", authenticate, async (req: Request, res: Response) => {
     sort: (req.query.sort as string) || "created_at",
     order: (req.query.order as string)?.toUpperCase() === "ASC" ? "ASC" : "DESC",
   });
-  res.json(result);
+  res.json(isAdmin ? result : { ...result, products: result.products.map(stripPurchasePrice) });
 });
 
 router.get("/categories", authenticate, async (_req: Request, res: Response) => {
@@ -38,7 +46,8 @@ router.get("/export", authenticate, async (req: Request, res: Response) => {
     (req.query.search as string) || "",
     (req.query.category as string) || "",
     (req.query.status as string) || "",
-    resolveReportLanguage(req.query.lang as string)
+    resolveReportLanguage(req.query.lang as string),
+    req.user!.role === "admin"
   );
   res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
   res.setHeader("Content-Disposition", "attachment; filename=products.xlsx");
@@ -63,7 +72,7 @@ router.get("/:id", authenticate, async (req: Request, res: Response) => {
   const db = getAdapter();
   const svc = productService(db);
   const product = await svc.getById(parseId(req.params.id as string));
-  res.json({ product });
+  res.json({ product: req.user!.role === "admin" ? product : stripPurchasePrice(product) });
 });
 
 router.post("/import", authenticate, requireRole("admin"), writeLockGuard, async (req: Request, res: Response) => {

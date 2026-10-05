@@ -16,4 +16,11 @@ void i18n.use(initReactI18next).init({
   },
 })
 
+// Keep the document language in sync so browser speech/translation features
+// follow the in-app language switch.
+document.documentElement.lang = i18n.language
+i18n.on("languageChanged", (lng) => {
+  document.documentElement.lang = lng
+})
+
 export default i18n

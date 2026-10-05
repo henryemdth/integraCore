@@ -285,12 +285,14 @@ function killBackend(): void {
 
 function showFatalError(detail: string): void {
   log(`[server] FATAL: ${detail}`)
+  // User-facing fatal dialogs are Spanish-first: this app ships to a
+  // Spanish-speaking shop; the log keeps the English details for support.
   dialog.showErrorBox(
     "integraCore Server",
-    `The server could not start.\n\n${detail}\n\nPossible causes:\n` +
-      `- Port ${backendPort} is already in use (another integraCore Server instance or another application).\n` +
-      `- Antivirus software blocked the server.\n\n` +
-      `Details were written to:\n${logFile ?? "(log file unavailable)"}`
+    `El servidor no pudo iniciarse.\n\n${detail}\n\nCausas posibles:\n` +
+      `- El puerto ${backendPort} ya está en uso (otra instancia de integraCore Server u otra aplicación).\n` +
+      `- El antivirus bloqueó el servidor.\n\n` +
+      `Se guardaron más detalles en:\n${logFile ?? "(registro no disponible)"}`
   )
   app.quit()
 }

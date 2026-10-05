@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
-import { useSearchParams } from "react-router-dom"
+import { useSearchParams, useNavigate } from "react-router-dom"
 import { useExportExcel } from "@/hooks/useExportExcel"
 import { useAllProducts } from "@/hooks/useProductQueries"
 import api from "@/lib/api"
@@ -16,8 +16,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { SearchableSelect } from "@/components/ui/searchable-select"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { QueryErrorState } from "@/components/ui/query-error"
+import { EmptyState } from "@/components/ui/empty-state"
 import { Pagination } from "@/components/Pagination"
-import { Download, Trash2, Ban } from "lucide-react"
+import { Download, Trash2, Ban, Tag, SearchX } from "lucide-react"
 import { formatCurrency, formatDate } from "@/lib/format"
 import { nowString } from "@integracore/shared"
 import { useEffect, useState } from "react"
@@ -54,9 +55,12 @@ export default function DiscountHistoryPage() {
   if (productFilter !== "all") filterParams.product_id = productFilter
   if (statusFilter !== "all") filterParams.status = statusFilter
 
+  const hasFilters = productFilter !== "all" || statusFilter !== "all"
+  const navigate = useNavigate()
+
   const queryParams = { page: String(page), limit: String(limit), ...filterParams }
 
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: queryKeys.discounts.list(queryParams),
     queryFn: async () => {
       const qs = new URLSearchParams(queryParams).toString()
@@ -157,9 +161,22 @@ export default function DiscountHistoryPage() {
           {isLoading ? (
             <div className="text-center py-8 text-muted-foreground">{t("common.loading")}</div>
           ) : isError ? (
-            <QueryErrorState onRetry={refetch} />
+            <QueryErrorState onRetry={refetch} error={error} />
           ) : discounts.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">{t("discounts.noDiscounts")}</div>
+            <EmptyState
+              icon={hasFilters ? SearchX : Tag}
+              title={t("discounts.noDiscounts")}
+              description={hasFilters ? t("discounts.noDiscountsFilters") : t("discounts.emptyDesc")}
+              action={hasFilters ? (
+                <Button variant="outline" size="sm" onClick={() => { setProductFilter("all"); setStatusFilter("all"); setPage(1) }}>
+                  {t("discounts.clearFilters")}
+                </Button>
+              ) : (
+                <Button variant="outline" size="sm" onClick={() => navigate("/products")}>
+                  {t("discounts.goToProducts")}
+                </Button>
+              )}
+            />
           ) : (
             <Table>
               <TableHeader>

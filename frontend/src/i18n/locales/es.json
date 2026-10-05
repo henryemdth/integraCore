@@ -4,6 +4,7 @@
     "error": "Ocurrió un error",
     "unexpectedError": "Algo salió mal. Inténtalo de nuevo.",
     "loadError": "No se pudieron cargar estos datos.",
+    "serverUnreachable": "No se pudo conectar con el servidor. Verifica que la computadora del servidor esté encendida.",
     "retry": "Reintentar",
     "or": "o",
     "save": "Guardar",
@@ -19,7 +20,9 @@
     "actions": "Acciones",
     "search": "Buscar…",
     "noMatches": "Sin coincidencias",
-    "clearFilter": "Limpiar filtro"
+    "clearFilter": "Limpiar filtro",
+    "increase": "Aumentar cantidad",
+    "decrease": "Reducir cantidad"
   },
   "auth": {
     "signIn": "Iniciar sesión",
@@ -29,6 +32,9 @@
     "password": "Contraseña",
     "confirmPassword": "Confirmar contraseña",
     "passwordMismatch": "Las contraseñas no coinciden",
+    "passwordHint": "Usa al menos 6 caracteres",
+    "usernameTooShort": "El usuario debe tener al menos 3 caracteres",
+    "passwordTooShort": "La contraseña debe tener al menos 6 caracteres",
     "fullName": "Nombre completo",
     "loginFailed": "Error al iniciar sesión",
     "setupDesc": "Crea tu cuenta de administrador para comenzar",
@@ -66,13 +72,19 @@
     "purchasePrice": "Precio de compra",
     "sellPrice": "Precio de venta",
     "stock": "Stock",
-    "lowStockThreshold": "Umbral de stock bajo",
+    "lowStockThreshold": "Avisar cuando el stock llegue a",
     "status": "Estado",
     "statusFilter": "Todos los estados",
     "active": "Activo",
     "discontinued": "Descontinuado",
     "effectivePrice": "Precio efectivo",
     "noProducts": "No se encontraron productos",
+    "noProductsFilters": "Ningún producto coincide con los filtros aplicados.",
+    "clearFilters": "Limpiar filtros",
+    "emptyTitle": "Todavía no hay productos",
+    "emptyDescAdmin": "Agrega tu primer producto para empezar a vender.",
+    "emptyDescSeller": "Cuando el administrador cargue productos, aparecerán aquí.",
+    "lowStockHint": "Se avisa cuando quedan {{count}} o menos unidades",
     "confirmDelete": "¿Eliminar \"{{name}}\"?",
     "confirmDeleteTitle": "¿Eliminar producto?",
     "deleted": "Producto eliminado",
@@ -83,7 +95,7 @@
       "title": "Crear producto",
       "desc": "Completa los detalles del producto",
       "namePlaceholder": "Nombre del producto",
-      "skuPlaceholder": "Unidad de mantenimiento de stock",
+      "skuPlaceholder": "Código del producto (código de barras o interno)",
       "categoryPlaceholder": "ej. Electrónica, Ferretería",
       "failedSave": "Error al guardar producto",
       "duplicateNameTitle": "Ya existe un producto con un nombre similar",
@@ -113,7 +125,7 @@
     },
     "import": {
       "title": "Importar productos desde Excel",
-      "desc": "Sube un archivo .xlsx. Las columnas se detectan por su encabezado, en español o inglés: Nombre, SKU, Categoría, Precio de compra, Precio de venta, Stock, Umbral de stock bajo, Estado.",
+      "desc": "Sube un archivo .xlsx. Las columnas se detectan por su encabezado, en español o inglés: Nombre, SKU, Categoría, Precio de compra, Precio de venta, Stock, Aviso de stock mínimo, Estado.",
       "downloadTemplate": "Descargar plantilla",
       "templateFilename": "plantilla-importacion.xlsx",
       "importing": "Importando...",
@@ -136,10 +148,20 @@
     "allSellers": "Todos los vendedores",
     "allProducts": "Todos los productos",
     "saleId": "ID de venta",
+    "viewSale": "Ver detalle",
     "date": "Fecha",
     "items": "Artículos",
     "total": "Total",
     "noSales": "No se encontraron ventas",
+    "noSalesFilters": "Ninguna venta coincide con los filtros aplicados.",
+    "clearFilters": "Limpiar filtros",
+    "emptyTitle": "Todavía no hay ventas",
+    "emptyDesc": "Cambia a la pestaña \"Nueva venta\" para registrar la primera.",
+    "presets": {
+      "today": "Hoy",
+      "week": "Últimos 7 días",
+      "month": "Este mes"
+    },
     "confirmDelete": "¿Eliminar venta #{{id}}? Se restaurará el stock.",
     "confirmDeleteTitle": "¿Eliminar venta?",
     "deleted": "Venta eliminada, stock restaurado",
@@ -168,7 +190,16 @@
       "outOfStock": "Sin stock",
       "insufficientStock": "Stock insuficiente — elimina o reduce los artículos con stock insuficiente",
       "created": "Venta creada",
-      "failedCreate": "Error al crear venta"
+      "failedCreate": "Error al crear venta",
+      "qtyCapped": "Solo hay {{stock}} unidades de \"{{name}}\"",
+      "cartRestored": "Se recuperó tu venta en curso ({{count}} productos)",
+      "removeItem": "Quitar de la venta",
+      "receipt": {
+        "title": "Venta registrada",
+        "saleNumber": "Venta #{{id}}",
+        "itemLine": "{{quantity}} × {{price}}",
+        "newSale": "Nueva venta"
+      }
     },
     "detail": {
       "title": "Venta #{{id}}",
@@ -183,6 +214,10 @@
     "newUser": "Nuevo usuario",
     "active": "Activo",
     "inactive": "Inactivo",
+    "noUsersFilters": "Ningún usuario coincide con los filtros aplicados.",
+    "clearFilters": "Limpiar filtros",
+    "emptyTitle": "Todavía no hay usuarios",
+    "emptyDesc": "Crea una cuenta para cada persona que use el sistema.",
     "all": "Todos",
     "username": "Usuario",
     "fullName": "Nombre completo",
@@ -277,7 +312,9 @@
     },
     "currency": {
       "title": "Moneda",
-      "label": "Símbolo de moneda para la interfaz"
+      "label": "Símbolo de moneda para la interfaz",
+      "bsLabel": "Bs. (Bolívar)",
+      "dollarLabel": "$ (Dólar)"
     },
     "backup": {
       "title": "Respaldo y Restauración",
@@ -296,6 +333,7 @@
     "connection": {
       "title": "Conexión al Servidor",
       "desc": "Configura la dirección del servidor al que se conecta este cliente.",
+      "howToFind": "¿No sabes qué dirección poner? En la computadora donde instalaste integraCore Server, averigua su número de IP (algo como 192.168.1.100) y escríbelo aquí como http://<IP>:3001.",
       "serverUrl": "URL del Servidor",
       "test": "Probar conexión",
       "testOk": "Conexión exitosa",
@@ -307,11 +345,21 @@
   "notifications": {
     "title": "Notificaciones",
     "markAllRead": "Marcar todo leído",
-    "noNotifications": "Sin notificaciones"
+    "noNotifications": "Sin notificaciones",
+    "lowStock": "Stock bajo: {{count}} producto(s) por debajo del mínimo — {{names}}",
+    "moreProducts": " (+{{count}} más)",
+    "profitBehind": "Objetivo de ingresos atrasado: {{revenue}} de {{target}} ({{percentage}}%). Faltan {{gap}}"
   },
   "layout": {
     "changePassword": "Cambiar contraseña",
-    "logout": "Cerrar sesión"
+    "logout": "Cerrar sesión",
+    "expandSidebar": "Expandir menú",
+    "collapseSidebar": "Contraer menú",
+    "serverDisconnected": "Sin conexión con el servidor — Verifica que la computadora del servidor esté encendida y conectada a la red."
+  },
+  "roles": {
+    "admin": "Administrador",
+    "seller": "Vendedor"
   },
   "dashboard": {
     "welcome": "Bienvenido, {{name}}",
@@ -359,6 +407,10 @@
     "history": "Historial de descuentos",
     "allProducts": "Todos los productos",
     "allStatuses": "Todos los estados",
+    "noDiscountsFilters": "Ningún descuento coincide con los filtros aplicados.",
+    "clearFilters": "Limpiar filtros",
+    "emptyDesc": "Los descuentos se crean desde la lista de productos, con la acción \"Crear descuento\".",
+    "goToProducts": "Ir a productos",
     "createDiscount": "Aplicar descuento",
     "discountedPrice": "Precio con descuento",
     "startDate": "Fecha de inicio",

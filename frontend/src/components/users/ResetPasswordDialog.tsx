@@ -26,6 +26,7 @@ export function ResetPasswordDialog({ user, open, onOpenChange }: ResetPasswordD
   const mutation = useMutation({
     mutationFn: async () => {
       if (!user) return
+      if (password.length < 6) throw new Error(t("auth.passwordTooShort"))
       await api.put(`/api/users/${user.id}/password`, { password })
     },
     onSuccess: () => {
@@ -45,11 +46,12 @@ export function ResetPasswordDialog({ user, open, onOpenChange }: ResetPasswordD
           <DialogTitle>{t("users.resetPwd.title")}</DialogTitle>
           <DialogDescription>{t("users.resetPwd.desc", { username: user.username })}</DialogDescription>
         </DialogHeader>
-        <form onSubmit={(e) => { e.preventDefault(); setError(""); mutation.mutate() }} className="space-y-4">
+        <form onSubmit={(e) => { e.preventDefault(); setError(""); mutation.mutate() }} noValidate className="space-y-4">
           {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
           <div className="space-y-2">
             <Label htmlFor="rp-password">{t("users.resetPwd.newPassword")}</Label>
-            <Input id="rp-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t("users.resetPwd.placeholder")} required />
+            <Input id="rp-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />
+            <p className="text-xs text-muted-foreground">{t("auth.passwordHint")}</p>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t("common.close")}</Button>

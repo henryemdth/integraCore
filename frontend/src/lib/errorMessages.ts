@@ -64,7 +64,10 @@ export function getErrorMessage(err: unknown, fallbackKey = "common.unexpectedEr
     if (data?.code && CODE_KEYS[data.code]) {
       return i18n.t(CODE_KEYS[data.code], { defaultValue: data.error, ...data.params })
     }
-    if (data?.error) return data.error
+    // Never surface a raw backend/axios string to the user: unmapped errors
+    // get a generic localized message, the original goes to the console for
+    // whoever is troubleshooting.
+    if (data?.error) console.error("[api] Unmapped backend error:", data.error, data?.code)
     return i18n.t(fallbackKey)
   }
 

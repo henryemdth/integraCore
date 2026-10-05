@@ -18,6 +18,28 @@ export function formatCurrency(amount: number): string {
   return `${symbol} ${formatted}`
 }
 
+/**
+ * Parses a number from a text input tolerating both decimal conventions —
+ * "1234.56", "1234,56" and thousands "1,234.56" / "1.234,56" all work.
+ * Returns NaN when nothing numeric remains, so callers keep their existing
+ * `|| fallback` / validation behavior.
+ */
+export function parseDecimalInput(value: string): number {
+  const trimmed = value.trim()
+  if (!trimmed) return NaN
+  const lastComma = trimmed.lastIndexOf(",")
+  const lastDot = trimmed.lastIndexOf(".")
+  let normalized = trimmed
+  if (lastComma > lastDot) {
+    // Comma is the decimal separator; dots (if any) are thousands groups.
+    normalized = trimmed.replace(/\./g, "").replace(",", ".")
+  } else {
+    // Dot is the decimal separator; commas (if any) are thousands groups.
+    normalized = trimmed.replace(/,/g, "")
+  }
+  return Number(normalized)
+}
+
 // Canonical backend timestamps are "YYYY-MM-DD HH:MM:SS.mmm" (SQLite TEXT
 // contract, space-separated). Accept ISO ("T"-separated) too so a stray
 // ISO value can never silently render as day 1 again.

@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AuthLayout } from "@/components/auth/AuthLayout"
+import { LanguageToggle } from "@/components/LanguageToggle"
 import { Loader2 } from "lucide-react"
 import { getErrorMessage } from "@/lib/errorMessages"
 
@@ -97,6 +98,9 @@ export default function LoginPage() {
               {loading ? t("auth.signingIn") : t("auth.signIn")}
             </Button>
           </form>
+          <div className="mt-4 flex justify-center">
+            <LanguageToggle />
+          </div>
         </CardContent>
       </Card>
     </AuthLayout>

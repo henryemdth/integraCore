@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2 } from "lucide-react"
 import { getErrorMessage } from "@/lib/errorMessages"
+import { parseDecimalInput } from "@/lib/format"
 
 interface CreateDiscountDialogProps {
   product: Product | null
@@ -32,7 +33,7 @@ export function CreateDiscountDialog({ product, open, onOpenChange }: CreateDisc
     mutationFn: async () => {
       if (!product) return
       await api.post(`/api/products/${product.id}/discounts`, {
-        discounted_price: parseFloat(discountedPrice),
+        discounted_price: parseDecimalInput(discountedPrice),
         start_date: startDate,
         end_date: endDate,
         reason: reason || undefined,
@@ -60,7 +61,7 @@ export function CreateDiscountDialog({ product, open, onOpenChange }: CreateDisc
     setError("")
     if (!product) return
     if (product.status === PRODUCT_STATUS.discontinued) { setError(t("discounts.discontinuedBlocked")); return }
-    const price = parseFloat(discountedPrice)
+    const price = parseDecimalInput(discountedPrice)
     if (!discountedPrice || price < 0) { setError(t("discounts.priceInvalid")); return }
     if (product && price >= product.sell_price) { setError(t("errors.discountPriceAboveSell")); return }
     if (!startDate) { setError(t("discounts.startDateRequired")); return }
