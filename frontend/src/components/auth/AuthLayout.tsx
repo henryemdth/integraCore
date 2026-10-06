@@ -5,8 +5,8 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation()
 
   return (
-    <div className="min-h-screen flex">
-      <div className="hidden lg:flex lg:w-1/2 bg-surface-container-low items-center justify-center p-12">
+    <div className="h-screen flex overflow-y-auto">
+      <div className="hidden lg:flex lg:w-1/2 bg-surface-container-low items-center justify-center p-12 shrink-0">
         <div className="max-w-md">
           <div className="flex items-center gap-3 mb-8">
             <BrandMark className="h-12 w-12" />

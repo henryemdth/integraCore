@@ -44,7 +44,9 @@ export default function ProductListPage() {
   const [searchInput, setSearchInput] = useState("")
   const [search, setSearch] = useState("")
   const [category, setCategory] = useState("all")
-  const [statusFilter, setStatusFilter] = useState("all")
+  // Sellers work from the saleable catalogue by default; admins keep the
+  // full view (including discontinued) for management.
+  const [statusFilter, setStatusFilter] = useState(isAdmin ? "all" : "active")
   const [sort, setSort] = useState("created_at")
   const [order, setOrder] = useState<"ASC" | "DESC">("DESC")
   const [stockProduct, setStockProduct] = useState<Product | null>(null)
@@ -230,7 +232,7 @@ export default function ProductListPage() {
                   </TableCell>
                 </TableRow>
               ) : products.map((product) => (
-                <TableRow key={product.id} className={cn((product.status ?? PRODUCT_STATUS.active) === PRODUCT_STATUS.discontinued && "opacity-60")}>
+                <TableRow key={product.id} className={cn((product.status ?? PRODUCT_STATUS.active) === PRODUCT_STATUS.discontinued && "bg-muted/40")}>
                   <TableCell className="font-medium">{product.name}</TableCell>
                   <TableCell><code className="text-xs bg-muted px-1.5 py-0.5 rounded">{product.sku}</code></TableCell>
                   <TableCell>{product.category || "—"}</TableCell>
@@ -261,18 +263,29 @@ export default function ProductListPage() {
                     )}
                   </TableCell>
                   <TableCell className="text-right">
-                    {product.stock <= product.low_stock_threshold ? (
+                    {product.stock === 0 ? (
                       <TooltipProvider delayDuration={200}>
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <span><Badge variant="destructive">{product.stock}</Badge></span>
                           </TooltipTrigger>
                           <TooltipContent side="top">
+                            {t("sales.create.outOfStock")}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    ) : product.stock <= product.low_stock_threshold ? (
+                      <TooltipProvider delayDuration={200}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span><Badge variant="warning-light">{product.stock}</Badge></span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
                             {t("products.lowStockHint", { count: product.low_stock_threshold })}
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
-                    ) : <span>{product.stock}</span>}
+                    ) : <span className="font-data">{product.stock}</span>}
                   </TableCell>
                   <TableCell>
                     <Badge variant={(product.status ?? PRODUCT_STATUS.active) === PRODUCT_STATUS.active ? "success-light" : "secondary"}>
@@ -283,7 +296,7 @@ export default function ProductListPage() {
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 min-h-0 p-0" aria-label={t("common.actions")}>
+                          <Button variant="ghost" className="h-9 w-9 min-h-0 p-0" aria-label={t("common.actions")} aria-haspopup="menu">
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>

@@ -30,6 +30,8 @@
     "signingIn": "Iniciando sesión...",
     "username": "Usuario",
     "password": "Contraseña",
+    "showPassword": "Mostrar contraseña",
+    "hidePassword": "Ocultar contraseña",
     "confirmPassword": "Confirmar contraseña",
     "passwordMismatch": "Las contraseñas no coinciden",
     "passwordHint": "Usa al menos 6 caracteres",
@@ -164,6 +166,7 @@
     },
     "confirmDelete": "¿Eliminar venta #{{id}}? Se restaurará el stock.",
     "confirmDeleteTitle": "¿Eliminar venta?",
+    "exportReport": "Exportar reporte",
     "deleted": "Venta eliminada, stock restaurado",
     "failedDelete": "Error al eliminar venta",
     "pageInfo": "Página {{page}} de {{totalPages}} ({{total}} ventas)",
@@ -194,6 +197,10 @@
       "qtyCapped": "Solo hay {{stock}} unidades de \"{{name}}\"",
       "cartRestored": "Se recuperó tu venta en curso ({{count}} productos)",
       "removeItem": "Quitar de la venta",
+      "inCart": "en venta",
+      "clearCart": "Limpiar",
+      "priceUpdated": "Precio actualizado para \"{{name}}\"",
+      "removedUnavailable": "\"{{name}}\" ya no está disponible y se quitó de la venta",
       "receipt": {
         "title": "Venta registrada",
         "saleNumber": "Venta #{{id}}",
@@ -328,7 +335,10 @@
       "restoreSuccess": "Base de datos restaurada exitosamente",
       "failedRestore": "Error al restaurar base de datos",
       "confirmRestore": "ADVERTENCIA: Todos los datos actuales (productos, ventas, usuarios, descuentos) serán reemplazados. Esto no se puede deshacer. ¿Continuar?",
-      "confirmRestoreTitle": "¿Restaurar copia de seguridad?"
+      "confirmRestoreTitle": "¿Restaurar copia de seguridad?",
+      "restoreReplaces": "Productos, ventas, usuarios y descuentos serán reemplazados",
+      "restoreAutoBackup": "Primero se guarda automáticamente un respaldo actual",
+      "restoreWritesBlocked": "Ventas y cambios se pausan unos segundos durante el proceso"
     },
     "connection": {
       "title": "Conexión al Servidor",
@@ -344,6 +354,7 @@
   },
   "notifications": {
     "title": "Notificaciones",
+    "unreadCount": "{{count}} notificaciones sin leer",
     "markAllRead": "Marcar todo leído",
     "noNotifications": "Sin notificaciones",
     "lowStock": "Stock bajo: {{count}} producto(s) por debajo del mínimo — {{names}}",
@@ -413,6 +424,7 @@
     "goToProducts": "Ir a productos",
     "createDiscount": "Aplicar descuento",
     "discountedPrice": "Precio con descuento",
+    "pctPreview": "{{pct}}% de descuento sobre el precio normal",
     "startDate": "Fecha de inicio",
     "endDate": "Fecha de fin",
     "reason": "Motivo",

@@ -173,7 +173,7 @@ export default function ProductFormPage() {
               </Alert>
             )}
             <div className="grid grid-cols-12 gap-4">
-              <div className="col-span-6 space-y-2">
+              <div className="col-span-12 sm:col-span-6 space-y-2">
                 <Label htmlFor="name">{t("products.name") + " *"}</Label>
                 <Input
                   id="name"
@@ -203,7 +203,7 @@ export default function ProductFormPage() {
                   </Alert>
                 )}
               </div>
-              <div className="col-span-6 space-y-2">
+              <div className="col-span-12 sm:col-span-6 space-y-2">
                 <Label htmlFor="sku">{t("products.sku") + " *"}</Label>
                 <Input
                   id="sku"
@@ -214,7 +214,7 @@ export default function ProductFormPage() {
                   className="font-data"
                 />
               </div>
-              <div className="col-span-6 space-y-2">
+              <div className="col-span-12 sm:col-span-6 space-y-2">
                 <Label>{t("products.category")}</Label>
                 <SearchableSelect
                   value={category}
@@ -228,7 +228,7 @@ export default function ProductFormPage() {
                   className="w-full max-w-none"
                 />
               </div>
-              <div className="col-span-6 space-y-2">
+              <div className="col-span-12 sm:col-span-6 space-y-2">
                 <Label htmlFor="price">{t("products.purchasePrice") + " *"}</Label>
                 <Input
                   id="price"
@@ -242,7 +242,7 @@ export default function ProductFormPage() {
                   className="font-data"
                 />
               </div>
-              <div className="col-span-4 space-y-2">
+              <div className="col-span-12 sm:col-span-4 space-y-2">
                 <Label htmlFor="sell_price">{t("products.sellPrice") + " *"}</Label>
                 <Input
                   id="sell_price"
@@ -256,7 +256,7 @@ export default function ProductFormPage() {
                   className="font-data"
                 />
               </div>
-              <div className="col-span-4 space-y-2">
+              <div className="col-span-12 sm:col-span-4 space-y-2">
                 <Label htmlFor="stock">{t("products.stock")}</Label>
                 <Input
                   id="stock"
@@ -268,7 +268,7 @@ export default function ProductFormPage() {
                   className="font-data"
                 />
               </div>
-              <div className="col-span-4 space-y-2">
+              <div className="col-span-12 sm:col-span-4 space-y-2">
                 <Label htmlFor="threshold">{t("products.lowStockThreshold")}</Label>
                 <Input
                   id="threshold"
@@ -278,10 +278,12 @@ export default function ProductFormPage() {
                   onChange={(e) => setLowStockThreshold(e.target.value)}
                   placeholder="5"
                   className="font-data"
+                  aria-describedby="threshold-hint"
                 />
+                <p id="threshold-hint" className="text-xs text-muted-foreground">{t("products.lowStockHint", { count: lowStockThreshold || 0 })}</p>
               </div>
               {isEdit && isAdmin && (
-                <div className="col-span-4 space-y-2">
+                <div className="col-span-12 sm:col-span-4 space-y-2">
                   <Label>{t("products.status")}</Label>
                   <Select value={status} onValueChange={(v) => setStatus(v as ProductStatus)}>
                     <SelectTrigger>

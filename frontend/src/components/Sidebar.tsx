@@ -6,7 +6,6 @@ import { cn } from "@/lib/utils"
 import { Avatar } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { BrandMark } from "@/components/BrandMark"
-import { LanguageToggle } from "@/components/LanguageToggle"
 
 const navItems = [
   { to: "/", key: "sidebar.dashboard", icon: LayoutDashboard, roles: ["admin", "user"] },
@@ -79,11 +78,6 @@ export default function Sidebar({ collapsed }: SidebarProps) {
       </nav>
 
       <div className={cn("border-t border-border", collapsed ? "p-2" : "p-3")}>
-        {!collapsed && (
-          <div className="flex justify-center pb-2">
-            <LanguageToggle />
-          </div>
-        )}
         <div className={cn("flex items-center", collapsed ? "flex-col gap-2" : "gap-3 px-2 py-1.5")}>
           <Avatar
             initials={getInitials(user?.full_name ?? "?")}
@@ -101,7 +95,7 @@ export default function Sidebar({ collapsed }: SidebarProps) {
             variant="ghost"
             onClick={logout}
             title={t("layout.logout")}
-            className="h-8 w-8 min-h-0 p-0 shrink-0 text-muted-foreground hover:text-destructive"
+            className="h-9 w-9 min-h-0 p-0 shrink-0 text-muted-foreground hover:text-destructive"
           >
             <LogOut className="h-5 w-5" />
           </Button>

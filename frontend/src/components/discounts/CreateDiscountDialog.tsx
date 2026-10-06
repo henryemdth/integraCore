@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2 } from "lucide-react"
 import { getErrorMessage } from "@/lib/errorMessages"
-import { parseDecimalInput } from "@/lib/format"
+import { parseDecimalInput, formatCurrency } from "@/lib/format"
 
 interface CreateDiscountDialogProps {
   product: Product | null
@@ -28,6 +28,11 @@ export function CreateDiscountDialog({ product, open, onOpenChange }: CreateDisc
   const [reason, setReason] = useState("")
   const [error, setError] = useState("")
   const queryClient = useQueryClient()
+  const today = new Date().toISOString().split("T")[0]
+  const parsedPreview = parseDecimalInput(discountedPrice)
+  const pctOff = product && !Number.isNaN(parsedPreview) && parsedPreview >= 0 && parsedPreview < product.sell_price
+    ? Math.round((1 - parsedPreview / product.sell_price) * 100)
+    : null
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -78,7 +83,7 @@ export function CreateDiscountDialog({ product, open, onOpenChange }: CreateDisc
           <DialogDescription>
             <span className="font-data">{product?.sku}</span>
             {" · "}
-            {t("products.sellPrice")}: {product?.sell_price}
+            {t("products.sellPrice")}: {product ? formatCurrency(product.sell_price) : ""}
           </DialogDescription>
         </DialogHeader>
         {product?.status === "discontinued" ? (
@@ -107,6 +112,11 @@ export function CreateDiscountDialog({ product, open, onOpenChange }: CreateDisc
                 required
                 className="font-data"
               />
+              {pctOff !== null && (
+                <p className="text-body-sm font-medium text-success" aria-live="polite">
+                  {t("discounts.pctPreview", { pct: pctOff })}
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="discount-reason">{t("discounts.reason")}</Label>
@@ -122,6 +132,7 @@ export function CreateDiscountDialog({ product, open, onOpenChange }: CreateDisc
               <Input
                 id="discount-start"
                 type="date"
+                min={today}
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
                 required
@@ -132,6 +143,7 @@ export function CreateDiscountDialog({ product, open, onOpenChange }: CreateDisc
               <Input
                 id="discount-end"
                 type="date"
+                min={startDate || today}
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
                 required

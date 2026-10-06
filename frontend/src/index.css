@@ -72,10 +72,39 @@
   * {
     @apply border-border;
   }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
   body {
     @apply bg-background text-foreground;
     margin: 0;
+    overflow: hidden;
     font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  }
+  /* Single-region scrolling: only the main content area scrolls, with slim
+     overlay-style bars that stay invisible until hovered. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+  *:hover {
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 8px;
+  }
+  *:hover::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
   }
 }
 

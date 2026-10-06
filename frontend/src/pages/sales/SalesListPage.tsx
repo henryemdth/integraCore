@@ -178,14 +178,14 @@ export default function SalesListPage() {
                   </div>
                 </div>
                 <div className="flex-1" />
-                <Button variant="outline" size="sm" onClick={() => {
+                <Button variant="outline" size="sm" aria-pressed={hasFilters} onClick={() => {
                   const p: Record<string, string> = {}
                   if (sellerFilter !== "all") p.user_id = sellerFilter
                   if (productFilter !== "all") p.product_id = productFilter
                   if (dateFrom) p.date_from = dateFrom
                   if (dateTo) p.date_to = dateTo
                   exportToExcel("/api/sales/export", p, "sales.xlsx")
-                }}><Download className="h-4 w-4 mr-2" />{t("products.export")}</Button>
+                }}><Download className="h-4 w-4 mr-2" />{t("sales.exportReport")}</Button>
               </div>
             </CardHeader>
             <CardContent>
@@ -243,9 +243,9 @@ export default function SalesListPage() {
                       <TableCell className="text-right font-data font-semibold">{formatCurrency(sale.total)}</TableCell>
                       <TableCell>
                         <div className="flex gap-1">
-                          <Button variant="ghost" className="h-8 w-8 p-0" aria-label={t("sales.viewSale")} onClick={() => setDetailSale(sale)}><Eye className="h-4 w-4" /></Button>
+                          <Button variant="ghost" className="h-9 w-9 p-0" aria-label={t("sales.viewSale")} onClick={() => setDetailSale(sale)}><Eye className="h-4 w-4" /></Button>
                           {isAdmin && (
-                            <Button variant="ghost" className="h-8 w-8 p-0 text-destructive" aria-label={t("common.delete")}
+                            <Button variant="ghost" className="h-9 w-9 p-0 text-destructive" aria-label={t("common.delete")}
                               onClick={() => setConfirmDeleteSaleId(sale.id)}>
                               <Trash2 className="h-4 w-4" />
                             </Button>

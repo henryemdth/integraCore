@@ -446,6 +446,11 @@ export default function SettingsPage() {
         onOpenChange={(open: boolean) => { if (!open) setPendingRestoreFile(null) }}
         title={t("settings.backup.confirmRestoreTitle")}
         description={t("settings.backup.confirmRestore")}
+        details={[
+          t("settings.backup.restoreReplaces"),
+          t("settings.backup.restoreAutoBackup"),
+          t("settings.backup.restoreWritesBlocked"),
+        ]}
         confirmLabel={t("settings.backup.restoreBtn")}
         destructive
         pending={restoreLoading}

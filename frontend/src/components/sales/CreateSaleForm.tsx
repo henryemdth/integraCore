@@ -36,6 +36,7 @@ const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u03
 export function CreateSaleForm() {
   const { t } = useTranslation()
   const [search, setSearch] = useState("")
+  const [highlight, setHighlight] = useState(0)
   const [cart, setCart] = useState<CartItem[]>([])
   const [notes, setNotes] = useState("")
   const [error, setError] = useState("")
@@ -45,6 +46,35 @@ export function CreateSaleForm() {
   const queryClient = useQueryClient()
 
   const products = useAllProducts().data ?? []
+
+  // Keep cart lines in sync with the live catalogue: socket invalidations
+  // refetch products (price/stock edits, discount start/end), and a stale
+  // cart would otherwise sell at an outdated price (AGENTS.md §6).
+  const priceChangeRef = useRef<Map<number, number>>(new Map())
+  useEffect(() => {
+    if (products.length === 0 || cart.length === 0) return
+    let changed = false
+    const next = cart.flatMap((item) => {
+      const fresh = products.find((p) => p.id === item.product.id)
+      if (!fresh || fresh.status === PRODUCT_STATUS.discontinued) {
+        changed = true
+        toast.warning(t("sales.create.removedUnavailable", { name: item.product.name } as Record<string, string>))
+        return []
+      }
+      const freshPrice = fresh.discounted_price ?? fresh.sell_price
+      const oldPrice = item.product.discounted_price ?? item.product.sell_price
+      if (freshPrice !== oldPrice && priceChangeRef.current.get(fresh.id) !== freshPrice) {
+        priceChangeRef.current.set(fresh.id, freshPrice)
+        toast.info(t("sales.create.priceUpdated", { name: fresh.name } as Record<string, string>))
+      }
+      if (fresh !== item.product) {
+        changed = true
+        return [{ product: fresh, quantity: Math.min(item.quantity, Math.max(1, fresh.stock)) }]
+      }
+      return [item]
+    })
+    if (changed) setCart(next)
+  }, [products, cart, t])
 
   // Restore an interrupted sale once the catalogue is available.
   const [pendingRestore, setPendingRestore] = useState<StoredCart | null>(() => {
@@ -103,8 +133,10 @@ export function CreateSaleForm() {
   const filteredProducts = useMemo(() => {
     if (!search) return []
     const q = search.toLowerCase()
-    return products.filter((p) => p.status !== PRODUCT_STATUS.discontinued && (p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q)) && !cart.some((c) => c.product.id === p.id)).slice(0, 10)
-  }, [search, products, cart])
+    return products.filter((p) => p.status !== PRODUCT_STATUS.discontinued && (p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q))).slice(0, 10)
+  }, [search, products])
+
+  useEffect(() => { setHighlight(0) }, [search])
 
   const total = cart.reduce((sum, item) => sum + (item.product.discounted_price ?? item.product.sell_price) * item.quantity, 0)
   const totalSavings = cart.reduce((sum, item) => sum + (item.product.discounted_price ? (item.product.sell_price - item.product.discounted_price) * item.quantity : 0), 0)
@@ -113,8 +145,14 @@ export function CreateSaleForm() {
 
   const addToCart = (product: Product) => {
     if (product.stock === 0) return
-    setCart([...cart, { product, quantity: 1 }])
+    const inCart = cart.find((c) => c.product.id === product.id)
+    if (inCart) {
+      updateQuantity(product.id, inCart.quantity + 1)
+    } else {
+      setCart([...cart, { product, quantity: 1 }])
+    }
     setSearch("")
+    setHighlight(0)
     searchInputRef.current?.focus()
   }
 
@@ -134,9 +172,20 @@ export function CreateSaleForm() {
   const removeFromCart = (productId: number) => setCart(cart.filter((item) => item.product.id !== productId))
 
   // Enter in the search box adds the exact SKU match (barcode scanners send
-  // typed text + Enter); falling back to the first suggestion. Scanning an
-  // item already in the cart bumps its quantity instead.
+  // typed text + Enter); falling back to the highlighted suggestion. Scanning
+  // an item already in the cart bumps its quantity instead. Arrow keys move
+  // the highlight so sellers never touch the mouse.
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "ArrowDown" && filteredProducts.length > 0) {
+      e.preventDefault()
+      setHighlight((h) => (h + 1) % filteredProducts.length)
+      return
+    }
+    if (e.key === "ArrowUp" && filteredProducts.length > 0) {
+      e.preventDefault()
+      setHighlight((h) => (h - 1 + filteredProducts.length) % filteredProducts.length)
+      return
+    }
     if (e.key !== "Enter") return
     e.preventDefault()
     const query = normalize(search.trim())
@@ -154,7 +203,7 @@ export function CreateSaleForm() {
       addToCart(exact)
       return
     }
-    if (filteredProducts[0]) addToCart(filteredProducts[0])
+    if (filteredProducts[highlight] ?? filteredProducts[0]) addToCart((filteredProducts[highlight] ?? filteredProducts[0]))
   }
 
   const createSale = useMutation({
@@ -185,6 +234,19 @@ export function CreateSaleForm() {
     },
   })
 
+  // F2 completes the sale from anywhere in the form — the fastest path for
+  // keyboard-driven sellers.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "F2") {
+        e.preventDefault()
+        if (cart.length > 0 && !hasInsufficientStock && !createSale.isPending) createSale.mutate()
+      }
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  })
+
   return (
     <Card>
       <CardHeader>
@@ -209,24 +271,32 @@ export function CreateSaleForm() {
               />
             </div>
             {filteredProducts.length > 0 && (
-              <div className="border border-border rounded-md max-h-40 overflow-y-auto">
-                {filteredProducts.map((product) => {
+              <div className="border border-border rounded-md max-h-40 overflow-y-auto" role="listbox" aria-label={t("sales.create.addProduct")}>
+                {filteredProducts.map((product, idx) => {
                   const outOfStock = product.stock === 0
+                  const inCartQty = cart.find((c) => c.product.id === product.id)?.quantity ?? 0
                   return (
                     <button
                       key={product.id}
                       type="button"
+                      role="option"
+                      aria-selected={idx === highlight}
                       disabled={outOfStock}
                       className={cn(
-                        "w-full text-left px-3 py-2.5 text-sm flex justify-between items-center border-b border-border last:border-b-0 transition-colors",
-                        outOfStock ? "opacity-50 cursor-not-allowed" : "hover:bg-surface-container"
+                        "w-full text-left px-3 py-2.5 text-sm flex justify-between items-center border-b border-border last:border-b-0 transition-colors min-h-[44px]",
+                        outOfStock ? "opacity-50 cursor-not-allowed" : "hover:bg-surface-container",
+                        idx === highlight && !outOfStock && "bg-surface-container"
                       )}
+                      onMouseEnter={() => setHighlight(idx)}
                       onClick={() => addToCart(product)}
                     >
                       <span>
                         <span className="font-medium">{product.name}</span>
                         {product.category && (
                           <span className="text-xs text-muted-foreground ml-2">{product.category}</span>
+                        )}
+                        {inCartQty > 0 && (
+                          <span className="text-xs font-medium text-primary ml-2">×{inCartQty} {t("sales.create.inCart")}</span>
                         )}
                       </span>
                       <span className="flex items-center gap-3">
@@ -271,7 +341,7 @@ export function CreateSaleForm() {
                               type="button"
                               variant="outline"
                               size="icon"
-                              className="h-8 w-8"
+                              className="h-11 w-11"
                               disabled={item.quantity <= 1}
                               aria-label={t("common.decrease")}
                               onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
@@ -280,17 +350,30 @@ export function CreateSaleForm() {
                             </Button>
                             <Input
                               type="number"
+                              inputMode="numeric"
                               min="1"
+                              max={item.product.stock}
                               value={item.quantity}
                               aria-label={t("sales.create.qty")}
-                              onChange={(e) => updateQuantity(item.product.id, parseInt(e.target.value) || 1)}
-                              className="h-8 w-14 text-center font-data"
+                              onChange={(e) => {
+                                const parsed = parseInt(e.target.value)
+                                if (e.target.value === "") return
+                                updateQuantity(item.product.id, Number.isNaN(parsed) ? 1 : parsed)
+                              }}
+                              onBlur={(e) => {
+                                const parsed = parseInt(e.target.value)
+                                const clamped = Number.isNaN(parsed)
+                                  ? 1
+                                  : Math.min(Math.max(1, parsed), Math.max(1, item.product.stock))
+                                if (clamped !== item.quantity) updateQuantity(item.product.id, clamped)
+                              }}
+                              className="h-11 w-16 text-center font-data"
                             />
                             <Button
                               type="button"
                               variant="outline"
                               size="icon"
-                              className="h-8 w-8"
+                              className="h-11 w-11"
                               aria-label={t("common.increase")}
                               onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
                             >
@@ -303,7 +386,7 @@ export function CreateSaleForm() {
                           <Button
                             type="button"
                             variant="ghost"
-                            className="h-8 w-8 p-0"
+                            className="h-9 w-9 p-0"
                             aria-label={t("sales.create.removeItem")}
                             onClick={() => removeFromCart(item.product.id)}
                           >
@@ -321,20 +404,27 @@ export function CreateSaleForm() {
                   <AlertDescription>{t("sales.create.insufficientStock")}</AlertDescription>
                 </Alert>
               )}
-              {totalSavings > 0 && (
-                <div className="flex justify-end text-sm text-muted-foreground">
-                  <span className="font-data">{t("sales.create.savingsFromDiscounts", { amount: formatCurrency(totalSavings) })}</span>
-                </div>
-              )}
-              <div className="flex justify-end"><span className="text-headline-sm font-data">{t("sales.create.totalLabel", { amount: formatCurrency(total) })}</span></div>
+              <div className="sticky bottom-0 bg-card py-2 space-y-1">
+                {totalSavings > 0 && (
+                  <div className="flex justify-end text-sm text-muted-foreground">
+                    <span className="font-data">{t("sales.create.savingsFromDiscounts", { amount: formatCurrency(totalSavings) })}</span>
+                  </div>
+                )}
+                <div className="flex justify-end"><span className="text-headline-sm font-data">{t("sales.create.totalLabel", { amount: formatCurrency(total) })}</span></div>
+              </div>
             </>
           )}
           <div className="space-y-2">
             <Label htmlFor="sale-notes">{t("sales.create.notes")}</Label>
             <Textarea id="sale-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t("sales.create.notesPlaceholder")} rows={2} />
           </div>
-          <div className="flex justify-end">
-            <Button type="submit" disabled={createSale.isPending || cart.length === 0 || hasInsufficientStock}>
+          <div className="flex justify-end gap-2">
+            {cart.length > 0 && (
+              <Button type="button" variant="ghost" onClick={() => { setCart([]); setSearch("") }}>
+                {t("sales.create.clearCart")}
+              </Button>
+            )}
+            <Button type="submit" className="min-h-[44px] px-6" disabled={createSale.isPending || cart.length === 0 || hasInsufficientStock} title="F2">
               {createSale.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {createSale.isPending ? t("sales.create.processing") : t("sales.create.completeSale")}
             </Button>

@@ -40,7 +40,7 @@ export function SaleDetailDialog({ sale, open, onOpenChange }: SaleDetailDialogP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>{t("sales.detail.title", { id: sale.id })}</DialogTitle>
           <DialogDescription>
@@ -60,10 +60,8 @@ export function SaleDetailDialog({ sale, open, onOpenChange }: SaleDetailDialogP
           <TableHeader>
             <TableRow>
               <TableHead>{t("sales.product")}</TableHead>
-              <TableHead>{t("products.category")}</TableHead>
               <TableHead className="text-right">{t("sales.create.qty")}</TableHead>
               <TableHead className="text-right">{t("products.price")}</TableHead>
-              <TableHead className="text-right">{t("sales.detail.originalPrice")}</TableHead>
               <TableHead className="text-right">{t("sales.detail.discountApplied")}</TableHead>
               <TableHead className="text-right">{t("sales.create.subtotal")}</TableHead>
             </TableRow>
@@ -73,8 +71,10 @@ export function SaleDetailDialog({ sale, open, onOpenChange }: SaleDetailDialogP
               const hasDiscount = item.discount_id != null
               return (
                 <TableRow key={item.id}>
-                  <TableCell className="font-medium">{item.product_name}</TableCell>
-                  <TableCell className="text-body-sm text-muted-foreground">{item.product_category || "—"}</TableCell>
+                  <TableCell className="font-medium">
+                    {item.product_name}
+                    <span className="block text-body-sm font-normal text-muted-foreground">{item.product_category || "—"}</span>
+                  </TableCell>
                   <TableCell className="text-right font-data">{item.quantity}</TableCell>
                   <TableCell className="text-right font-data">
                     {hasDiscount ? (
@@ -83,7 +83,6 @@ export function SaleDetailDialog({ sale, open, onOpenChange }: SaleDetailDialogP
                       formatCurrency(item.unit_price)
                     )}
                   </TableCell>
-                  <TableCell className="text-right font-data text-muted-foreground">{formatCurrency(item.original_price)}</TableCell>
                   <TableCell className="text-right">
                     {hasDiscount ? t("discounts.yes") : t("discounts.no")}
                   </TableCell>

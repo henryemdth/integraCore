@@ -15,6 +15,8 @@ interface ConfirmDialogProps {
   onOpenChange: (open: boolean) => void
   title: string
   description?: string
+  /** Optional bullet list rendered under the description (e.g. data that will be replaced). */
+  details?: string[]
   confirmLabel: string
   cancelLabel?: string
   destructive?: boolean
@@ -27,6 +29,7 @@ export function ConfirmDialog({
   onOpenChange,
   title,
   description,
+  details,
   confirmLabel,
   cancelLabel,
   destructive = false,
@@ -42,6 +45,13 @@ export function ConfirmDialog({
           <DialogTitle>{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
+        {details && details.length > 0 && (
+          <ul className="list-disc pl-5 space-y-1 text-sm text-muted-foreground">
+            {details.map((d) => (
+              <li key={d}>{d}</li>
+            ))}
+          </ul>
+        )}
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             {cancelLabel || t("common.cancel")}

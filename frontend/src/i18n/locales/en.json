@@ -30,6 +30,8 @@
     "signingIn": "Signing in...",
     "username": "Username",
     "password": "Password",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
     "confirmPassword": "Confirm Password",
     "passwordMismatch": "Passwords do not match",
     "passwordHint": "Use at least 6 characters",
@@ -164,6 +166,7 @@
     },
     "confirmDelete": "Delete sale #{{id}}? This will restore stock.",
     "confirmDeleteTitle": "Delete sale?",
+    "exportReport": "Export Report",
     "deleted": "Sale deleted, stock restored",
     "failedDelete": "Failed to delete sale",
     "pageInfo": "Page {{page}} of {{totalPages}} ({{total}} sales)",
@@ -194,6 +197,10 @@
       "qtyCapped": "Only {{stock}} units of \"{{name}}\" available",
       "cartRestored": "Your in-progress sale was restored ({{count}} products)",
       "removeItem": "Remove from sale",
+      "inCart": "in cart",
+      "clearCart": "Clear",
+      "priceUpdated": "Price updated for \"{{name}}\"",
+      "removedUnavailable": "\"{{name}}\" is no longer available and was removed from the sale",
       "receipt": {
         "title": "Sale registered",
         "saleNumber": "Sale #{{id}}",
@@ -328,7 +335,10 @@
       "restoreSuccess": "Database restored successfully",
       "failedRestore": "Failed to restore database",
       "confirmRestore": "WARNING: All current data (products, sales, users, discounts) will be replaced. This cannot be undone. Continue?",
-      "confirmRestoreTitle": "Restore backup?"
+      "confirmRestoreTitle": "Restore backup?",
+      "restoreReplaces": "Products, sales, users and discounts will be replaced",
+      "restoreAutoBackup": "A backup of the current database is saved automatically first",
+      "restoreWritesBlocked": "Sales and changes are paused for a few seconds during the swap"
     },
     "connection": {
       "title": "Server Connection",
@@ -344,6 +354,7 @@
   },
   "notifications": {
     "title": "Notifications",
+    "unreadCount": "{{count}} unread notifications",
     "markAllRead": "Mark all read",
     "noNotifications": "No notifications",
     "lowStock": "Low stock: {{count}} product(s) below threshold — {{names}}",
@@ -413,6 +424,7 @@
     "goToProducts": "Go to products",
     "createDiscount": "Set Discount",
     "discountedPrice": "Discounted Price",
+    "pctPreview": "{{pct}}% off the normal price",
     "startDate": "Start Date",
     "endDate": "End Date",
     "reason": "Reason",

@@ -89,7 +89,7 @@ export default function DashboardPage() {
         </Card>
       )}
 
-      <div className="grid gap-4 grid-cols-1 lg:grid-cols-3">
+      <div className={`grid gap-4 grid-cols-1 ${isAdmin ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
         {isAdmin && (
           <Link to="/users">
             <Card className="cursor-pointer hover:shadow-elevated transition-shadow">
@@ -105,7 +105,7 @@ export default function DashboardPage() {
             </Card>
           </Link>
         )}
-        <Link to="/products">
+        <Link to="/sales">
           <Card className="cursor-pointer hover:shadow-elevated transition-shadow">
             <CardContent className="flex items-center gap-4 p-5">
               <div className="flex h-10 w-10 items-center justify-center rounded-md bg-success/10">
