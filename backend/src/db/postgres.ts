@@ -32,17 +32,17 @@ export class PostgresAdapter implements DatabaseAdapter {
    */
   private createTxAdapter(client: pg.PoolClient): DatabaseAdapter {
     return {
-      async get<T = any>(sql: string, params?: any[]): Promise<T | undefined> {
+      async get<T = any>(sql: string, params?: unknown[]): Promise<T | undefined> {
         const q = convertLikeToIlike(convertDatetimeFunctions(sql));
         const result = await client.query(q, params);
         return result.rows[0] === undefined ? undefined : (normalizeRowDates(result.rows[0]) as T);
       },
-      async all<T = any>(sql: string, params?: any[]): Promise<T[]> {
+      async all<T = any>(sql: string, params?: unknown[]): Promise<T[]> {
         const q = convertLikeToIlike(convertDatetimeFunctions(sql));
         const result = await client.query(q, params);
         return normalizeRowDatesAll(result.rows) as T[];
       },
-      async run(sql: string, params?: any[]): Promise<RunResult> {
+      async run(sql: string, params?: unknown[]): Promise<RunResult> {
         let q = convertLikeToIlike(convertDatetimeFunctions(sql));
         q = addReturningIfNeeded(q);
         const result = await client.query(q, params);
@@ -57,7 +57,7 @@ export class PostgresAdapter implements DatabaseAdapter {
       async transaction<T>(_fn: (tx: DatabaseAdapter) => Promise<T>): Promise<T> {
         throw new Error("Nested transactions are not supported");
       },
-      raw(): any {
+      raw<T = any>(): T {
         throw new Error("raw() is not available on a transaction adapter");
       },
       async close(): Promise<void> {
@@ -66,19 +66,19 @@ export class PostgresAdapter implements DatabaseAdapter {
     };
   }
 
-  async get<T = any>(sql: string, params?: any[]): Promise<T | undefined> {
+  async get<T = any>(sql: string, params?: unknown[]): Promise<T | undefined> {
     const pgSql = convertLikeToIlike(convertDatetimeFunctions(sql));
     const result = await this.pool.query(pgSql, params);
     return result.rows[0] === undefined ? undefined : (normalizeRowDates(result.rows[0]) as T);
   }
 
-  async all<T = any>(sql: string, params?: any[]): Promise<T[]> {
+  async all<T = any>(sql: string, params?: unknown[]): Promise<T[]> {
     const pgSql = convertLikeToIlike(convertDatetimeFunctions(sql));
     const result = await this.pool.query(pgSql, params);
     return normalizeRowDatesAll(result.rows) as T[];
   }
 
-  async run(sql: string, params?: any[]): Promise<RunResult> {
+  async run(sql: string, params?: unknown[]): Promise<RunResult> {
     let pgSql = convertLikeToIlike(convertDatetimeFunctions(sql));
     pgSql = addReturningIfNeeded(pgSql);
     const result = await this.pool.query(pgSql, params);
@@ -108,8 +108,8 @@ export class PostgresAdapter implements DatabaseAdapter {
     }
   }
 
-  raw(): any {
-    return this.pool;
+  raw<T = any>(): T {
+    return this.pool as T;
   }
 
   async close(): Promise<void> {

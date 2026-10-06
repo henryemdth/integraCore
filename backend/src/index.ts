@@ -30,7 +30,7 @@ async function main() {
   }
 
   // Run discount date-trigger check immediately on startup
-  runDiscountCheck(adapter).catch((err: any) =>
+  runDiscountCheck(adapter).catch((err: unknown) =>
     console.error("[startup] Discount trigger check failed:", err)
   );
 

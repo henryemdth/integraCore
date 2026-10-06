@@ -15,20 +15,25 @@ export function errorHandler(err: Error, _req: Request, res: Response, _next: Ne
     return;
   }
 
-  if ("issues" in err && Array.isArray((err as any).issues)) {
+  // Duck-typed shapes for third-party errors: ZodError carries `issues`,
+  // body-parser/http-errors carry `statusCode`/`status`. Structural typings
+  // keep the inspection cast-free while still narrowing at runtime.
+  const issues = (err as { issues?: unknown }).issues;
+  if (Array.isArray(issues)) {
     res.status(400).json({
       error: "Validation failed",
       code: "VALIDATION_FAILED",
-      details: formatZodIssues((err as any).issues),
+      details: formatZodIssues(issues),
     });
     return;
   }
 
   // Preserve real status codes from framework errors (e.g. body-parser's 413
   // "request entity too large") instead of masking them as a generic 500.
-  const status = (err as any).statusCode ?? (err as any).status;
+  const errWithStatus = err as { statusCode?: unknown; status?: unknown };
+  const status = errWithStatus.statusCode ?? errWithStatus.status;
   if (typeof status === "number" && status >= 400 && status < 500) {
-    res.status(status).json({ error: (err as Error).message || "Request failed" });
+    res.status(status).json({ error: err.message || "Request failed" });
     return;
   }
 

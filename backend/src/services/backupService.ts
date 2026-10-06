@@ -90,7 +90,7 @@ export function backupService(adapter: DatabaseAdapter, dataDir: string) {
   const backupDir = path.join(dataDir, "backups");
 
   async function exportBackup(): Promise<{ filePath: string; fileName: string }> {
-    const db = (adapter as any).raw();
+    const db = adapter.raw<Database.Database>();
     db.exec("PRAGMA wal_checkpoint(FULL)");
 
     const dbPath = db.name;
@@ -127,9 +127,11 @@ export function backupService(adapter: DatabaseAdapter, dataDir: string) {
         throw new AppError(400, `Invalid database schema: ${schemaError}`, "INVALID_DB_SCHEMA", { detail: String(schemaError) });
       }
 
-      acquireWriteLock();
+      if (!acquireWriteLock()) {
+        throw new AppError(409, "Another restore or maintenance operation is already in progress", "RESTORE_IN_PROGRESS");
+      }
 
-      const currentDb = (adapter as any).raw();
+      const currentDb = adapter.raw<Database.Database>();
       const dbPath = currentDb.name;
 
       fs.mkdirSync(backupDir, { recursive: true });

@@ -2,6 +2,10 @@ import { DatabaseAdapter } from "../db/adapter.js";
 import { productService } from "./productService.js";
 
 export function dashboardService(db: DatabaseAdapter) {
+  // Bound once per service lifetime (the service itself is a singleton) —
+  // getSummary must not re-allocate it on every dashboard request.
+  const products = productService(db);
+
   async function getSummary() {
     const productRow = await db.get<{ total: number }>(
       "SELECT COUNT(*) as total FROM products"
@@ -10,7 +14,7 @@ export function dashboardService(db: DatabaseAdapter) {
 
     // Same predicate as the low-stock alerts, so the dashboard count can never
     // diverge from what the alerts report.
-    const lowStockCount = (await productService(db).listLowStock()).length;
+    const lowStockCount = (await products.listLowStock()).length;
 
     // sales.created_at is stored in UTC (datetime('now') default), but the
     // dashboard counts "today" in local wall-clock terms. Compute the UTC

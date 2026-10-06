@@ -32,10 +32,10 @@ describe("discountService", () => {
       });
 
       expect(discount).toBeDefined();
-      expect(discount.id).toBeGreaterThan(0);
-      expect(discount.discounted_price).toBe(10);
-      expect(discount.status).toBe("active");
-      expect(discount.product_id).toBe(product.id);
+      expect(discount!.id).toBeGreaterThan(0);
+      expect(discount!.discounted_price).toBe(10);
+      expect(discount!.status).toBe("active");
+      expect(discount!.product_id).toBe(product.id);
     });
 
     it("rejects discount for discontinued product", async () => {
@@ -96,8 +96,8 @@ describe("discountService", () => {
         end_date: "2026-02-15",
       });
 
-      expect(d1.id).toBeGreaterThan(0);
-      expect(d2.id).toBeGreaterThan(0);
+      expect(d1!.id).toBeGreaterThan(0);
+      expect(d2!.id).toBeGreaterThan(0);
     });
 
     it("allows overlap with cancelled discount that has no sales", async () => {
@@ -109,7 +109,7 @@ describe("discountService", () => {
         end_date: "2026-01-31",
       });
 
-      await service.cancel(d1.id);
+      await service.cancel(d1!.id);
 
       const d2 = await service.create(product.id, {
         discounted_price: 12,
@@ -117,7 +117,7 @@ describe("discountService", () => {
         end_date: "2026-02-15",
       });
 
-      expect(d2.id).toBeGreaterThan(0);
+      expect(d2!.id).toBeGreaterThan(0);
     });
 
     it("allows overlap with cancelled discount that already has sales", async () => {
@@ -132,8 +132,8 @@ describe("discountService", () => {
 
       // A sale references the discount, then the admin cancels it.
       const saleId = await seedTestSale(db, user.id, product.id);
-      await db.run("UPDATE sale_items SET discount_id = ? WHERE sale_id = ?", [d1.id, saleId]);
-      await service.cancel(d1.id);
+      await db.run("UPDATE sale_items SET discount_id = ? WHERE sale_id = ?", [d1!.id, saleId]);
+      await service.cancel(d1!.id);
 
       // The same date range must be reusable — historical sales keep their
       // frozen discount_id/unit_price, so a new discount creates no ambiguity.
@@ -143,8 +143,8 @@ describe("discountService", () => {
         end_date: "2026-01-31",
       });
 
-      expect(d2.id).toBeGreaterThan(0);
-      expect(d2.status).toBe("active");
+      expect(d2!.id).toBeGreaterThan(0);
+      expect(d2!.status).toBe("active");
     });
 
     it("rejects if product does not exist", async () => {
@@ -165,11 +165,11 @@ describe("discountService", () => {
         end_date: "2026-01-31",
       });
 
-      const result = await service.cancel(discount.id);
+      const result = await service.cancel(discount!.id);
       expect(result.success).toBe(true);
       expect(result.cancelled).toBe(true);
 
-      const updated = await db.get("SELECT * FROM product_discounts WHERE id = ?", [discount.id]) as any;
+      const updated = await db.get("SELECT * FROM product_discounts WHERE id = ?", [discount!.id]) as any;
       expect(updated.status).toBe("cancelled");
     });
 
@@ -180,9 +180,9 @@ describe("discountService", () => {
         start_date: "2026-01-01",
         end_date: "2026-01-31",
       });
-      await service.cancel(discount.id);
+      await service.cancel(discount!.id);
 
-      await expect(service.cancel(discount.id)).rejects.toThrow("already cancelled");
+      await expect(service.cancel(discount!.id)).rejects.toThrow("already cancelled");
     });
 
     it("rejects cancelling non-existent discount", async () => {
@@ -199,10 +199,10 @@ describe("discountService", () => {
         end_date: "2026-01-31",
       });
 
-      const result = await service.remove(discount.id);
+      const result = await service.remove(discount!.id);
       expect(result.success).toBe(true);
 
-      const found = await db.get("SELECT * FROM product_discounts WHERE id = ?", [discount.id]);
+      const found = await db.get("SELECT * FROM product_discounts WHERE id = ?", [discount!.id]);
       expect(found).toBeUndefined();
     });
   });
@@ -242,8 +242,8 @@ describe("discountService", () => {
         end_date: "2026-08-20",
       });
 
-      expect(discount.start_date).toBe("2026-08-10 00:00:00.000");
-      expect(discount.end_date).toBe("2026-08-20 23:59:59.999");
+      expect(discount!.start_date).toBe("2026-08-10 00:00:00.000");
+      expect(discount!.end_date).toBe("2026-08-20 23:59:59.999");
     });
 
     it("getActive ignores cancelled discount even within date range", async () => {
@@ -255,7 +255,7 @@ describe("discountService", () => {
         end_date: today,
       });
 
-      await service.cancel(discount.id);
+      await service.cancel(discount!.id);
 
       const active = await service.getActive(product.id);
       expect(active).toBeUndefined();
@@ -341,7 +341,7 @@ describe("discountService", () => {
       await service.create(pExpired.id, { discounted_price: 10, start_date: "2000-01-01", end_date: "2000-01-31" });
       // Dates cover today, but being cancelled must exclude it from "active".
       const cancelled = await service.create(pCancelled.id, { discounted_price: 10, start_date: today, end_date: today });
-      await service.cancel(cancelled.id);
+      await service.cancel(cancelled!.id);
 
       const skus = (result: Awaited<ReturnType<typeof service.listAll>>) =>
         result.discounts.map((d: any) => d.product_sku);

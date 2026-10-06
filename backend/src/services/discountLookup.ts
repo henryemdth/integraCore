@@ -1,5 +1,6 @@
 import type { DatabaseAdapter } from "../db/adapter.js";
 import { nowString } from "@integracore/shared";
+import type { DiscountRow } from "../types/models.js";
 
 // The core "active discount covering right now" predicate, in one place: every
 // price-resolution path (sales, product lists, realtime payloads) must agree
@@ -8,18 +9,18 @@ import { nowString } from "@integracore/shared";
 //
 // Lives in its own dependency-free module so productService and
 // discountService can both use it without importing each other.
-export async function findActiveDiscounts(db: DatabaseAdapter, productIds: number[]): Promise<Map<number, any>> {
+export async function findActiveDiscounts(db: DatabaseAdapter, productIds: number[]): Promise<Map<number, DiscountRow>> {
   if (productIds.length === 0) return new Map();
   const now = nowString();
   const placeholders = productIds.map(() => "?").join(",");
-  const rows = await db.all(
+  const rows = await db.all<DiscountRow>(
     `SELECT * FROM product_discounts
      WHERE product_id IN (${placeholders})
        AND status = 'active'
        AND start_date <= ? AND end_date >= ?
      ORDER BY start_date DESC`,
     [...productIds, now, now],
-  ) as any[];
+  );
   return new Map(rows.map((d) => [d.product_id, d]));
 }
 

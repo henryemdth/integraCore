@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { AppError } from "../utils/appError.js";
 import { emitUsersChanged } from "../socket/index.js";
 import { fetchUserProjection } from "./userProjection.js";
+import type { UserProjectionRow, UserRow } from "../types/models.js";
 
 export function userService(db: DatabaseAdapter) {
   async function list(params: { page: number; limit: number; active?: string; search?: string }) {
@@ -10,7 +11,7 @@ export function userService(db: DatabaseAdapter) {
     const offset = (page - 1) * limit;
 
     const conditions: string[] = [];
-    const sqlParams: any[] = [];
+    const sqlParams: unknown[] = [];
 
     if (active === "active") {
       conditions.push("active = ?");
@@ -33,7 +34,7 @@ export function userService(db: DatabaseAdapter) {
     const total = countRow!.count;
     const totalPages = Math.ceil(total / limit);
 
-    const users = await db.all(
+    const users = await db.all<UserProjectionRow>(
       `SELECT id, username, full_name, role, active, created_at, updated_at FROM users ${where} ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`,
       [...sqlParams, limit, offset]
     );
@@ -48,7 +49,7 @@ export function userService(db: DatabaseAdapter) {
   }
 
   async function update(id: number, data: { full_name?: string; role?: string }, requesterId: number) {
-    const existing = await db.get("SELECT * FROM users WHERE id = ?", [id]) as any;
+    const existing = await db.get<UserRow>("SELECT * FROM users WHERE id = ?", [id]);
     if (!existing) throw new AppError(404, "User not found", "USER_NOT_FOUND");
 
     if (Number(id) === requesterId && data.role && data.role !== existing.role) {
@@ -70,7 +71,7 @@ export function userService(db: DatabaseAdapter) {
   }
 
   async function deactivate(id: number, requesterId: number) {
-    const existing = await db.get("SELECT * FROM users WHERE id = ?", [id]) as any;
+    const existing = await db.get<UserRow>("SELECT * FROM users WHERE id = ?", [id]);
     if (!existing) throw new AppError(404, "User not found", "USER_NOT_FOUND");
 
     if (Number(id) === requesterId) {
@@ -98,7 +99,7 @@ export function userService(db: DatabaseAdapter) {
   }
 
   async function activate(id: number) {
-    const existing = await db.get("SELECT id FROM users WHERE id = ?", [id]);
+    const existing = await db.get<{ id: number }>("SELECT id FROM users WHERE id = ?", [id]);
     if (!existing) throw new AppError(404, "User not found", "USER_NOT_FOUND");
 
     await db.run(
@@ -112,7 +113,7 @@ export function userService(db: DatabaseAdapter) {
   }
 
   async function resetPassword(id: number, password: string) {
-    const existing = await db.get("SELECT id FROM users WHERE id = ?", [id]);
+    const existing = await db.get<{ id: number }>("SELECT id FROM users WHERE id = ?", [id]);
     if (!existing) throw new AppError(404, "User not found", "USER_NOT_FOUND");
 
     const passwordHash = bcrypt.hashSync(password, 10);

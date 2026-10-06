@@ -50,10 +50,10 @@ describe("productService", () => {
       });
 
       expect(product).toBeDefined();
-      expect(product.id).toBeGreaterThan(0);
-      expect(product.name).toBe("Widget");
-      expect(product.sku).toBe("WDG-001");
-      expect(product.status).toBe("active");
+      expect(product!.id).toBeGreaterThan(0);
+      expect(product!.name).toBe("Widget");
+      expect(product!.sku).toBe("WDG-001");
+      expect(product!.status).toBe("active");
     });
 
     it("rejects duplicate SKU", async () => {
@@ -82,7 +82,7 @@ describe("productService", () => {
         status: "discontinued",
       });
 
-      expect(product.status).toBe("discontinued");
+      expect(product!.status).toBe("discontinued");
     });
   });
 
@@ -90,10 +90,10 @@ describe("productService", () => {
     it("updates a product", async () => {
       const product = await seedTestProduct(db);
 
-      const updated = await service.update(product.id, { name: "Updated", price: 20 });
+      const updated = await service.update(product!.id, { name: "Updated", price: 20 });
 
-      expect(updated.name).toBe("Updated");
-      expect(updated.price).toBe(20);
+      expect(updated!.name).toBe("Updated");
+      expect(updated!.price).toBe(20);
     });
 
     it("rejects updating to duplicate SKU", async () => {
@@ -106,8 +106,8 @@ describe("productService", () => {
     it("allows updating own SKU (no change)", async () => {
       const product = await seedTestProduct(db, { sku: "SAME" });
 
-      const updated = await service.update(product.id, { sku: "SAME" });
-      expect(updated.sku).toBe("SAME");
+      const updated = await service.update(product!.id, { sku: "SAME" });
+      expect(updated!.sku).toBe("SAME");
     });
   });
 
@@ -115,19 +115,19 @@ describe("productService", () => {
     it("deletes product with no sales", async () => {
       const product = await seedTestProduct(db);
 
-      const result = await service.remove(product.id);
+      const result = await service.remove(product!.id);
       expect(result.success).toBe(true);
 
-      const found = await db.get("SELECT * FROM products WHERE id = ?", [product.id]);
+      const found = await db.get("SELECT * FROM products WHERE id = ?", [product!.id]);
       expect(found).toBeUndefined();
     });
 
     it("rejects deleting product with existing sales", async () => {
       const product = await seedTestProduct(db, { stock: 100 });
       const user = await seedTestUser(db);
-      await seedTestSale(db, user.id, product.id);
+      await seedTestSale(db, user.id, product!.id);
 
-      await expect(service.remove(product.id)).rejects.toThrow("Cannot delete product with existing sales");
+      await expect(service.remove(product!.id)).rejects.toThrow("Cannot delete product with existing sales");
     });
   });
 
@@ -163,7 +163,7 @@ describe("productService", () => {
       const result = await service.list({ page: 1, limit: 100, search: "", category: "", status: "active", sort: "name", order: "ASC" });
 
       expect(result.products).toHaveLength(2);
-      expect(result.products.every((p: any) => p.status === "active")).toBe(true);
+      expect(result.products.every((p: any) => p!.status === "active")).toBe(true);
     });
 
     it("filters by category", async () => {
@@ -181,38 +181,38 @@ describe("productService", () => {
 
       await db.run(
         "INSERT INTO product_discounts (product_id, discounted_price, start_date, end_date, status) VALUES (?, ?, ?, ?, 'active')",
-        [product.id, 8, startOfDay(today), endOfDay(today)]
+        [product!.id, 8, startOfDay(today), endOfDay(today)]
       );
 
       const result = await service.list({ page: 1, limit: 100, search: "", category: "", status: "all", sort: "name", order: "ASC" });
 
-      const p = result.products.find((x: any) => x.id === product.id);
-      expect(p.discounted_price).toBe(8);
+      const p = result.products.find((x: any) => x.id === product!.id);
+      expect(p!.discounted_price).toBe(8);
     });
 
     it("does not attach a cancelled discount even within its date range", async () => {
       const product = await seedTestProduct(db, { sku: "CANCELLED" });
       const today = todayDateString();
 
-      const created = await discountService(db).create(product.id, {
+      const created = await discountService(db).create(product!.id, {
         discounted_price: 8,
         start_date: today,
         end_date: today,
       });
-      await discountService(db).cancel(created.id);
+      await discountService(db).cancel(created!.id);
 
       const result = await service.list({ page: 1, limit: 100, search: "", category: "", status: "all", sort: "name", order: "ASC" });
 
-      const p = result.products.find((x: any) => x.id === product.id);
-      expect(p.discounted_price).toBeNull();
-      expect(p.discount_end_date).toBeNull();
+      const p = result.products.find((x: any) => x.id === product!.id);
+      expect(p!.discounted_price).toBeNull();
+      expect(p!.discount_end_date).toBeNull();
     });
 
     it("does not attach a scheduled (future) discount", async () => {
       const product = await seedTestProduct(db, { sku: "FUTURE" });
       const tomorrow = nextDayDateString(todayDateString());
 
-      await discountService(db).create(product.id, {
+      await discountService(db).create(product!.id, {
         discounted_price: 8,
         start_date: tomorrow,
         end_date: tomorrow,
@@ -220,8 +220,8 @@ describe("productService", () => {
 
       const result = await service.list({ page: 1, limit: 100, search: "", category: "", status: "all", sort: "name", order: "ASC" });
 
-      const p = result.products.find((x: any) => x.id === product.id);
-      expect(p.discounted_price).toBeNull();
+      const p = result.products.find((x: any) => x.id === product!.id);
+      expect(p!.discounted_price).toBeNull();
     });
   });
 
@@ -262,8 +262,8 @@ describe("productService", () => {
     it("increases stock", async () => {
       const product = await seedTestProduct(db, { stock: 10 });
 
-      const updated = await service.stockIn(product.id, 5);
-      expect(updated.stock).toBe(15);
+      const updated = await service.stockIn(product!.id, 5);
+      expect(updated!.stock).toBe(15);
     });
 
     it("rejects non-existent product", async () => {
@@ -275,14 +275,14 @@ describe("productService", () => {
     it("decreases stock", async () => {
       const product = await seedTestProduct(db, { stock: 10 });
 
-      const updated = await service.stockOut(product.id, 3);
-      expect(updated.stock).toBe(7);
+      const updated = await service.stockOut(product!.id, 3);
+      expect(updated!.stock).toBe(7);
     });
 
     it("rejects insufficient stock", async () => {
       const product = await seedTestProduct(db, { stock: 2 });
 
-      await expect(service.stockOut(product.id, 5)).rejects.toThrow("Insufficient stock");
+      await expect(service.stockOut(product!.id, 5)).rejects.toThrow("Insufficient stock");
     });
   });
 

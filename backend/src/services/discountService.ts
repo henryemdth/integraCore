@@ -15,6 +15,7 @@ import {
   reportLabels,
   type ReportLanguage,
 } from "@integracore/shared";
+import type { DiscountHistoryRow, DiscountRow, ProductRow } from "../types/models.js";
 
 export function discountService(db: DatabaseAdapter) {
   async function getActive(productId: number) {
@@ -30,10 +31,10 @@ export function discountService(db: DatabaseAdapter) {
       reason?: string;
     },
   ) {
-    const product = (await db.get(
+    const product = await db.get<Pick<ProductRow, "id" | "status" | "sell_price">>(
       "SELECT id, status, sell_price FROM products WHERE id = ?",
       [productId],
-    )) as any;
+    );
     if (!product) throw new AppError(404, "Product not found", "PRODUCT_NOT_FOUND");
     if (product.status === PRODUCT_STATUS.discontinued)
       throw new AppError(
@@ -51,13 +52,13 @@ export function discountService(db: DatabaseAdapter) {
     // without sales) never apply again, and historical sales keep their frozen
     // discount_id/unit_price, so a new discount over the same dates creates no
     // ambiguity. Same-day boundaries are inclusive.
-    const overlap = (await db.get(
+    const overlap = await db.get<{ count: number }>(
       `SELECT COUNT(*) as count FROM product_discounts pd
        WHERE pd.product_id = ? AND pd.status = 'active'
          AND pd.start_date <= ? AND pd.end_date >= ?`,
       [productId, end, start],
-    )) as any;
-    if (overlap.count > 0)
+    );
+    if (overlap!.count > 0)
       throw new AppError(
         409,
         "Discount date range overlaps with an existing active discount for this product",
@@ -70,19 +71,19 @@ export function discountService(db: DatabaseAdapter) {
       [productId, data.discounted_price, start, end, data.reason || ""],
     );
 
-    const discount = (await db.get(
+    const discount = await db.get<DiscountRow>(
       "SELECT * FROM product_discounts WHERE id = ?",
       [result.insertId],
-    )) as any;
+    );
     await reloadAndEmitProduct(db, productId);
     return discount;
   }
 
   async function cancel(id: number) {
-    const discount = (await db.get(
+    const discount = await db.get<DiscountRow>(
       "SELECT * FROM product_discounts WHERE id = ?",
       [id],
-    )) as any;
+    );
     if (!discount) throw new AppError(404, "Discount not found", "DISCOUNT_NOT_FOUND");
     if (discount.status === DISCOUNT_STATUS.cancelled)
       throw new AppError(400, "Discount is already cancelled", "DISCOUNT_ALREADY_CANCELLED");
@@ -97,10 +98,10 @@ export function discountService(db: DatabaseAdapter) {
   }
 
   async function remove(id: number) {
-    const discount = (await db.get(
+    const discount = await db.get<DiscountRow>(
       "SELECT * FROM product_discounts WHERE id = ?",
       [id],
-    )) as any;
+    );
     if (!discount) throw new AppError(404, "Discount not found", "DISCOUNT_NOT_FOUND");
 
     const salesCount = await db.get<{ count: number }>(
@@ -127,7 +128,7 @@ export function discountService(db: DatabaseAdapter) {
   // no condition (the filter is progressive enhancement, not validation).
   function buildDiscountFilter(filters: { productId?: number; status?: string }) {
     const conditions: string[] = [];
-    const params: any[] = [];
+    const params: unknown[] = [];
 
     if (filters.productId) {
       conditions.push("pd.product_id = ?");
@@ -159,7 +160,7 @@ export function discountService(db: DatabaseAdapter) {
     const { where, params } = buildDiscountFilter(filters);
     const limitSuffix = paging ? " LIMIT ? OFFSET ?" : "";
     const pagingParams = paging ? [paging.limit, (paging.page - 1) * paging.limit] : [];
-    return await db.all(
+    return await db.all<DiscountHistoryRow>(
       `SELECT pd.*, p.name as product_name, p.sku as product_sku, p.sell_price as normal_price,
               COALESCE(si_agg.units_sold, 0) as units_sold
        FROM product_discounts pd
@@ -185,13 +186,13 @@ export function discountService(db: DatabaseAdapter) {
     );
     const total = countRow!.count;
     const totalPages = Math.ceil(total / filters.limit);
-    const discounts = (await queryDiscountHistory(filters, { page: filters.page, limit: filters.limit })) as any[];
+    const discounts = await queryDiscountHistory(filters, { page: filters.page, limit: filters.limit });
     return { discounts, total, page: filters.page, totalPages };
   }
 
   // The Excel export always covers everything matching the filters — unbounded.
   async function exportHistory(filters: { productId?: number; status?: string } = {}, lang: ReportLanguage) {
-    const discounts = (await queryDiscountHistory(filters)) as any[];
+    const discounts = await queryDiscountHistory(filters);
 
     const L = reportLabels[lang];
     const workbook = new ExcelJS.Workbook();
@@ -216,7 +217,7 @@ export function discountService(db: DatabaseAdapter) {
         d.normal_price > 0
           ? Math.round((1 - d.discounted_price / d.normal_price) * 100)
           : 0;
-      const unitsSold = d.units_sold ?? 0;
+      const unitsSold = d.units_sold;
 
       sheet.addRow({
         product_name: d.product_name,
@@ -241,25 +242,25 @@ export function discountService(db: DatabaseAdapter) {
     const dayStart = startOfDay(today);
     const nextDayStart = startOfDay(nextDayDateString(today));
 
-    const todayStarters = (await db.all(
+    const todayStarters = await db.all<DiscountRow & { product_name: string }>(
       `SELECT pd.*, p.name as product_name
        FROM product_discounts pd
        JOIN products p ON pd.product_id = p.id
        WHERE pd.status = 'active' AND pd.start_date >= ? AND pd.start_date < ?`,
       [dayStart, nextDayStart],
-    )) as any[];
+    );
 
     for (const d of todayStarters) {
       await reloadAndEmitProduct(db, d.product_id);
     }
 
-    const todayEnders = (await db.all(
+    const todayEnders = await db.all<DiscountRow & { product_name: string }>(
       `SELECT pd.*, p.name as product_name
        FROM product_discounts pd
        JOIN products p ON pd.product_id = p.id
        WHERE pd.status = 'active' AND pd.end_date >= ? AND pd.end_date < ?`,
       [dayStart, nextDayStart],
-    )) as any[];
+    );
 
     for (const d of todayEnders) {
       await reloadAndEmitProduct(db, d.product_id);

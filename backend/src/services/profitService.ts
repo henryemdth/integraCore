@@ -2,19 +2,20 @@ import type { DatabaseAdapter } from "../db/adapter.js";
 import { nowString } from "@integracore/shared";
 import { emitNotification } from "../socket/index.js";
 import { AppError } from "../utils/appError.js";
+import type { NotificationAudience, NotificationRow, ProfitTargetRow } from "../types/models.js";
 
 // Fallback when no target row exists yet; mirrors the profit_targets DDL default.
 const DEFAULT_PROFIT_PERIOD_DAYS = 15;
 const NOTIFICATIONS_PAGE_SIZE = 50;
 
 export function profitService(db: DatabaseAdapter) {
-  async function getTarget() {
-    const target = await db.get("SELECT * FROM profit_targets ORDER BY id DESC LIMIT 1") as any;
+  async function getTarget(): Promise<ProfitTargetRow> {
+    const target = await db.get<ProfitTargetRow>("SELECT * FROM profit_targets ORDER BY id DESC LIMIT 1");
     return target || { id: 0, target_amount: 0, period_days: DEFAULT_PROFIT_PERIOD_DAYS, period: "custom", created_at: "", updated_at: "" };
   }
 
   async function updateTarget(targetAmount: number, periodDays: number) {
-    const existing = await db.get("SELECT id FROM profit_targets LIMIT 1") as any;
+    const existing = await db.get<Pick<ProfitTargetRow, "id">>("SELECT id FROM profit_targets LIMIT 1");
     if (existing) {
       await db.run(
         "UPDATE profit_targets SET target_amount = ?, period_days = ?, updated_at = datetime('now') WHERE id = ?",
@@ -31,17 +32,19 @@ export function profitService(db: DatabaseAdapter) {
 
   async function checkProfit() {
     const target = await getTarget();
-    const days = (target as any).period_days || DEFAULT_PROFIT_PERIOD_DAYS;
+    const days = target.period_days || DEFAULT_PROFIT_PERIOD_DAYS;
 
-    const sales = await db.get(
+    // Aggregates come back as strings on PostgreSQL (SUM of NUMERIC), so the
+    // value is coerced before any arithmetic — same convention as stats().
+    const sales = await db.get<{ total_revenue: number | string }>(
       `SELECT COALESCE(SUM(si.subtotal), 0) as total_revenue
        FROM sale_items si
        JOIN sales s ON si.sale_id = s.id
        WHERE s.created_at >= datetime('now', '-' || ? || ' days')`,
       [days]
-    ) as { total_revenue: number };
+    );
 
-    const revenue = sales.total_revenue;
+    const revenue = Number(sales!.total_revenue);
     const targetAmount = target.target_amount;
     const percentage = targetAmount > 0 ? Math.round((revenue / targetAmount) * 100) : 0;
     const behind = targetAmount > 0 && revenue < targetAmount;
@@ -60,7 +63,7 @@ export function profitService(db: DatabaseAdapter) {
     type: string,
     message: string,
     params?: Record<string, unknown>,
-    audience: "all" | "admin" = "all"
+    audience: NotificationAudience = "all"
   ) {
     // Explicit local wall-clock timestamp (same convention as discount
     // ranges) instead of the column's datetime('now') UTC default — day-based
@@ -94,7 +97,7 @@ export function profitService(db: DatabaseAdapter) {
     const where = unreadOnly
       ? `WHERE read = 0 AND ${visibility}`
       : `WHERE ${visibility}`;
-    return await db.all(
+    return await db.all<NotificationRow>(
       `SELECT * FROM notifications ${where} ORDER BY created_at DESC LIMIT ${NOTIFICATIONS_PAGE_SIZE}`,
       [isAdmin ? 1 : 0]
     );

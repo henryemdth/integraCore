@@ -60,7 +60,7 @@ describe("authService", () => {
         async transaction<T>(fn: (tx: DatabaseAdapter) => Promise<T>): Promise<T> {
           return fn(pgLike);
         },
-        raw() {
+        raw(): any {
           return null;
         },
         async close() {},

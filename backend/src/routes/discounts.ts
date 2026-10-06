@@ -1,9 +1,8 @@
 import { Router, Request, Response } from "express";
-import { getAdapter } from "../db/index.js";
 import { authenticate, requireRole } from "../middleware/auth.js";
 import { writeLockGuard } from "../middleware/writeLock.js";
 import { resolveReportLanguage } from "@integracore/shared";
-import { discountService } from "../services/discountService.js";
+import { getServices } from "../services/container.js";
 import { parseId } from "../utils/parseId.js";
 import { parsePagination } from "../utils/pagination.js";
 
@@ -12,8 +11,7 @@ import { parsePagination } from "../utils/pagination.js";
 const router = Router();
 
 router.get("/", authenticate, requireRole("admin"), async (req: Request, res: Response) => {
-  const db = getAdapter();
-  const svc = discountService(db);
+  const svc = getServices().discounts;
   const result = await svc.listAll({
     ...parsePagination(req.query, 10),
     productId: req.query.product_id ? Number(req.query.product_id) : undefined,
@@ -23,8 +21,7 @@ router.get("/", authenticate, requireRole("admin"), async (req: Request, res: Re
 });
 
 router.get("/export", authenticate, requireRole("admin"), async (req: Request, res: Response) => {
-  const db = getAdapter();
-  const svc = discountService(db);
+  const svc = getServices().discounts;
   const workbook = await svc.exportHistory({
     productId: req.query.product_id ? Number(req.query.product_id) : undefined,
     status: (req.query.status as string) || undefined,
@@ -36,15 +33,13 @@ router.get("/export", authenticate, requireRole("admin"), async (req: Request, r
 });
 
 router.patch("/:id/cancel", authenticate, requireRole("admin"), writeLockGuard, async (req: Request, res: Response) => {
-  const db = getAdapter();
-  const svc = discountService(db);
+  const svc = getServices().discounts;
   const result = await svc.cancel(parseId(req.params.id as string));
   res.json(result);
 });
 
 router.delete("/:id", authenticate, requireRole("admin"), writeLockGuard, async (req: Request, res: Response) => {
-  const db = getAdapter();
-  const svc = discountService(db);
+  const svc = getServices().discounts;
   const result = await svc.remove(parseId(req.params.id as string));
   res.json(result);
 });

@@ -7,20 +7,20 @@ export class SqliteAdapter implements DatabaseAdapter {
   // better-sqlite3 can only bind numbers, strings, bigints, buffers and null —
   // JS booleans throw. Services pass booleans for boolean columns (e.g.
   // `active`) so Postgres works; normalize here so SQLite accepts them too.
-  private normalizeParams(params?: any[]): any[] {
+  private normalizeParams(params?: unknown[]): unknown[] {
     if (!params) return [];
     return params.map((p) => (typeof p === "boolean" ? (p ? 1 : 0) : p));
   }
 
-  async get<T = any>(sql: string, params?: any[]): Promise<T | undefined> {
+  async get<T = any>(sql: string, params?: unknown[]): Promise<T | undefined> {
     return this.db.prepare(sql).get(...this.normalizeParams(params)) as T | undefined;
   }
 
-  async all<T = any>(sql: string, params?: any[]): Promise<T[]> {
+  async all<T = any>(sql: string, params?: unknown[]): Promise<T[]> {
     return this.db.prepare(sql).all(...this.normalizeParams(params)) as T[];
   }
 
-  async run(sql: string, params?: any[]): Promise<RunResult> {
+  async run(sql: string, params?: unknown[]): Promise<RunResult> {
     const result = this.db.prepare(sql).run(...this.normalizeParams(params));
     return {
       insertId: Number(result.lastInsertRowid),
@@ -44,8 +44,8 @@ export class SqliteAdapter implements DatabaseAdapter {
     }
   }
 
-  raw(): any {
-    return this.db;
+  raw<T = any>(): T {
+    return this.db as T;
   }
 
   replaceConnection(db: Database.Database): void {

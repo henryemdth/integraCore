@@ -5,6 +5,15 @@ import { config } from "../config.js";
 import { getAdapter } from "../db/index.js";
 import { fetchUserProjection } from "../services/userProjection.js";
 import type { JwtPayload } from "../types/auth.js";
+import type { ProductStatus } from "@integracore/shared";
+
+// Per-socket data set by the auth middleware below — typed via module
+// augmentation so consumers never need a cast.
+declare module "socket.io" {
+  interface SocketData {
+    user?: { id: number; username: string; role: JwtPayload["role"] };
+  }
+}
 
 let io: Server;
 
@@ -29,7 +38,7 @@ export function initSocket(server: HttpServer): Server {
       const user = await fetchUserProjection(db, decoded.id);
 
       if (!user || !user.active) return next(new Error("Not authenticated"));
-      (socket as any).data.user = { id: user.id, username: user.username, role: user.role };
+      socket.data.user = { id: user.id, username: user.username, role: user.role };
       next();
     } catch {
       next(new Error("Not authenticated"));
@@ -39,7 +48,7 @@ export function initSocket(server: HttpServer): Server {
   return io;
 }
 
-export function emitProductUpdated(product: { id: number; name: string; sku: string; price: number; sell_price: number; stock: number; status: string; discounted_price?: number | null; discount_end_date?: string | null }) {
+export function emitProductUpdated(product: { id: number; name: string; sku: string; price: number; sell_price: number; stock: number; status: ProductStatus; discounted_price?: number | null; discount_end_date?: string | null }) {
   if (io) io.emit("product:updated", product);
 }
 

@@ -22,7 +22,7 @@ export async function runLowStockCheck(db: DatabaseAdapter) {
   // window against created_at, which createNotification stores as a local
   // wall-clock string. Plain string/TIMESTAMP comparison works identically on
   // SQLite TEXT and Postgres TIMESTAMP — no driver-specific date() function.
-  const existing = await db.get(
+  const existing = await db.get<unknown>(
     "SELECT 1 FROM notifications WHERE type = 'low_stock' AND created_at >= ? AND created_at < ? LIMIT 1",
     [startOfDay(todayDateString()), startOfDay(nextDayDateString(todayDateString()))]
   );
@@ -31,7 +31,7 @@ export async function runLowStockCheck(db: DatabaseAdapter) {
   const lowStock = await productService(db).listLowStock();
   if (lowStock.length === 0) return;
 
-  const names = lowStock.slice(0, 5).map((p: any) => p.name).join(", ");
+  const names = lowStock.slice(0, 5).map((p) => p.name).join(", ");
   const more = lowStock.length > 5 ? lowStock.length - 5 : 0;
   await svc.createNotification(
     "low_stock",

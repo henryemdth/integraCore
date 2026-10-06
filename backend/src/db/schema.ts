@@ -112,6 +112,14 @@ const columnMigrations: { table: string; column: string; definition: string }[] 
   { table: "notifications", column: "audience", definition: "TEXT NOT NULL DEFAULT 'all'" },
 ];
 
+// Index migrations run in the isolated phase AFTER the column migrations:
+// an index over a column that legacy databases only get from the column
+// phase (sale_items.discount_id) must not be attempted before that column
+// is ensured, or startup would crash on the base-DDL fail-loud path.
+const sqliteIndexMigrations: string[] = [
+  `CREATE INDEX IF NOT EXISTS idx_sale_items_discount_id ON sale_items(discount_id);`,
+];
+
 function addColumnIfMissing(db: Database.Database, table: string, column: string, definition: string) {
   const columns = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
   if (!columns.some((c) => c.name === column)) {
@@ -133,6 +141,14 @@ export function runMigrations(db: Database.Database): void {
       addColumnIfMissing(db, table, column, definition);
     } catch (err) {
       console.error(`[db] Column migration failed for ${table}.${column} (isolated, continuing):`, (err as Error).message);
+    }
+  }
+
+  for (const sql of sqliteIndexMigrations) {
+    try {
+      db.exec(sql);
+    } catch (err) {
+      console.error(`[db] Index migration failed (isolated, continuing):`, (err as Error).message);
     }
   }
 
@@ -170,6 +186,9 @@ const postgresColumnMigrations: string[] = [
   `ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS cost_price NUMERIC`,
   `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS params TEXT`,
   `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS audience TEXT NOT NULL DEFAULT 'all'`,
+  // Runs after the discount_id ADD COLUMN above (same isolated phase), so it
+  // works on both fresh and legacy databases.
+  `CREATE INDEX IF NOT EXISTS idx_sale_items_discount_id ON sale_items(discount_id)`,
 ];
 
 const postgresMigrations: string[] = [

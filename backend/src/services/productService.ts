@@ -14,6 +14,7 @@ import {
   type ImportProductField,
   type ReportLanguage,
 } from "@integracore/shared";
+import type { ProductRow } from "../types/models.js";
 
 // Re-reads the product (with its effective discount) after a mutation and
 // pushes it to every connected client. Shared by the product, sale, and
@@ -21,7 +22,7 @@ import {
 // fields every client may see, so realtime push never carries more than
 // the declared price/stock/discount contract.
 export async function reloadAndEmitProduct(db: DatabaseAdapter, id: number) {
-  const product = await db.get("SELECT * FROM products WHERE id = ?", [id]) as any;
+  const product = await db.get<ProductRow>("SELECT * FROM products WHERE id = ?", [id]);
   if (!product) return null;
   const discount = await findActiveDiscount(db, id);
   emitProductUpdated({
@@ -45,7 +46,7 @@ export async function reloadAndEmitProduct(db: DatabaseAdapter, id: number) {
 export function productService(db: DatabaseAdapter) {
   function buildProductFilter(search: string, category: string, status: string) {
     const conditions: string[] = [];
-    const params: any[] = [];
+    const params: unknown[] = [];
 
     if (search) {
       conditions.push("(name LIKE ? OR sku LIKE ?)");
@@ -65,13 +66,12 @@ export function productService(db: DatabaseAdapter) {
   }
 
   // Attaches the effective discount (active + covering today) to each product.
-  async function attachActiveDiscountInfo(products: any[]): Promise<void> {
+  async function attachActiveDiscountInfo<T extends ProductRow>(products: T[]) {
     const discountMap = await findActiveDiscounts(db, products.map((p) => p.id));
-    for (const p of products) {
+    return products.map((p) => {
       const d = discountMap.get(p.id);
-      p.discounted_price = d ? d.discounted_price : null;
-      p.discount_end_date = d ? d.end_date : null;
-    }
+      return { ...p, discounted_price: d ? d.discounted_price : null, discount_end_date: d ? d.end_date : null };
+    });
   }
 
   async function list(params: {
@@ -98,18 +98,18 @@ export function productService(db: DatabaseAdapter) {
     const total = countRow!.count;
     const totalPages = Math.ceil(total / limit);
 
-    const products = await db.all(
+    const products = await db.all<ProductRow>(
       `SELECT * FROM products ${where} ORDER BY ${sortColumn} ${order} LIMIT ? OFFSET ?`,
       [...sqlParams, limit, offset]
-    ) as any[];
+    );
 
-    await attachActiveDiscountInfo(products);
+    const productsWithDiscount = await attachActiveDiscountInfo(products);
 
-    return { products, total, page, totalPages };
+    return { products: productsWithDiscount, total, page, totalPages };
   }
 
   async function listLowStock() {
-    return await db.all(
+    return await db.all<ProductRow>(
       "SELECT * FROM products WHERE stock <= low_stock_threshold AND status = 'active' ORDER BY stock ASC"
     );
   }
@@ -120,15 +120,16 @@ export function productService(db: DatabaseAdapter) {
   }
 
   async function getById(id: number) {
-    const product = await db.get("SELECT * FROM products WHERE id = ?", [id]);
+    const product = await db.get<ProductRow>("SELECT * FROM products WHERE id = ?", [id]);
     if (!product) throw new AppError(404, "Product not found", "PRODUCT_NOT_FOUND");
     return product;
   }
 
   async function exportToExcel(search: string, category: string, status: string, lang: ReportLanguage, isAdmin = false) {
     const { where, params } = buildProductFilter(search, category, status);
-    const products = await db.all(`SELECT * FROM products ${where} ORDER BY name ASC`, params) as any[];
-    await attachActiveDiscountInfo(products);
+    const products = await attachActiveDiscountInfo(
+      await db.all<ProductRow>(`SELECT * FROM products ${where} ORDER BY name ASC`, params)
+    );
 
     const L = reportLabels[lang];
     const workbook = new ExcelJS.Workbook();
@@ -168,6 +169,8 @@ export function productService(db: DatabaseAdapter) {
   async function importFromExcel(base64File: string) {
     const buffer = Buffer.from(base64File, "base64");
     const workbook = new ExcelJS.Workbook();
+    // exceljs's .d.ts predates generic Buffer (@types/node 20+), so its
+    // declared load() parameter type can't be named from outside — cast required.
     await workbook.xlsx.load(buffer as any);
     const sheet = workbook.getWorksheet(1);
 
@@ -221,8 +224,10 @@ export function productService(db: DatabaseAdapter) {
       const rowCount = sheet.rowCount;
       for (let rowNumber = 2; rowNumber <= rowCount; rowNumber++) {
         const row = sheet.getRow(rowNumber);
-        const values = row.values as any[];
-        if (!row || !values || values.length === 0 || values.every((v: any) => v === null || v === undefined)) continue;
+        // exceljs types `values` loosely (sparse/undefined shapes), normalize
+        // to a plain array before scanning.
+        const values: unknown[] = Array.isArray(row.values) ? row.values : [];
+        if (!row || values.length === 0 || values.every((v) => v === null || v === undefined)) continue;
 
         // Header mode may legitimately omit optional columns (e.g. no Sell
         // Price header): they read as empty, same tolerance as an empty cell.
@@ -247,7 +252,7 @@ export function productService(db: DatabaseAdapter) {
         if (seenSkus.has(sku)) { errors.push({ row: rowNumber, sku, error: "Duplicate SKU in file", code: "DUPLICATE_SKU_FILE" }); continue; }
         if (!status) { errors.push({ row: rowNumber, sku, error: "Invalid status (must be 'active' or 'discontinued')", code: "INVALID_STATUS" }); continue; }
 
-        const existing = await tx.get("SELECT id FROM products WHERE sku = ?", [sku]);
+        const existing = await tx.get<{ id: number }>("SELECT id FROM products WHERE sku = ?", [sku]);
         if (existing) { errors.push({ row: rowNumber, sku, error: "SKU already exists in database", code: "SKU_EXISTS_DB" }); continue; }
 
         seenSkus.add(sku);
@@ -273,7 +278,7 @@ export function productService(db: DatabaseAdapter) {
   }
 
   async function create(data: { name: string; sku: string; category: string; price: number; sell_price: number; stock: number; low_stock_threshold: number; status?: string }) {
-    const existing = await db.get("SELECT id FROM products WHERE sku = ?", [data.sku]);
+    const existing = await db.get<{ id: number }>("SELECT id FROM products WHERE sku = ?", [data.sku]);
     if (existing) throw new AppError(409, "SKU already exists", "SKU_EXISTS");
 
     const status = data.status || PRODUCT_STATUS.active;
@@ -287,11 +292,11 @@ export function productService(db: DatabaseAdapter) {
   }
 
   async function update(id: number, data: { name?: string; sku?: string; category?: string; price?: number; sell_price?: number; stock?: number; low_stock_threshold?: number; status?: string }) {
-    const existing = await db.get("SELECT * FROM products WHERE id = ?", [id]) as any;
+    const existing = await db.get<ProductRow>("SELECT * FROM products WHERE id = ?", [id]);
     if (!existing) throw new AppError(404, "Product not found", "PRODUCT_NOT_FOUND");
 
     if (data.sku && data.sku !== existing.sku) {
-      const skuExists = await db.get("SELECT id FROM products WHERE sku = ? AND id != ?", [data.sku, id]);
+      const skuExists = await db.get<{ id: number }>("SELECT id FROM products WHERE sku = ? AND id != ?", [data.sku, id]);
       if (skuExists) throw new AppError(409, "SKU already exists", "SKU_EXISTS");
     }
 
@@ -317,7 +322,7 @@ export function productService(db: DatabaseAdapter) {
   }
 
   async function remove(id: number) {
-    const existing = await db.get("SELECT * FROM products WHERE id = ?", [id]) as any;
+    const existing = await db.get<ProductRow>("SELECT * FROM products WHERE id = ?", [id]);
     if (!existing) throw new AppError(404, "Product not found", "PRODUCT_NOT_FOUND");
 
     const hasSales = await db.get<{ count: number }>("SELECT COUNT(*) as count FROM sale_items WHERE product_id = ?", [id]);
@@ -328,7 +333,7 @@ export function productService(db: DatabaseAdapter) {
   }
 
   async function stockIn(id: number, quantity: number) {
-    const product = await db.get("SELECT * FROM products WHERE id = ?", [id]) as any;
+    const product = await db.get<ProductRow>("SELECT * FROM products WHERE id = ?", [id]);
     if (!product) throw new AppError(404, "Product not found", "PRODUCT_NOT_FOUND");
 
     await db.run(
@@ -340,7 +345,7 @@ export function productService(db: DatabaseAdapter) {
   }
 
   async function stockOut(id: number, quantity: number) {
-    const product = await db.get("SELECT * FROM products WHERE id = ?", [id]) as any;
+    const product = await db.get<ProductRow>("SELECT * FROM products WHERE id = ?", [id]);
     if (!product) throw new AppError(404, "Product not found", "PRODUCT_NOT_FOUND");
 
     if (product.stock < quantity) {

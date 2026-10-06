@@ -4,11 +4,13 @@ export interface RunResult {
 }
 
 export interface DatabaseAdapter {
-  get<T = any>(sql: string, params?: any[]): Promise<T | undefined>;
-  all<T = any>(sql: string, params?: any[]): Promise<T[]>;
-  run(sql: string, params?: any[]): Promise<RunResult>;
+  get<T = any>(sql: string, params?: unknown[]): Promise<T | undefined>;
+  all<T = any>(sql: string, params?: unknown[]): Promise<T[]>;
+  run(sql: string, params?: unknown[]): Promise<RunResult>;
   exec(sql: string): Promise<void>;
   transaction<T>(fn: (tx: DatabaseAdapter) => Promise<T>): Promise<T>;
-  raw(): any;
+  // Driver-specific escape hatch (e.g. better-sqlite3 handle for backup/restore
+  // file operations). Callers declare what they expect via T.
+  raw<T = any>(): T;
   close(): Promise<void>;
 }

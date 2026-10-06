@@ -5,18 +5,20 @@ import { AppError } from "../utils/appError.js";
 import { emitUsersChanged } from "../socket/index.js";
 import { fetchUserProjection } from "./userProjection.js";
 import { ROLES } from "@integracore/shared";
+import type { UserRow } from "../types/models.js";
 
 export function authService(db: DatabaseAdapter) {
   async function getSetupStatus() {
-    const row = await db.get("SELECT 1 FROM users LIMIT 1");
+    // Existence checks read no columns — unknown makes the intent explicit.
+    const row = await db.get<unknown>("SELECT 1 FROM users LIMIT 1");
     return row === undefined;
   }
 
   async function setup(username: string, password: string, fullName: string) {
-    const anyUser = await db.get("SELECT 1 FROM users LIMIT 1");
+    const anyUser = await db.get<{ id: number }>("SELECT 1 FROM users LIMIT 1");
     if (anyUser) throw new AppError(400, "Setup already completed", "SETUP_ALREADY_COMPLETED");
 
-    const existing = await db.get("SELECT id FROM users WHERE username = ?", [username]);
+    const existing = await db.get<{ id: number }>("SELECT id FROM users WHERE username = ?", [username]);
     if (existing) throw new AppError(409, "Username already exists", "USERNAME_EXISTS");
 
     const passwordHash = bcrypt.hashSync(password, 10);
@@ -32,11 +34,11 @@ export function authService(db: DatabaseAdapter) {
   }
 
   async function login(username: string, password: string) {
-    const user = await db.get(
+    const user = await db.get<Pick<UserRow, "id" | "username" | "password_hash" | "full_name" | "role" | "active">>(
       "SELECT id, username, password_hash, full_name, role, active FROM users WHERE username = ?",
       [username]
-    ) as any;
-    
+    );
+
     if (!user) throw new AppError(401, "Invalid credentials", "INVALID_CREDENTIALS");
     if (!user.active) throw new AppError(403, "Account is deactivated", "ACCOUNT_DEACTIVATED");
 
@@ -50,7 +52,7 @@ export function authService(db: DatabaseAdapter) {
   async function register(username: string, password: string, fullName: string, role: string) {
     const userRole = role === ROLES.admin ? ROLES.admin : ROLES.user;
 
-    const existing = await db.get("SELECT id FROM users WHERE username = ?", [username]);
+    const existing = await db.get<{ id: number }>("SELECT id FROM users WHERE username = ?", [username]);
     if (existing) throw new AppError(409, "Username already exists", "USERNAME_EXISTS");
 
     const passwordHash = bcrypt.hashSync(password, 10);
@@ -68,7 +70,7 @@ export function authService(db: DatabaseAdapter) {
   }
 
   async function changePassword(userId: number, currentPassword: string, newPassword: string) {
-    const user = await db.get("SELECT id, password_hash FROM users WHERE id = ?", [userId]) as any;
+    const user = await db.get<Pick<UserRow, "id" | "password_hash">>("SELECT id, password_hash FROM users WHERE id = ?", [userId]);
     if (!user) throw new AppError(404, "User not found", "USER_NOT_FOUND");
 
     const valid = bcrypt.compareSync(currentPassword, user.password_hash);

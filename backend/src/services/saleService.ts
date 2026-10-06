@@ -4,33 +4,58 @@ import { AppError } from "../utils/appError.js";
 import { findActiveDiscounts } from "./discountLookup.js";
 import { reloadAndEmitProduct } from "./productService.js";
 import { endOfDay, PRODUCT_STATUS, reportLabels, type ReportLanguage } from "@integracore/shared";
+import type { ProductRow, SaleItemDetailRow, SaleItemRow, SaleListRow, SaleRow } from "../types/models.js";
 
 // Cost fields are opt-in: the default shape (list/detail/create responses,
 // visible to sellers) never carries margin data — only the admin-only export
 // and stats queries request it. Explicit column list on purpose.
-function getSaleItems(db: DatabaseAdapter, saleId: number, opts?: { includeCost?: boolean }) {
+//
+// Batch fetch: one query for every sale in the page instead of one per sale.
+// The column list lives only here so list(), detail and export stay identical.
+async function getSaleItemsBatch(
+  db: DatabaseAdapter,
+  saleIds: number[],
+  opts?: { includeCost?: boolean }
+): Promise<Map<number, SaleItemDetailRow[]>> {
+  const itemsBySale = new Map<number, SaleItemDetailRow[]>();
+  if (saleIds.length === 0) return itemsBySale;
+
   // effective_cost: the cost frozen at sale time, falling back to the
   // product's current purchase price for items sold before tracking existed.
   const costColumns = opts?.includeCost
     ? ", COALESCE(si.cost_price, p.price, 0) AS effective_cost"
     : "";
-  return db.all(
+  const placeholders = saleIds.map(() => "?").join(",");
+  const rows = await db.all<SaleItemDetailRow>(
     `SELECT si.id, si.sale_id, si.product_id, si.quantity, si.unit_price, si.subtotal,
             si.discount_id, si.original_price,
             p.name as product_name, p.sku as product_sku, p.category as product_category${costColumns}
      FROM sale_items si JOIN products p ON si.product_id = p.id
-     WHERE si.sale_id = ?`,
-    [saleId]
+     WHERE si.sale_id IN (${placeholders})
+     ORDER BY si.id`,
+    saleIds
   );
+  for (const row of rows) {
+    const items = itemsBySale.get(row.sale_id);
+    if (items) items.push(row);
+    else itemsBySale.set(row.sale_id, [row]);
+  }
+  return itemsBySale;
 }
 
-async function buildSaleDetail(db: DatabaseAdapter, saleId: number) {
-  const sale = await db.get(
+function getSaleItems(db: DatabaseAdapter, saleId: number, opts?: { includeCost?: boolean }) {
+  return getSaleItemsBatch(db, [saleId], opts).then((itemsBySale) => itemsBySale.get(saleId) ?? []);
+}
+
+type SaleDetailRow = SaleListRow & { items: SaleItemDetailRow[] };
+
+async function buildSaleDetail(db: DatabaseAdapter, saleId: number): Promise<SaleDetailRow | null> {
+  const sale = await db.get<SaleListRow>(
     `SELECT s.*, u.full_name as seller_name
      FROM sales s JOIN users u ON s.user_id = u.id
      WHERE s.id = ?`,
     [saleId]
-  ) as any;
+  );
 
   if (!sale) return null;
 
@@ -48,7 +73,7 @@ function buildFilterQuery(filters: {
   productId?: number;
 }) {
   const conditions: string[] = [];
-  const params: any[] = [];
+  const params: unknown[] = [];
 
   if (!filters.isAdmin) {
     conditions.push("s.user_id = ?");
@@ -82,10 +107,10 @@ export function saleService(db: DatabaseAdapter) {
     const saleId = await db.transaction(async (tx) => {
       const productIds = items.map((i) => i.product_id);
       const placeholders = productIds.map(() => "?").join(",");
-      const products = await tx.all(
+      const products = await tx.all<Pick<ProductRow, "id" | "name" | "sell_price" | "price" | "stock" | "status">>(
         `SELECT id, name, sell_price, price, stock, status FROM products WHERE id IN (${placeholders})`,
         productIds
-      ) as any[];
+      );
 
       const productMap = new Map(products.map((p) => [p.id, p]));
 
@@ -158,7 +183,7 @@ export function saleService(db: DatabaseAdapter) {
     const sale = await buildSaleDetail(db, saleId);
     if (!sale) throw new AppError(500, "Sale disappeared after creation", "SALE_NOT_FOUND");
 
-    const emittedProductIds = new Set<number>(sale.items.map((item: any) => item.product_id));
+    const emittedProductIds = new Set<number>(sale.items.map((item) => item.product_id));
     for (const productId of emittedProductIds) {
       await reloadAndEmitProduct(db, productId);
     }
@@ -190,7 +215,7 @@ export function saleService(db: DatabaseAdapter) {
     const total = countRow!.count;
     const totalPages = Math.ceil(total / limit);
 
-    const sales = await db.all(
+    const sales = await db.all<SaleListRow>(
       `SELECT s.id, s.user_id, u.full_name as seller_name, s.total, s.notes, s.created_at
        FROM sales s JOIN users u ON s.user_id = u.id
        ${where}
@@ -199,12 +224,10 @@ export function saleService(db: DatabaseAdapter) {
       [...filterParams, limit, offset]
     );
 
-    const salesWithItems = await Promise.all(
-      sales.map(async (sale: any) => {
-        const items = await getSaleItems(db, sale.id);
-        return { ...sale, items };
-      })
-    );
+    // Two queries per page: the sales plus one batched items fetch for the
+    // whole page (was one query per sale).
+    const itemsBySale = await getSaleItemsBatch(db, sales.map((sale) => sale.id));
+    const salesWithItems = sales.map((sale) => ({ ...sale, items: itemsBySale.get(sale.id) ?? [] }));
 
     return { sales: salesWithItems, total, page, totalPages };
   }
@@ -237,13 +260,13 @@ export function saleService(db: DatabaseAdapter) {
       productId: filters.productId,
     });
 
-    const sales = await db.all(
+    const sales = await db.all<Pick<SaleListRow, "id" | "created_at" | "seller_name" | "total" | "notes">>(
       `SELECT s.id, s.created_at, u.full_name as seller_name, s.total, s.notes
        FROM sales s JOIN users u ON s.user_id = u.id
        ${where}
        ORDER BY s.created_at DESC`,
       params
-    ) as any[];
+    );
 
     const L = reportLabels[lang];
     // Cost/profit columns are admin-only: sellers export their own sales
@@ -278,24 +301,26 @@ export function saleService(db: DatabaseAdapter) {
     let totalCost = 0;
 
     for (const sale of sales) {
-      const items = await getSaleItems(db, sale.id, { includeCost: isAdmin }) as any[];
+      const items = await getSaleItems(db, sale.id, { includeCost: isAdmin });
 
       totalSales++;
       for (const item of items) {
         const hasDiscount = item.discount_id != null;
         const savings = hasDiscount ? (item.original_price - item.unit_price) * item.quantity : 0;
-        const profit = isAdmin ? (item.unit_price - item.effective_cost) * item.quantity : 0;
+        // Only present when includeCost was requested (admin exports).
+        const unitCost = item.effective_cost ?? 0;
+        const profit = isAdmin ? (item.unit_price - unitCost) * item.quantity : 0;
         if (hasDiscount) { countWithDiscount++; } else { countWithoutDiscount++; }
         totalSavings += savings;
         totalRevenue += item.subtotal;
-        if (isAdmin) { totalCost += item.effective_cost * item.quantity; }
+        if (isAdmin) { totalCost += unitCost * item.quantity; }
 
         sheet.addRow({
           id: sale.id, created_at: sale.created_at, seller_name: sale.seller_name,
           product_name: item.product_name, product_sku: item.product_sku,
           quantity: item.quantity, unit_price: item.unit_price,
           original_price: item.original_price,
-          ...(isAdmin ? { unit_cost: item.effective_cost } : {}),
+          ...(isAdmin ? { unit_cost: unitCost } : {}),
           discount_applied: hasDiscount ? L.yes : L.no,
           savings: savings,
           subtotal: item.subtotal,
@@ -345,9 +370,16 @@ export function saleService(db: DatabaseAdapter) {
 
     // Same filtered set as list/export. COALESCE falls back to the product's
     // current purchase price for items sold before cost tracking existed.
-    // Every aggregate goes through Number(): PostgreSQL returns SUM/COUNT of
-    // NUMERIC as strings and the row normalizer doesn't coerce aggregates.
-    const row = await db.get(
+    // Aggregates are number|string: SQLite returns numbers, PostgreSQL
+    // returns SUM/COUNT of NUMERIC as strings — every field goes through
+    // Number() below before use.
+    const row = await db.get<{
+      total_sales: number | string;
+      total_revenue: number | string;
+      total_cost: number | string;
+      total_profit: number | string;
+      total_savings: number | string;
+    }>(
       `SELECT COUNT(DISTINCT s.id) AS total_sales,
               COALESCE(SUM(si.subtotal), 0) AS total_revenue,
               COALESCE(SUM(COALESCE(si.cost_price, p.price, 0) * si.quantity), 0) AS total_cost,
@@ -358,11 +390,11 @@ export function saleService(db: DatabaseAdapter) {
        JOIN products p ON p.id = si.product_id
        ${where}`,
       params
-    ) as any;
+    );
 
-    const totalSales = Number(row.total_sales);
-    const totalRevenue = Number(row.total_revenue);
-    const totalSavings = Number(row.total_savings);
+    const totalSales = Number(row!.total_sales);
+    const totalRevenue = Number(row!.total_revenue);
+    const totalSavings = Number(row!.total_savings);
 
     const base = {
       total_sales: totalSales,
@@ -377,16 +409,16 @@ export function saleService(db: DatabaseAdapter) {
 
     return {
       ...base,
-      total_cost: Number(row.total_cost),
-      total_profit: Number(row.total_profit),
+      total_cost: Number(row!.total_cost),
+      total_profit: Number(row!.total_profit),
     };
   }
 
   async function remove(id: number) {
-    const sale = await db.get("SELECT * FROM sales WHERE id = ?", [id]) as any;
+    const sale = await db.get<SaleRow>("SELECT * FROM sales WHERE id = ?", [id]);
     if (!sale) throw new AppError(404, "Sale not found", "SALE_NOT_FOUND");
 
-    const items = await db.all("SELECT * FROM sale_items WHERE sale_id = ?", [id]) as any[];
+    const items = await db.all<SaleItemRow>("SELECT * FROM sale_items WHERE sale_id = ?", [id]);
 
     await db.transaction(async (tx) => {
       for (const item of items) {

@@ -38,10 +38,10 @@ describe("userService active filtering (boolean params on SQLite)", () => {
     const svc = userService(db);
 
     const deactivated = await svc.deactivate(target.id, admin.id);
-    expect(deactivated.active).toBe(0);
+    expect(deactivated!.active).toBe(0);
 
     const reactivated = await svc.activate(target.id);
-    expect(reactivated.active).toBe(1);
+    expect(reactivated!.active).toBe(1);
 
     // Both operations push a realtime refresh to connected clients.
     expect(emitUsersChanged).toHaveBeenCalled();
