@@ -399,6 +399,8 @@
   "notFound": {
     "title": "404",
     "message": "Page not found",
+    "hint": "It may have been moved or the link is incorrect.",
+    "goBack": "Go back",
     "goHome": "Go to Dashboard"
   },
   "changePassword": {
@@ -437,8 +439,8 @@
     "yes": "Yes",
     "no": "No",
     "active": "Active",
-    "scheduled": "Scheduled",
-    "expired": "Expired",
+    "scheduled": "Upcoming",
+    "expired": "Ended",
     "noDiscounts": "No discounts found",
     "created": "Discount created",
     "failedCreate": "Failed to create discount",

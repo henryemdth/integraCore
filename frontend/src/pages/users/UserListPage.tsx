@@ -23,7 +23,7 @@ import { QueryErrorState } from "@/components/ui/query-error"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Plus, MoreHorizontal, Users, UserCheck, Shield, SearchX } from "lucide-react"
-import { formatDateTime } from "@/lib/format"
+import { formatDate } from "@/lib/format"
 import { getErrorMessage } from "@/lib/errorMessages"
 
 export default function UserListPage() {
@@ -31,7 +31,7 @@ export default function UserListPage() {
   const queryClient = useQueryClient()
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState("")
-  const [filter, setFilter] = useState<"all" | "active" | "inactive">("active")
+  const [filter, setFilter] = useState<"all" | "active" | "inactive">("all")
   const [createOpen, setCreateOpen] = useState(false)
   const [editUser, setEditUser] = useState<User | null>(null)
   const [resetPwdUser, setResetPwdUser] = useState<User | null>(null)
@@ -81,7 +81,7 @@ export default function UserListPage() {
         <Button onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4 mr-2" />{t("users.newUser")}</Button>
       </div>
 
-      <div className="grid gap-4 grid-cols-3">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
         <StatCard label={t("users.stats.total")} value={total} icon={Users} loading={isLoading || statsLoading} />
         <StatCard label={t("users.stats.active")} value={activeCount} icon={UserCheck} loading={isLoading || statsLoading} />
         <StatCard label={t("users.stats.admins")} value={adminCount} icon={Shield} loading={isLoading || statsLoading} />
@@ -120,15 +120,16 @@ export default function UserListPage() {
           </div>
         </CardHeader>
         <CardContent>
+          <div className="overflow-x-auto -mx-6 px-6">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>{t("users.username")}</TableHead>
                 <TableHead>{t("users.fullName")}</TableHead>
+                <TableHead>{t("users.username")}</TableHead>
                 <TableHead>{t("users.role")}</TableHead>
                 <TableHead>{t("users.status")}</TableHead>
                 <TableHead>{t("users.created")}</TableHead>
-                <TableHead className="w-[60px]" />
+                <TableHead className="w-[120px]" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -148,12 +149,12 @@ export default function UserListPage() {
               ) : users.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6}>
-                    {search !== "" || filter !== "active" ? (
+                    {search !== "" || filter !== "all" ? (
                       <EmptyState
                         icon={SearchX}
                         title={t("users.noUsers")}
                         description={t("users.noUsersFilters")}
-                        action={<Button variant="outline" size="sm" onClick={() => { setSearch(""); setFilter("active"); resetPage() }}>{t("users.clearFilters")}</Button>}
+                        action={<Button variant="outline" size="sm" onClick={() => { setSearch(""); setFilter("all"); resetPage() }}>{t("users.clearFilters")}</Button>}
                       />
                     ) : (
                       <EmptyState
@@ -167,15 +168,15 @@ export default function UserListPage() {
                 </TableRow>
               ) : users.map((user) => (
                 <TableRow key={user.id}>
-                  <TableCell className="font-medium">{user.username}</TableCell>
-                  <TableCell>{user.full_name}</TableCell>
+                  <TableCell className="font-medium">{user.full_name}</TableCell>
+                  <TableCell className="text-body-sm text-muted-foreground">{user.username}</TableCell>
                   <TableCell><Badge variant={user.role === "admin" ? "info" : "secondary"}>{user.role === "admin" ? t("roles.admin") : t("roles.seller")}</Badge></TableCell>
                   <TableCell><Badge variant={user.active ? "success-light" : "error-light"}>{user.active ? t("users.active") : t("users.inactive")}</Badge></TableCell>
-                  <TableCell className="text-body-sm text-muted-foreground">{formatDateTime(user.created_at)}</TableCell>
+                  <TableCell className="text-body-sm text-muted-foreground">{formatDate(user.created_at)}</TableCell>
                   <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0" aria-label={t("common.actions")}><MoreHorizontal className="h-4 w-4" /></Button>
+                          <Button variant="ghost" className="h-9 w-9 p-0" aria-label={t("common.actions")} aria-haspopup="menu"><MoreHorizontal className="h-4 w-4" /></Button>
                         </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => setEditUser(user)}>{t("common.edit")}</DropdownMenuItem>
@@ -193,6 +194,7 @@ export default function UserListPage() {
               ))}
             </TableBody>
           </Table>
+          </div>
           <Pagination page={page} totalPages={totalPages} total={total} pageInfoKey="users.pageInfo" onPageChange={setPage} limit={limit} onLimitChange={(l) => { setLimit(l); setPage(1) }} />
         </CardContent>
       </Card>

@@ -159,7 +159,16 @@ export default function DiscountHistoryPage() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="text-center py-8 text-muted-foreground">{t("common.loading")}</div>
+            <div className="space-y-3 p-2">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex gap-4">
+                  <div className="h-4 w-32 bg-surface-container-highest rounded animate-pulse" />
+                  <div className="h-4 w-20 bg-surface-container-highest rounded animate-pulse" />
+                  <div className="h-4 w-16 bg-surface-container-highest rounded animate-pulse" />
+                  <div className="h-4 w-24 bg-surface-container-highest rounded animate-pulse" />
+                </div>
+              ))}
+            </div>
           ) : isError ? (
             <QueryErrorState onRetry={refetch} error={error} />
           ) : discounts.length === 0 ? (
@@ -178,6 +187,7 @@ export default function DiscountHistoryPage() {
               )}
             />
           ) : (
+            <div className="overflow-x-auto -mx-6 px-6">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -188,9 +198,8 @@ export default function DiscountHistoryPage() {
                   <TableHead>{t("discounts.startDate")}</TableHead>
                   <TableHead>{t("discounts.endDate")}</TableHead>
                   <TableHead>{t("discounts.status")}</TableHead>
-                  <TableHead>{t("discounts.unitsSold")}</TableHead>
-                  <TableHead>{t("discounts.worked")}</TableHead>
-                  <TableHead>{t("common.actions")}</TableHead>
+                  <TableHead className="text-right">{t("discounts.unitsSold")}</TableHead>
+                  <TableHead className="w-[140px]">{t("common.actions")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -200,7 +209,7 @@ export default function DiscountHistoryPage() {
                   const isScheduled = d.status === "active" && d.start_date > now
                   const unitsSold = d.units_sold ?? 0
                   return (
-                    <TableRow key={d.id} className={d.status === "cancelled" ? "opacity-60" : ""}>
+                    <TableRow key={d.id} className={d.status === "cancelled" ? "bg-muted/40" : ""}>
                       <TableCell>
                         <span className="font-medium">{d.product_name}</span>
                         <br/>
@@ -225,23 +234,28 @@ export default function DiscountHistoryPage() {
                         )}
                       </TableCell>
                       <TableCell className="font-data text-right">{unitsSold}</TableCell>
-                      <TableCell>{unitsSold > 0 ? t("discounts.yes") : t("discounts.no")}</TableCell>
-                      <TableCell className="space-x-1 whitespace-nowrap">
+                      <TableCell className="flex gap-1 justify-end">
                         {d.status === "active" && (
                           <Button
                             variant="ghost"
                             size="sm"
+                            className="h-9"
+                            aria-label={t("discounts.cancel")}
                             onClick={() => setPendingAction({ type: "cancel", discount: d })}
                           >
                             <Ban className="h-4 w-4 text-warning" />
+                            <span className="ml-1 text-xs">{t("discounts.cancel")}</span>
                           </Button>
                         )}
                         <Button
                           variant="ghost"
                           size="sm"
+                          className="h-9"
+                          aria-label={t("common.delete")}
                           onClick={() => setPendingAction({ type: "delete", discount: d })}
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
+                          <span className="ml-1 text-xs">{t("common.delete")}</span>
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -249,6 +263,7 @@ export default function DiscountHistoryPage() {
                 })}
               </TableBody>
             </Table>
+            </div>
           )}
           <Pagination
             page={page}
