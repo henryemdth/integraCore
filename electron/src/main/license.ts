@@ -79,7 +79,7 @@ export function getMachineId(): string {
         "reg query HKLM\\SOFTWARE\\Microsoft\\Cryptography /v MachineGuid",
         { encoding: "utf-8", stdio: ["ignore", "pipe", "ignore"] }
       )
-      raw = out.split("\n").find((l) => l.includes("MachineGuid"))?.split(/\s+/).pop() ?? ""
+      raw = out.split("\n").find((l) => l.includes("MachineGuid"))?.trim().split(/\s+/).pop() ?? ""
     } else if (fs.existsSync("/etc/machine-id")) {
       raw = fs.readFileSync("/etc/machine-id", "utf-8").trim()
     }

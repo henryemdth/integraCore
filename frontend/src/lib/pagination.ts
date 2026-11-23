@@ -1,4 +1,4 @@
-export type PageRangeItem = number | "ellipsis";
+type PageRangeItem = number | "ellipsis";
 
 function range(start: number, end: number): number[] {
   const length = Math.max(0, end - start + 1);

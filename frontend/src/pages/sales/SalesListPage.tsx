@@ -6,7 +6,7 @@ import { useExportExcel } from "@/hooks/useExportExcel"
 import { useAllProducts } from "@/hooks/useProductQueries"
 import { useSalesStats } from "@/hooks/useSalesStats"
 import api from "@/lib/api"
-import { formatCurrency, formatDateTime } from "@/lib/format"
+import { formatCurrency, formatUtcDateTime } from "@/lib/format"
 import { queryKeys } from "@/lib/queryKeys"
 import type { SaleDetail } from "@integracore/shared"
 import { toast } from "sonner"
@@ -75,7 +75,7 @@ export default function SalesListPage() {
 
   const { data: users = [] } = useQuery({
     queryKey: queryKeys.users.options,
-    queryFn: async () => { if (!isAdmin) return []; const res = await api.get("/api/users"); return res.data.users as UserListItem[] },
+    queryFn: async () => { if (!isAdmin) return []; const res = await api.get("/api/users/all"); return res.data.users as UserListItem[] },
   })
 
   const products = useAllProducts().data ?? []
@@ -237,7 +237,7 @@ export default function SalesListPage() {
                   ) : sales.map((sale) => (
                     <TableRow key={sale.id}>
                       <TableCell className="font-data">#{sale.id}</TableCell>
-                      <TableCell className="text-body-sm">{formatDateTime(sale.created_at)}</TableCell>
+                      <TableCell className="text-body-sm">{formatUtcDateTime(sale.created_at)}</TableCell>
                       <TableCell>{sale.seller_name}</TableCell>
                       <TableCell className="text-right font-data">{sale.items.length}</TableCell>
                       <TableCell className="text-right font-data font-semibold">{formatCurrency(sale.total)}</TableCell>

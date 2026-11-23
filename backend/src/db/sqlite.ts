@@ -2,6 +2,9 @@ import type Database from "better-sqlite3";
 import type { DatabaseAdapter, RunResult } from "./adapter.js";
 
 export class SqliteAdapter implements DatabaseAdapter {
+  private txQueue: Promise<unknown> = Promise.resolve();
+  private spSeq = 0;
+
   constructor(private db: Database.Database) {}
 
   // better-sqlite3 can only bind numbers, strings, bigints, buffers and null —
@@ -32,16 +35,38 @@ export class SqliteAdapter implements DatabaseAdapter {
     this.db.exec(sql);
   }
 
-  async transaction<T>(fn: (tx: DatabaseAdapter) => Promise<T>): Promise<T> {
-    this.db.exec("SAVEPOINT sp");
+  private async runWithSavepoint<T>(fn: (tx: DatabaseAdapter) => Promise<T>): Promise<T> {
+    const sp = `sp_${++this.spSeq}`;
+    this.db.exec(`SAVEPOINT ${sp}`);
+    const txAdapter: DatabaseAdapter = {
+      get: (sql, params) => this.get(sql, params),
+      all: (sql, params) => this.all(sql, params),
+      run: (sql, params) => this.run(sql, params),
+      exec: (sql) => this.exec(sql),
+      transaction: (nestedFn) => this.runWithSavepoint(nestedFn),
+      raw: () => this.raw(),
+      close: async () => {},
+    };
     try {
-      const result = await fn(this);
-      this.db.exec("RELEASE sp");
+      const result = await fn(txAdapter);
+      this.db.exec(`RELEASE ${sp}`);
       return result;
     } catch (err) {
-      this.db.exec("ROLLBACK TO sp");
+      // In SQLite, ROLLBACK TO sp does NOT release the savepoint; RELEASE sp
+      // must follow so the connection is never left inside an open transaction.
+      this.db.exec(`ROLLBACK TO ${sp}`);
+      this.db.exec(`RELEASE ${sp}`);
       throw err;
     }
+  }
+
+  async transaction<T>(fn: (tx: DatabaseAdapter) => Promise<T>): Promise<T> {
+    // Serialize top-level async transactions on the single better-sqlite3
+    // connection so concurrent requests never interleave SQL statements or
+    // collide on savepoints.
+    const run = this.txQueue.then(() => this.runWithSavepoint(fn));
+    this.txQueue = run.then(() => undefined, () => undefined);
+    return run;
   }
 
   raw<T = any>(): T {

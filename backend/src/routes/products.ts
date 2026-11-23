@@ -26,8 +26,18 @@ router.get("/", authenticate, async (req: Request, res: Response) => {
     status: (req.query.status as string) || "",
     sort: (req.query.sort as string) || "created_at",
     order: (req.query.order as string)?.toUpperCase() === "ASC" ? "ASC" : "DESC",
+    allowPriceSort: isAdmin,
   });
   res.json(isAdmin ? result : { ...result, products: result.products.map(stripPurchasePrice) });
+});
+
+// Unbounded catalogue endpoint for the sale form and filter dropdowns so
+// stores with >100 products are never truncated by pagination limits.
+router.get("/all", authenticate, async (req: Request, res: Response) => {
+  const svc = getServices().products;
+  const isAdmin = req.user!.role === "admin";
+  const products = await svc.listAll();
+  res.json({ products: isAdmin ? products : products.map(stripPurchasePrice) });
 });
 
 router.get("/categories", authenticate, async (_req: Request, res: Response) => {

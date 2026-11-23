@@ -29,9 +29,5 @@
   "devDependencies": {
     "concurrently": "^9.2.4",
     "typescript": "^5.9.3"
-  },
-  "dependencies": {
-    "better-sqlite3": "^13.0.3",
-    "opencode-ai": "^1.18.34"
   }
 }

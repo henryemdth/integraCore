@@ -8,6 +8,7 @@ vi.mock("../../../src/socket/index.js", () => ({
   emitNotification: vi.fn(),
   emitDbRestored: vi.fn(),
   emitUsersChanged: vi.fn(),
+  disconnectUserSockets: vi.fn(),
 }));
 
 describe("userService active filtering (boolean params on SQLite)", () => {

@@ -11,8 +11,8 @@ export function startProfitCron(db: DatabaseAdapter) {
       if (result.behind) {
         await svc.createNotification(
           "profit_behind",
-          `Profit behind pace: ${result.revenue.toFixed(2)} / ${result.target_amount.toFixed(2)} (${result.percentage}%). Gap: ${result.gap.toFixed(2)}`,
-          { revenue: result.revenue, target: result.target_amount, percentage: result.percentage, gap: result.gap },
+          `Profit behind pace: ${result.profit.toFixed(2)} / ${result.target_amount.toFixed(2)} (${result.percentage}%). Gap: ${result.gap.toFixed(2)}`,
+          { profit: result.profit, revenue: result.profit, target: result.target_amount, percentage: result.percentage, gap: result.gap },
           "admin"
         );
         console.log(`[cron] Profit behind pace: ${result.percentage}%`);

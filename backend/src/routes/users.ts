@@ -19,6 +19,11 @@ router.get("/", authenticate, requireRole("admin"), async (req: Request, res: Re
   res.json(result);
 });
 
+router.get("/all", authenticate, requireRole("admin"), async (_req: Request, res: Response) => {
+  const svc = getServices().users;
+  res.json({ users: await svc.listAllOptions() });
+});
+
 router.get("/:id", authenticate, requireRole("admin"), async (req: Request, res: Response) => {
   const svc = getServices().users;
   const user = await svc.getById(parseId(req.params.id as string));

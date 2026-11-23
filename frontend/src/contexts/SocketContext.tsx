@@ -17,7 +17,7 @@ export function useSocketState(): SocketState {
 }
 
 export function SocketProvider({ children }: { children: ReactNode }) {
-  const { user, logout } = useAuth()
+  const { user, logout, refreshUser } = useAuth()
   const queryClient = useQueryClient()
   const [backendUrl, setBackendUrl] = useState(getBackendUrl())
   const [connected, setConnected] = useState(true)
@@ -47,10 +47,13 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
     socket.on("users:changed", () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.users.all })
+      void refreshUser()
     })
 
     socket.on("db:restored", () => {
-      queryClient.invalidateQueries()
+      // The restored database may have completely different users/roles and
+      // the server rotated its JWT secret — force a clean re-login.
+      logout()
     })
 
     socket.on("connect", () => setConnected(true))
@@ -68,7 +71,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     return () => {
       socket.disconnect()
     }
-  }, [user, backendUrl, queryClient, logout])
+  }, [user, backendUrl, queryClient, logout, refreshUser])
 
   return <SocketStateContext.Provider value={{ connected }}>{children}</SocketStateContext.Provider>
 }

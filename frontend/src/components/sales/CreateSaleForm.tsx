@@ -3,7 +3,8 @@ import { useTranslation } from "react-i18next"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import api from "@/lib/api"
 import type { Product, SaleDetail } from "@integracore/shared"
-import { PRODUCT_STATUS } from "@integracore/shared"
+import { PRODUCT_STATUS, roundMoney } from "@integracore/shared"
+import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
 import { useAllProducts } from "@/hooks/useProductQueries"
 import { queryKeys } from "@/lib/queryKeys"
@@ -18,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { X, Search, Loader2, Minus, Plus } from "lucide-react"
 import { formatCurrency } from "@/lib/format"
+import { normalizeForSearch } from "@/lib/text"
 import { cn } from "@/lib/utils"
 import { getErrorMessage } from "@/lib/errorMessages"
 import { SaleSuccessDialog } from "@/components/sales/SaleSuccessDialog"
@@ -31,10 +33,10 @@ const CART_STORAGE_KEY = "sales.cart.inProgress"
 
 interface StoredCart { items: { id: number; quantity: number }[]; notes: string }
 
-const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-
 export function CreateSaleForm() {
   const { t } = useTranslation()
+  const { user } = useAuth()
+  const cartStorageKey = `${CART_STORAGE_KEY}.${user?.id ?? "anon"}`
   const [search, setSearch] = useState("")
   const [highlight, setHighlight] = useState(0)
   const [cart, setCart] = useState<CartItem[]>([])
@@ -79,7 +81,7 @@ export function CreateSaleForm() {
   // Restore an interrupted sale once the catalogue is available.
   const [pendingRestore, setPendingRestore] = useState<StoredCart | null>(() => {
     try {
-      const raw = sessionStorage.getItem(CART_STORAGE_KEY)
+      const raw = sessionStorage.getItem(cartStorageKey)
       return raw ? (JSON.parse(raw) as StoredCart) : null
     } catch {
       return null
@@ -107,15 +109,15 @@ export function CreateSaleForm() {
   useEffect(() => {
     if (pendingRestore) return
     if (cart.length === 0) {
-      sessionStorage.removeItem(CART_STORAGE_KEY)
+      sessionStorage.removeItem(cartStorageKey)
       return
     }
     const stored: StoredCart = {
       items: cart.map((item) => ({ id: item.product.id, quantity: item.quantity })),
       notes,
     }
-    sessionStorage.setItem(CART_STORAGE_KEY, JSON.stringify(stored))
-  }, [cart, notes, pendingRestore])
+    sessionStorage.setItem(cartStorageKey, JSON.stringify(stored))
+  }, [cart, notes, pendingRestore, cartStorageKey])
 
   // Warn before closing/refreshing the tab with an unfinished sale.
   useEffect(() => {
@@ -138,8 +140,8 @@ export function CreateSaleForm() {
 
   useEffect(() => { setHighlight(0) }, [search])
 
-  const total = cart.reduce((sum, item) => sum + (item.product.discounted_price ?? item.product.sell_price) * item.quantity, 0)
-  const totalSavings = cart.reduce((sum, item) => sum + (item.product.discounted_price ? (item.product.sell_price - item.product.discounted_price) * item.quantity : 0), 0)
+  const total = roundMoney(cart.reduce((sum, item) => sum + roundMoney((item.product.discounted_price ?? item.product.sell_price) * item.quantity), 0))
+  const totalSavings = roundMoney(cart.reduce((sum, item) => sum + (item.product.discounted_price ? roundMoney((item.product.sell_price - item.product.discounted_price) * item.quantity) : 0), 0))
 
   const hasInsufficientStock = cart.some((item) => item.product.stock === 0 || item.quantity > item.product.stock)
 
@@ -188,10 +190,10 @@ export function CreateSaleForm() {
     }
     if (e.key !== "Enter") return
     e.preventDefault()
-    const query = normalize(search.trim())
+    const query = normalizeForSearch(search.trim())
     if (!query) return
     const saleable = products.filter((p) => p.status !== PRODUCT_STATUS.discontinued && p.stock > 0)
-    const exact = saleable.find((p) => normalize(p.sku) === query)
+    const exact = saleable.find((p) => normalizeForSearch(p.sku) === query)
     if (exact) {
       const inCart = cart.find((c) => c.product.id === exact.id)
       if (inCart) {

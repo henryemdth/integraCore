@@ -1,7 +1,7 @@
 import type { DatabaseAdapter } from "../db/adapter.js";
 import bcrypt from "bcryptjs";
 import { AppError } from "../utils/appError.js";
-import { emitUsersChanged } from "../socket/index.js";
+import { emitUsersChanged, disconnectUserSockets } from "../socket/index.js";
 import { fetchUserProjection } from "./userProjection.js";
 import type { UserProjectionRow, UserRow } from "../types/models.js";
 
@@ -15,10 +15,10 @@ export function userService(db: DatabaseAdapter) {
 
     if (active === "active") {
       conditions.push("active = ?");
-      sqlParams.push(1);
+      sqlParams.push(true);
     } else if (active === "inactive") {
       conditions.push("active = ?");
-      sqlParams.push(0);
+      sqlParams.push(false);
     }
     if (search) {
       conditions.push("(username LIKE ? OR full_name LIKE ?)");
@@ -26,12 +26,12 @@ export function userService(db: DatabaseAdapter) {
     }
 
     const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-    const countRow = await db.get<{ count: number }>(
+    const countRow = await db.get<{ count: number | string }>(
       `SELECT COUNT(*) as count FROM users ${where}`,
       sqlParams
     );
 
-    const total = countRow!.count;
+    const total = Number(countRow!.count);
     const totalPages = Math.ceil(total / limit);
 
     const users = await db.all<UserProjectionRow>(
@@ -40,6 +40,13 @@ export function userService(db: DatabaseAdapter) {
     );
 
     return { users, total, page, totalPages };
+  }
+
+  /** Unbounded user list for admin stat cards and filter dropdowns (e.g. sales by seller). */
+  async function listAllOptions() {
+    return await db.all<UserProjectionRow>(
+      "SELECT id, username, full_name, role, active, created_at, updated_at FROM users ORDER BY full_name ASC"
+    );
   }
 
   async function getById(id: number) {
@@ -66,6 +73,9 @@ export function userService(db: DatabaseAdapter) {
     );
 
     const user = await fetchUserProjection(db, id);
+    if (data.role && data.role !== existing.role) {
+      disconnectUserSockets(id);
+    }
     emitUsersChanged();
     return user;
   }
@@ -79,21 +89,22 @@ export function userService(db: DatabaseAdapter) {
     }
 
     if (existing.role === "admin") {
-      const activeAdminCount = await db.get<{ count: number }>(
+      const activeAdminCount = await db.get<{ count: number | string }>(
         "SELECT COUNT(*) as count FROM users WHERE role = 'admin' AND active = ?",
-        [1]
+        [true]
       );
-      if (activeAdminCount!.count <= 1) {
+      if (Number(activeAdminCount!.count) <= 1) {
         throw new AppError(400, "Cannot deactivate the last active admin", "LAST_ACTIVE_ADMIN");
       }
     }
 
     await db.run(
       "UPDATE users SET active = ?, updated_at = datetime('now') WHERE id = ?",
-      [0, id]
+      [false, id]
     );
 
     const user = await fetchUserProjection(db, id);
+    disconnectUserSockets(id);
     emitUsersChanged();
     return user;
   }
@@ -104,7 +115,7 @@ export function userService(db: DatabaseAdapter) {
 
     await db.run(
       "UPDATE users SET active = ?, updated_at = datetime('now') WHERE id = ?",
-      [1, id]
+      [true, id]
     );
 
     const user = await fetchUserProjection(db, id);
@@ -125,5 +136,5 @@ export function userService(db: DatabaseAdapter) {
     return { success: true };
   }
 
-  return { list, getById, update, deactivate, activate, resetPassword };
+  return { list, listAllOptions, getById, update, deactivate, activate, resetPassword };
 }

@@ -17,6 +17,7 @@ import { Save, TrendingUp, TrendingDown, Globe, DollarSign, Shield, Download, Up
 import { getErrorMessage } from "@/lib/errorMessages"
 import { fileToBase64, downloadBlob } from "@/lib/files"
 import { queryKeys } from "@/lib/queryKeys"
+import { todayDateString } from "@integracore/shared"
 
 interface SystemInfo {
   dbDriver: string
@@ -193,7 +194,7 @@ export default function SettingsPage() {
                   <Progress value={check.percentage} className="h-3 mb-2" />
                   <div className="flex items-center justify-between">
                     <span className="text-body-sm text-muted-foreground">{t("settings.profit.revenue")}</span>
-                    <span className="text-data-lg font-data">{formatCurrency(check.revenue)}</span>
+                    <span className="text-data-lg font-data">{formatCurrency(check.profit ?? check.revenue)}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-body-sm text-muted-foreground">{t("settings.profit.target")}</span>
@@ -313,7 +314,7 @@ export default function SettingsPage() {
                           const blob = new Blob([res.data], { type: "application/x-sqlite3" })
                           const disposition = res.headers["content-disposition"] || ""
                           const match = disposition.match(/filename="?(.+?)"?$/)
-                          const fileName = match?.[1] || `backup-${new Date().toISOString().split("T")[0]}.sqlite`
+                          const fileName = match?.[1] || `backup-${todayDateString()}.sqlite`
                           downloadBlob(blob, fileName)
                           toast.success(t("settings.backup.exported"))
                         } catch (err: unknown) {

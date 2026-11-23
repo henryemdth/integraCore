@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import { authenticate } from "../middleware/auth.js";
+import { writeLockGuard } from "../middleware/writeLock.js";
 import { getServices } from "../services/container.js";
 import { parseId } from "../utils/parseId.js";
 
@@ -18,15 +19,15 @@ router.get("/unread-count", authenticate, async (req: Request, res: Response) =>
 });
 
 // Static segment first so it can never be shadowed by /:id routes.
-router.patch("/read-all", authenticate, async (_req: Request, res: Response) => {
+router.patch("/read-all", authenticate, writeLockGuard, async (req: Request, res: Response) => {
   const svc = getServices().profit;
-  const result = await svc.markAllAsRead();
+  const result = await svc.markAllAsRead(req.user!.role === "admin");
   res.json(result);
 });
 
-router.patch("/:id/read", authenticate, async (req: Request, res: Response) => {
+router.patch("/:id/read", authenticate, writeLockGuard, async (req: Request, res: Response) => {
   const svc = getServices().profit;
-  const result = await svc.markAsRead(parseId(req.params.id as string));
+  const result = await svc.markAsRead(parseId(req.params.id as string), req.user!.role === "admin");
   res.json(result);
 });
 

@@ -33,6 +33,7 @@ export default function ProductFormPage() {
   const [price, setPrice] = useState("")
   const [sellPrice, setSellPrice] = useState("")
   const [stock, setStock] = useState("")
+  const [stockTouched, setStockTouched] = useState(false)
   const [lowStockThreshold, setLowStockThreshold] = useState(String(DEFAULT_LOW_STOCK_THRESHOLD))
   const [status, setStatus] = useState<ProductStatus>(PRODUCT_STATUS.active)
   const [error, setError] = useState("")
@@ -99,14 +100,22 @@ export default function ProductFormPage() {
     setError("")
     setLoading(true)
 
+    const parsedThreshold = parseInt(lowStockThreshold, 10)
     const body: Record<string, any> = {
       name,
       sku,
       category,
       price: parseDecimalInput(price),
       sell_price: parseDecimalInput(sellPrice),
-      stock: parseInt(stock) || 0,
-      low_stock_threshold: parseInt(lowStockThreshold) || DEFAULT_LOW_STOCK_THRESHOLD,
+      low_stock_threshold: Number.isNaN(parsedThreshold) ? DEFAULT_LOW_STOCK_THRESHOLD : parsedThreshold,
+    }
+
+    // In edit mode, only send stock if the admin explicitly changed it —
+    // otherwise concurrent sales that happened while the form was open would
+    // be overwritten with the stale pre-sale stock value.
+    if (!isEdit || stockTouched) {
+      const parsedStock = parseInt(stock, 10)
+      body.stock = Number.isNaN(parsedStock) ? 0 : parsedStock
     }
 
     if (isEdit && isAdmin) {
@@ -263,7 +272,7 @@ export default function ProductFormPage() {
                   type="number"
                   min="0"
                   value={stock}
-                  onChange={(e) => setStock(e.target.value)}
+                  onChange={(e) => { setStock(e.target.value); setStockTouched(true) }}
                   placeholder="0"
                   className="font-data"
                 />

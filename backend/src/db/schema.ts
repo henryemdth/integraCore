@@ -273,6 +273,24 @@ const postgresMigrations: string[] = [
   `ALTER TABLE product_discounts ALTER COLUMN start_date TYPE TIMESTAMP`,
   `ALTER TABLE product_discounts ALTER COLUMN end_date TYPE TIMESTAMP`,
 
+  // Legacy PostgreSQL deployments created users.active as INTEGER (0/1) before
+  // the DDL standardized on BOOLEAN. Upgrade in place while preserving data so
+  // boolean parameters (true/false) work identically on fresh and existing DBs.
+  `DO $$
+   BEGIN
+     IF EXISTS (
+       SELECT 1 FROM information_schema.columns
+       WHERE table_schema = current_schema()
+         AND table_name = 'users'
+         AND column_name = 'active'
+         AND data_type IN ('integer', 'smallint', 'bigint')
+     ) THEN
+       ALTER TABLE users ALTER COLUMN active DROP DEFAULT;
+       ALTER TABLE users ALTER COLUMN active TYPE BOOLEAN USING (active <> 0);
+       ALTER TABLE users ALTER COLUMN active SET DEFAULT TRUE;
+     END IF;
+   END $$;`,
+
   `CREATE INDEX IF NOT EXISTS idx_products_sku ON products(sku);`,
   `CREATE INDEX IF NOT EXISTS idx_products_category ON products(category);`,
   `CREATE INDEX IF NOT EXISTS idx_sales_user_id ON sales(user_id);`,

@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import crypto from "crypto";
 import Database from "better-sqlite3";
 import type { DatabaseAdapter } from "../db/adapter.js";
 import { AppError } from "../utils/appError.js";
@@ -7,12 +8,18 @@ import { acquireWriteLock, releaseWriteLock } from "./lockService.js";
 import { emitDbRestored } from "../socket/index.js";
 import { runMigrations } from "../db/schema.js";
 import { replaceAdapter } from "../db/index.js";
+import { rotateJwtSecret } from "../config.js";
 import { todayDateString } from "@integracore/shared";
 
-const REQUIRED_TABLES = [
-  "users", "products", "sales", "sale_items",
-  "product_discounts", "profit_targets", "notifications",
-];
+const REQUIRED_SCHEMA: Record<string, string[]> = {
+  users: ["id", "username", "password_hash", "full_name", "role", "active"],
+  products: ["id", "name", "sku", "price", "stock"],
+  sales: ["id", "user_id", "total", "created_at"],
+  sale_items: ["id", "sale_id", "product_id", "quantity", "unit_price", "subtotal"],
+  product_discounts: ["id", "product_id", "discounted_price", "start_date", "end_date"],
+  profit_targets: ["id", "target_amount"],
+  notifications: ["id", "type", "message", "read"],
+};
 
 // Windows can briefly hold a file handle open (AV scanners, indexers, NTFS
 // bookkeeping) right after a connection closes. Retrying instead of failing
@@ -51,17 +58,28 @@ function validateSqliteFile(filePath: string): boolean {
 }
 
 function validateSchema(filePath: string): string | null {
+  let db: Database.Database | null = null;
   try {
-    const db = new Database(filePath);
+    db = new Database(filePath, { readonly: true });
+    const integrity = db.pragma("quick_check", { simple: true });
+    if (integrity !== "ok") {
+      return "Database integrity check failed";
+    }
     const rows = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as { name: string }[];
-    db.close();
     const tableNames = rows.map(r => r.name);
-    for (const table of REQUIRED_TABLES) {
+    for (const [table, requiredCols] of Object.entries(REQUIRED_SCHEMA)) {
       if (!tableNames.includes(table)) return `Missing required table: ${table}`;
+      const cols = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+      const colNames = cols.map((c) => c.name);
+      for (const col of requiredCols) {
+        if (!colNames.includes(col)) return `Missing required column: ${table}.${col}`;
+      }
     }
     return null;
   } catch {
     return "Could not read database schema";
+  } finally {
+    try { db?.close(); } catch { /* ignore */ }
   }
 }
 
@@ -112,7 +130,8 @@ export function backupService(adapter: DatabaseAdapter, dataDir: string) {
 
     const tempDir = path.join(dataDir, "temp");
     fs.mkdirSync(tempDir, { recursive: true });
-    const tempPath = path.join(tempDir, `restore-${Date.now()}.sqlite`);
+    const tempPath = path.join(tempDir, `restore-${Date.now()}-${crypto.randomUUID()}.sqlite`);
+    let lockAcquired = false;
 
     try {
       const buf = Buffer.from(fileBase64, "base64");
@@ -130,6 +149,7 @@ export function backupService(adapter: DatabaseAdapter, dataDir: string) {
       if (!acquireWriteLock()) {
         throw new AppError(409, "Another restore or maintenance operation is already in progress", "RESTORE_IN_PROGRESS");
       }
+      lockAcquired = true;
 
       const currentDb = adapter.raw<Database.Database>();
       const dbPath = currentDb.name;
@@ -178,12 +198,17 @@ export function backupService(adapter: DatabaseAdapter, dataDir: string) {
         throw new AppError(500, "Restore failed: " + (err as Error).message + ". Auto-backup restored.", "RESTORE_FAILED", { detail: (err as Error).message });
       }
 
+      // Invalidate all pre-restore JWTs so an old token can never map to a
+      // different user/admin ID in the restored database.
+      rotateJwtSecret();
       emitDbRestored();
     } catch (err) {
       if (err instanceof AppError) throw err;
       throw new AppError(500, "Restore failed: " + (err as Error).message, "RESTORE_FAILED", { detail: (err as Error).message });
     } finally {
-      releaseWriteLock();
+      if (lockAcquired) {
+        releaseWriteLock();
+      }
       try { fs.rmSync(tempPath, { force: true }); } catch { /* ignore */ }
     }
   }

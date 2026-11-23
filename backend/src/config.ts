@@ -48,9 +48,33 @@ function resolveJwtSecret(): string {
   }
 }
 
+let currentJwtSecret = resolveJwtSecret();
+
+/**
+ * Rotates the active JWT signing secret (and persists it under DATA_DIR when
+ * no explicit env secret is set). Used after a SQLite backup restore so old
+ * tokens can never map to a different user/admin ID in the restored database.
+ */
+export function rotateJwtSecret(): void {
+  const next = crypto.randomBytes(32).toString("base64url");
+  currentJwtSecret = next;
+  const fromEnv = process.env.JWT_SECRET;
+  if (!fromEnv || fromEnv === "dev-secret-change-in-production" || fromEnv === "integracore-server-secret") {
+    try {
+      const secretPath = path.join(dataDir, ".jwt-secret");
+      fs.mkdirSync(dataDir, { recursive: true });
+      fs.writeFileSync(secretPath, next, { mode: 0o600 });
+    } catch {
+      // Best-effort persistence; in-memory rotation still invalidates tokens.
+    }
+  }
+}
+
 export const config = {
   port: parseInt(process.env.PORT || "3001", 10),
-  jwtSecret: resolveJwtSecret(),
+  get jwtSecret(): string {
+    return currentJwtSecret;
+  },
   corsOrigin,
 
   // Database driver: "sqlite" or "postgresql"

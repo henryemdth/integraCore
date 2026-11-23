@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { authenticate, requireRole } from "../middleware/auth.js";
 import { setupOrAdmin } from "../middleware/setupGate.js";
 import { writeLockGuard } from "../middleware/writeLock.js";
+import { authRateLimiter } from "../middleware/rateLimit.js";
 import { getServices } from "../services/container.js";
 import { config } from "../config.js";
 
@@ -17,7 +18,7 @@ router.get("/export", authenticate, requireRole("admin"), async (_req: Request, 
   res.download(filePath, fileName);
 });
 
-router.post("/restore", setupOrAdmin, writeLockGuard, async (req: Request, res: Response) => {
+router.post("/restore", authRateLimiter, setupOrAdmin, writeLockGuard, async (req: Request, res: Response) => {
   if (config.dbDriver !== "sqlite") {
     res.status(400).json({ error: "Restore is only available for SQLite databases" });
     return;

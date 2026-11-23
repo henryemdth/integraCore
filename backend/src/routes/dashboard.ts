@@ -4,9 +4,12 @@ import { getServices } from "../services/container.js";
 
 const router = Router();
 
-router.get("/summary", authenticate, async (_req: Request, res: Response) => {
+router.get("/summary", authenticate, async (req: Request, res: Response) => {
   const svc = getServices().dashboard;
-  const summary = await svc.getSummary();
+  const summary = await svc.getSummary({
+    isAdmin: req.user!.role === "admin",
+    requesterId: req.user!.id,
+  });
   res.json(summary);
 });
 

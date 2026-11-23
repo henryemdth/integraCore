@@ -3,7 +3,15 @@ import ExcelJS from "exceljs";
 import { AppError } from "../utils/appError.js";
 import { findActiveDiscounts } from "./discountLookup.js";
 import { reloadAndEmitProduct } from "./productService.js";
-import { endOfDay, PRODUCT_STATUS, reportLabels, type ReportLanguage } from "@integracore/shared";
+import {
+  localDateStartToUtc,
+  localDateEndToUtc,
+  roundMoney,
+  PRODUCT_STATUS,
+  reportLabels,
+  type ReportLanguage,
+} from "@integracore/shared";
+import { sanitizeExcelCell } from "../utils/excelSanitize.js";
 import type { ProductRow, SaleItemDetailRow, SaleItemRow, SaleListRow, SaleRow } from "../types/models.js";
 
 // Cost fields are opt-in: the default shape (list/detail/create responses,
@@ -85,13 +93,13 @@ function buildFilterQuery(filters: {
 
   if (filters.dateFrom) {
     conditions.push("s.created_at >= ?");
-    params.push(filters.dateFrom);
+    params.push(localDateStartToUtc(filters.dateFrom));
   }
   if (filters.dateTo) {
     conditions.push("s.created_at <= ?");
-    // Inclusive last-instant of the day (shared convention) so a sale at
-    // 23:59:59.500 still lands inside its own day's filter.
-    params.push(endOfDay(filters.dateTo));
+    // Inclusive last-instant of the local calendar day converted to UTC so
+    // late-evening sales land inside their local day's filter.
+    params.push(localDateEndToUtc(filters.dateTo));
   }
   if (filters.productId) {
     conditions.push("s.id IN (SELECT sale_id FROM sale_items WHERE product_id = ?)");
@@ -104,8 +112,19 @@ function buildFilterQuery(filters: {
 
 export function saleService(db: DatabaseAdapter) {
   async function create(userId: number, items: { product_id: number; quantity: number }[], notes?: string) {
+    // Merge duplicate product_id entries so stock validation and atomic
+    // decrements always operate on the true combined quantity per product.
+    const mergedQty = new Map<number, number>();
+    for (const item of items) {
+      mergedQty.set(item.product_id, (mergedQty.get(item.product_id) ?? 0) + item.quantity);
+    }
+    const normalizedItems = Array.from(mergedQty.entries()).map(([product_id, quantity]) => ({
+      product_id,
+      quantity,
+    }));
+
     const saleId = await db.transaction(async (tx) => {
-      const productIds = items.map((i) => i.product_id);
+      const productIds = normalizedItems.map((i) => i.product_id);
       const placeholders = productIds.map(() => "?").join(",");
       const products = await tx.all<Pick<ProductRow, "id" | "name" | "sell_price" | "price" | "stock" | "status">>(
         `SELECT id, name, sell_price, price, stock, status FROM products WHERE id IN (${placeholders})`,
@@ -114,12 +133,12 @@ export function saleService(db: DatabaseAdapter) {
 
       const productMap = new Map(products.map((p) => [p.id, p]));
 
-      for (const item of items) {
+      for (const item of normalizedItems) {
         if (!productMap.has(item.product_id)) {
           throw new AppError(400, `Product not found: ${item.product_id}`, "PRODUCT_NOT_FOUND", { id: item.product_id });
         }
       }
-      for (const item of items) {
+      for (const item of normalizedItems) {
         const product = productMap.get(item.product_id)!;
         if (product.status === PRODUCT_STATUS.discontinued) {
           throw new AppError(400, `Cannot sell discontinued product: "${product.name}"`, "PRODUCT_DISCONTINUED", { name: product.name });
@@ -133,29 +152,45 @@ export function saleService(db: DatabaseAdapter) {
         }
       }
 
-      const productIdsList = items.map((i) => i.product_id);
-      const discountMap = await findActiveDiscounts(tx, productIdsList);
+      const discountMap = await findActiveDiscounts(tx, productIds);
 
       let total = 0;
-      const saleItems = items.map((item) => {
+      const saleItems = normalizedItems.map((item) => {
         const product = productMap.get(item.product_id)!;
         const discount = discountMap.get(item.product_id);
-        const effectivePrice = discount ? discount.discounted_price : product.sell_price;
-        const subtotal = effectivePrice * item.quantity;
-        total += subtotal;
+        const effectivePrice = discount ? Number(discount.discounted_price) : Number(product.sell_price);
+        const subtotal = roundMoney(effectivePrice * item.quantity);
+        total = roundMoney(total + subtotal);
         return {
           product_id: item.product_id,
           quantity: item.quantity,
           unit_price: effectivePrice,
           subtotal,
           discount_id: discount ? discount.id : null,
-          original_price: product.sell_price,
+          original_price: Number(product.sell_price),
           // Frozen like original_price so later cost changes never rewrite
           // the profit of a sale already made. Cost source is the product's
           // purchase price (products.price — the field the UI already fills).
           cost_price: Number(product.price ?? 0),
         };
       });
+
+      // Atomic conditional stock decrement prevents overselling / negative
+      // stock under concurrent requests on both SQLite and PostgreSQL.
+      for (const item of saleItems) {
+        const dec = await tx.run(
+          "UPDATE products SET stock = stock - ?, updated_at = datetime('now') WHERE id = ? AND stock >= ?",
+          [item.quantity, item.product_id, item.quantity]
+        );
+        if (dec.changes === 0) {
+          const product = productMap.get(item.product_id)!;
+          throw new AppError(400,
+            `Insufficient stock for "${product.name}": requested ${item.quantity}`,
+            "INSUFFICIENT_STOCK",
+            { name: product.name, available: 0, requested: item.quantity }
+          );
+        }
+      }
 
       const saleResult = await tx.run(
         "INSERT INTO sales (user_id, total, notes) VALUES (?, ?, ?)",
@@ -167,13 +202,6 @@ export function saleService(db: DatabaseAdapter) {
         await tx.run(
           "INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, subtotal, discount_id, original_price, cost_price) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
           [insertedSaleId, item.product_id, item.quantity, item.unit_price, item.subtotal, item.discount_id, item.original_price, item.cost_price]
-        );
-      }
-
-      for (const item of saleItems) {
-        await tx.run(
-          "UPDATE products SET stock = stock - ?, updated_at = datetime('now') WHERE id = ?",
-          [item.quantity, item.product_id]
         );
       }
 
@@ -208,11 +236,11 @@ export function saleService(db: DatabaseAdapter) {
       userId, isAdmin, requesterId, dateFrom, dateTo, productId,
     });
 
-    const countRow = await db.get<{ count: number }>(
+    const countRow = await db.get<{ count: number | string }>(
       `SELECT COUNT(*) as count FROM sales s ${where}`,
       filterParams
     );
-    const total = countRow!.count;
+    const total = Number(countRow!.count);
     const totalPages = Math.ceil(total / limit);
 
     const sales = await db.all<SaleListRow>(
@@ -300,8 +328,15 @@ export function saleService(db: DatabaseAdapter) {
     let totalRevenue = 0;
     let totalCost = 0;
 
+    // Batch-fetch all sale items in one query instead of N+1 per sale.
+    const itemsBySale = await getSaleItemsBatch(
+      db,
+      sales.map((s) => s.id),
+      { includeCost: isAdmin }
+    );
+
     for (const sale of sales) {
-      const items = await getSaleItems(db, sale.id, { includeCost: isAdmin });
+      const items = itemsBySale.get(sale.id) ?? [];
 
       totalSales++;
       for (const item of items) {
@@ -316,8 +351,8 @@ export function saleService(db: DatabaseAdapter) {
         if (isAdmin) { totalCost += unitCost * item.quantity; }
 
         sheet.addRow({
-          id: sale.id, created_at: sale.created_at, seller_name: sale.seller_name,
-          product_name: item.product_name, product_sku: item.product_sku,
+          id: sale.id, created_at: sale.created_at, seller_name: sanitizeExcelCell(sale.seller_name),
+          product_name: sanitizeExcelCell(item.product_name), product_sku: sanitizeExcelCell(item.product_sku),
           quantity: item.quantity, unit_price: item.unit_price,
           original_price: item.original_price,
           ...(isAdmin ? { unit_cost: unitCost } : {}),
@@ -325,7 +360,7 @@ export function saleService(db: DatabaseAdapter) {
           savings: savings,
           subtotal: item.subtotal,
           ...(isAdmin ? { profit } : {}),
-          total: sale.total, notes: sale.notes,
+          total: sale.total, notes: sanitizeExcelCell(sale.notes),
         });
       }
     }
@@ -415,20 +450,28 @@ export function saleService(db: DatabaseAdapter) {
   }
 
   async function remove(id: number) {
-    const sale = await db.get<SaleRow>("SELECT * FROM sales WHERE id = ?", [id]);
-    if (!sale) throw new AppError(404, "Sale not found", "SALE_NOT_FOUND");
+    const items = await db.transaction(async (tx) => {
+      const sale = await tx.get<SaleRow>("SELECT * FROM sales WHERE id = ?", [id]);
+      if (!sale) throw new AppError(404, "Sale not found", "SALE_NOT_FOUND");
 
-    const items = await db.all<SaleItemRow>("SELECT * FROM sale_items WHERE sale_id = ?", [id]);
+      const saleItems = await tx.all<SaleItemRow>("SELECT * FROM sale_items WHERE sale_id = ?", [id]);
 
-    await db.transaction(async (tx) => {
-      for (const item of items) {
+      // Delete the sale first and verify changes === 1 so two concurrent
+      // DELETE requests can never double-restore stock.
+      await tx.run("DELETE FROM sale_items WHERE sale_id = ?", [id]);
+      const deleted = await tx.run("DELETE FROM sales WHERE id = ?", [id]);
+      if (deleted.changes === 0) {
+        throw new AppError(404, "Sale not found", "SALE_NOT_FOUND");
+      }
+
+      for (const item of saleItems) {
         await tx.run(
           "UPDATE products SET stock = stock + ?, updated_at = datetime('now') WHERE id = ?",
           [item.quantity, item.product_id]
         );
       }
-      await tx.run("DELETE FROM sale_items WHERE sale_id = ?", [id]);
-      await tx.run("DELETE FROM sales WHERE id = ?", [id]);
+
+      return saleItems;
     });
 
     for (const productId of new Set(items.map((item) => item.product_id))) {

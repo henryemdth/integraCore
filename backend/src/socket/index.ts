@@ -45,19 +45,44 @@ export function initSocket(server: HttpServer): Server {
     }
   });
 
+  // Group admin sockets into a dedicated room so admin-only broadcasts
+  // (purchase prices, profit alerts) never leak to seller connections.
+  io.on("connection", (socket) => {
+    if (socket.data.user?.role === "admin") {
+      socket.join("admins");
+    }
+  });
+
   return io;
 }
 
 export function emitProductUpdated(product: { id: number; name: string; sku: string; price: number; sell_price: number; stock: number; status: ProductStatus; discounted_price?: number | null; discount_end_date?: string | null }) {
-  if (io) io.emit("product:updated", product);
+  if (!io) return;
+  io.to("admins").emit("product:updated", product);
+  const { price: _purchasePrice, ...publicProduct } = product;
+  io.except("admins").emit("product:updated", publicProduct);
 }
 
-export function emitNotification(notification: { id: number; type: string; message: string }) {
-  if (io) io.emit("notification:new", notification);
+export function emitNotification(notification: { id: number; type: string; message: string; audience?: "all" | "admin" }) {
+  if (!io) return;
+  if (notification.audience === "admin") {
+    io.to("admins").emit("notification:new", notification);
+  } else {
+    io.emit("notification:new", notification);
+  }
 }
 
 export function emitUsersChanged() {
   if (io) io.emit("users:changed");
+}
+
+export function disconnectUserSockets(userId: number) {
+  if (!io) return;
+  for (const socket of io.sockets.sockets.values()) {
+    if (socket.data.user?.id === userId) {
+      socket.disconnect(true);
+    }
+  }
 }
 
 export function emitDbRestored() {

@@ -61,11 +61,21 @@ api.interceptors.request.use((config) => {
   return config
 })
 
+let unauthorizedHandler: (() => void) | null = null
+
+export function setUnauthorizedHandler(fn: (() => void) | null): void {
+  unauthorizedHandler = fn
+}
+
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem("token")
+      if (unauthorizedHandler) {
+        unauthorizedHandler()
+      } else {
+        localStorage.removeItem("token")
+      }
       goToLogin()
     }
     return Promise.reject(error)

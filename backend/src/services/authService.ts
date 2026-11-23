@@ -15,19 +15,22 @@ export function authService(db: DatabaseAdapter) {
   }
 
   async function setup(username: string, password: string, fullName: string) {
-    const anyUser = await db.get<{ id: number }>("SELECT 1 FROM users LIMIT 1");
-    if (anyUser) throw new AppError(400, "Setup already completed", "SETUP_ALREADY_COMPLETED");
-
-    const existing = await db.get<{ id: number }>("SELECT id FROM users WHERE username = ?", [username]);
-    if (existing) throw new AppError(409, "Username already exists", "USERNAME_EXISTS");
-
     const passwordHash = bcrypt.hashSync(password, 10);
-    const result = await db.run(
-      "INSERT INTO users (username, password_hash, full_name, role) VALUES (?, ?, ?, 'admin')",
-      [username, passwordHash, fullName]
-    );
 
-    const user = await fetchUserProjection(db, result.insertId);
+    const user = await db.transaction(async (tx) => {
+      const anyUser = await tx.get<{ id: number }>("SELECT 1 FROM users LIMIT 1");
+      if (anyUser) throw new AppError(400, "Setup already completed", "SETUP_ALREADY_COMPLETED");
+
+      const existing = await tx.get<{ id: number }>("SELECT id FROM users WHERE username = ?", [username]);
+      if (existing) throw new AppError(409, "Username already exists", "USERNAME_EXISTS");
+
+      const result = await tx.run(
+        "INSERT INTO users (username, password_hash, full_name, role) VALUES (?, ?, ?, 'admin')",
+        [username, passwordHash, fullName]
+      );
+
+      return await fetchUserProjection(tx, result.insertId);
+    });
 
     const token = signToken({ id: user!.id, username: user!.username, role: user!.role });
     return { token, user };

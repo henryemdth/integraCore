@@ -14,7 +14,7 @@ router.get("/", authenticate, requireRole("admin"), async (req: Request, res: Re
   const svc = getServices().discounts;
   const result = await svc.listAll({
     ...parsePagination(req.query, 10),
-    productId: req.query.product_id ? Number(req.query.product_id) : undefined,
+    productId: req.query.product_id ? parseId(String(req.query.product_id)) : undefined,
     status: (req.query.status as string) || undefined,
   });
   res.json(result);
@@ -23,7 +23,7 @@ router.get("/", authenticate, requireRole("admin"), async (req: Request, res: Re
 router.get("/export", authenticate, requireRole("admin"), async (req: Request, res: Response) => {
   const svc = getServices().discounts;
   const workbook = await svc.exportHistory({
-    productId: req.query.product_id ? Number(req.query.product_id) : undefined,
+    productId: req.query.product_id ? parseId(String(req.query.product_id)) : undefined,
     status: (req.query.status as string) || undefined,
   }, resolveReportLanguage(req.query.lang as string));
   res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");

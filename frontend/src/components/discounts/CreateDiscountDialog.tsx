@@ -2,7 +2,7 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import api from "@/lib/api"
-import { PRODUCT_STATUS, type Product } from "@integracore/shared"
+import { PRODUCT_STATUS, todayDateString, type Product } from "@integracore/shared"
 import { toast } from "sonner"
 import { queryKeys } from "@/lib/queryKeys"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -28,7 +28,7 @@ export function CreateDiscountDialog({ product, open, onOpenChange }: CreateDisc
   const [reason, setReason] = useState("")
   const [error, setError] = useState("")
   const queryClient = useQueryClient()
-  const today = new Date().toISOString().split("T")[0]
+  const today = todayDateString()
   const parsedPreview = parseDecimalInput(discountedPrice)
   const pctOff = product && !Number.isNaN(parsedPreview) && parsedPreview >= 0 && parsedPreview < product.sell_price
     ? Math.round((1 - parsedPreview / product.sell_price) * 100)

@@ -9,12 +9,14 @@ import {
   todayDateString,
   nowString,
   nextDayDateString,
+  prevDayDateString,
   formatDateString,
   DISCOUNT_STATUS,
   PRODUCT_STATUS,
   reportLabels,
   type ReportLanguage,
 } from "@integracore/shared";
+import { sanitizeExcelCell } from "../utils/excelSanitize.js";
 import type { DiscountHistoryRow, DiscountRow, ProductRow } from "../types/models.js";
 
 export function discountService(db: DatabaseAdapter) {
@@ -180,13 +182,16 @@ export function discountService(db: DatabaseAdapter) {
   // Paginated dashboard list (same shape as the other services' list()).
   async function listAll(filters: { productId?: number; status?: string; page: number; limit: number }) {
     const { where, params } = buildDiscountFilter(filters);
-    const countRow = await db.get<{ count: number }>(
+    const countRow = await db.get<{ count: number | string }>(
       `SELECT COUNT(*) as count FROM product_discounts pd ${where}`,
       params,
     );
-    const total = countRow!.count;
+    const total = Number(countRow!.count);
     const totalPages = Math.ceil(total / filters.limit);
-    const discounts = await queryDiscountHistory(filters, { page: filters.page, limit: filters.limit });
+    const discounts = (await queryDiscountHistory(filters, { page: filters.page, limit: filters.limit })).map((d) => ({
+      ...d,
+      units_sold: Number(d.units_sold),
+    }));
     return { discounts, total, page: filters.page, totalPages };
   }
 
@@ -217,11 +222,11 @@ export function discountService(db: DatabaseAdapter) {
         d.normal_price > 0
           ? Math.round((1 - d.discounted_price / d.normal_price) * 100)
           : 0;
-      const unitsSold = d.units_sold;
+      const unitsSold = Number(d.units_sold);
 
       sheet.addRow({
-        product_name: d.product_name,
-        product_sku: d.product_sku,
+        product_name: sanitizeExcelCell(d.product_name),
+        product_sku: sanitizeExcelCell(d.product_sku),
         normal_price: d.normal_price,
         discounted_price: d.discounted_price,
         pct_discount: `${pct}%`,
@@ -230,7 +235,7 @@ export function discountService(db: DatabaseAdapter) {
         status: d.status === DISCOUNT_STATUS.cancelled ? L.cancelled : L.active,
         units_sold: unitsSold,
         worked: unitsSold > 0 ? L.yes : L.no,
-        reason: d.reason || "",
+        reason: sanitizeExcelCell(d.reason),
       });
     }
 
@@ -239,6 +244,8 @@ export function discountService(db: DatabaseAdapter) {
 
   async function checkDateTriggers() {
     const today = todayDateString();
+    const yesterday = prevDayDateString(today);
+    const yesterdayStart = startOfDay(yesterday);
     const dayStart = startOfDay(today);
     const nextDayStart = startOfDay(nextDayDateString(today));
 
@@ -254,19 +261,21 @@ export function discountService(db: DatabaseAdapter) {
       await reloadAndEmitProduct(db, d.product_id);
     }
 
-    const todayEnders = await db.all<DiscountRow & { product_name: string }>(
+    // Discounts end at 23:59:59.999 of their end_date, so at midnight of `today`
+    // the ones that JUST expired are those whose end_date fell on `yesterday`.
+    const yesterdayEnders = await db.all<DiscountRow & { product_name: string }>(
       `SELECT pd.*, p.name as product_name
        FROM product_discounts pd
        JOIN products p ON pd.product_id = p.id
        WHERE pd.status = 'active' AND pd.end_date >= ? AND pd.end_date < ?`,
-      [dayStart, nextDayStart],
+      [yesterdayStart, dayStart],
     );
 
-    for (const d of todayEnders) {
+    for (const d of yesterdayEnders) {
       await reloadAndEmitProduct(db, d.product_id);
     }
 
-    return { activated: todayStarters.length, expired: todayEnders.length };
+    return { activated: todayStarters.length, expired: yesterdayEnders.length };
   }
 
   return {

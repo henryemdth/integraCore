@@ -1,9 +1,10 @@
-import { app, BrowserWindow, dialog, ipcMain } from "electron"
+import { app, BrowserWindow, ipcMain } from "electron"
 import path from "path"
 import fs from "fs"
 import http from "http"
-import { CONFIG_FILENAME, ensureConfigFile, readJsonConfig } from "./config.js"
-import { getMachineId, verifyLicenseKey, type LicenseReason } from "./license.js"
+import https from "https"
+import { ensureConfigFile, readJsonConfig } from "./config.js"
+import { createFileLogger, enforceAppLicense, getConfigPath, getFrontendPath, getIconPath } from "./common.js"
 
 let mainWindow: BrowserWindow | null = null
 // Activation key from config.json (set by loadServerUrl).
@@ -24,55 +25,8 @@ const DEFAULT_CLIENT_CONFIG = {
   LICENSE_KEY: "",
 }
 
-// ---- file logging ---------------------------------------------------------
-// Packaged Windows apps have no visible console: append to
-// userData/logs/client-main.log so connection problems are diagnosable.
-
-let logFile: string | null = null
-
-function initLogging(): void {
-  try {
-    const logsDir = path.join(app.getPath("userData"), "logs")
-    fs.mkdirSync(logsDir, { recursive: true })
-    logFile = path.join(logsDir, "client-main.log")
-    // Keep one rotated copy when the log grows past 1 MB.
-    if (fs.existsSync(logFile) && fs.statSync(logFile).size > 1024 * 1024) {
-      fs.renameSync(logFile, logFile.replace(/\.log$/, ".old.log"))
-    }
-  } catch {
-    logFile = null // logging is best-effort; never block startup on it
-  }
-}
-
-function log(line: string): void {
-  console.log(line)
-  if (!logFile) return
-  try {
-    fs.appendFileSync(logFile, `${new Date().toISOString()} ${line}\n`)
-  } catch { /* best-effort */ }
-}
-
-function getResourcesPath(): string {
-  if (app.isPackaged) {
-    return process.resourcesPath
-  }
-  return path.resolve(__dirname, "..", "..", "..")
-}
-
-function getConfigPath(): string {
-  return path.join(app.getPath("userData"), CONFIG_FILENAME)
-}
-
-function getFrontendPath(): string {
-  return path.join(getResourcesPath(), "frontend", "dist", "index.html")
-}
-
-function getIconPath(): string {
-  if (app.isPackaged) {
-    return path.join(process.resourcesPath, "icon.png")
-  }
-  return path.resolve(__dirname, "..", "..", "build", "icon.png")
-}
+const logger = createFileLogger("client-main.log")
+const log = logger.log
 
 function loadServerUrl(): string {
   const configPath = getConfigPath()
@@ -86,61 +40,52 @@ function loadServerUrl(): string {
   return values?.serverUrl || "http://localhost:3001"
 }
 
-// ---- license gate ----------------------------------------------------------
-// A packaged install runs only with a valid LICENSE_KEY in config.json. On
-// failure: one native dialog (reason + this machine's ID + where the key
-// goes) and quit — no window.
-
-const LICENSE_REASON_TEXT: Record<LicenseReason, string> = {
-  MISSING: "Falta la clave de activación (LICENSE_KEY).",
-  MALFORMED: "La clave de activación no es válida.",
-  BAD_SIGNATURE: "La clave de activación no es válida (firma incorrecta o clave de otro cliente).",
-  WRONG_MACHINE: "Esta clave pertenece a otra computadora.",
-  EXPIRED: "La licencia ha expirado. Solicite una renovación a su proveedor.",
-}
-
-function enforceLicense(): boolean {
-  const machineId = getMachineId()
-  const result = verifyLicenseKey(licenseKey, machineId)
-  if (result.ok) {
-    log(`[license] Activated: ${result.payload.customer} (${result.payload.type})`)
-    return true
+function normalizeHttpUrl(raw: string): URL | null {
+  let formatted = raw.trim()
+  if (!formatted) return null
+  if (!formatted.startsWith("http://") && !formatted.startsWith("https://")) {
+    formatted = `http://${formatted}`
   }
-  log(`[license] Locked (${result.reason})${result.detail ? `: ${result.detail}` : ""}`)
-  const detail = result.reason === "EXPIRED" && result.detail ? `\n${result.detail}` : ""
-  dialog.showErrorBox(
-    "integraCore Client — Activación requerida",
-    `${LICENSE_REASON_TEXT[result.reason]}${detail}\n\n` +
-      `ID de esta máquina (envíelo a su proveedor):\n${machineId}\n\n` +
-      `Coloque su clave en el archivo:\n${getConfigPath()}\n` +
-      `con:  "LICENSE_KEY": "<clave proporcionada por su proveedor>"\n` +
-      `y reinicie la aplicación.`
-  )
-  return false
+  try {
+    const parsed = new URL(formatted)
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null
+    return parsed
+  } catch {
+    return null
+  }
 }
 
-function saveServerUrl(url: string): void {
+function saveServerUrl(url: string): boolean {
+  const parsed = normalizeHttpUrl(url)
+  if (!parsed) return false
+  const clean = parsed.origin
   try {
     const configPath = getConfigPath()
     ensureConfigFile(configPath, DEFAULT_CLIENT_CONFIG)
     const { values } = readJsonConfig(configPath)
     // Preserve the documentation block and any extra keys the admin added.
-    const next = { ...DEFAULT_CLIENT_CONFIG, ...(values ?? {}), serverUrl: url }
+    const next = { ...DEFAULT_CLIENT_CONFIG, ...(values ?? {}), serverUrl: clean }
     fs.writeFileSync(configPath, JSON.stringify(next, null, 2))
+    return true
   } catch (err) {
     log(`[client] Failed to save config: ${err instanceof Error ? err.message : err}`)
+    return false
   }
 }
 
 function testConnection(url: string): Promise<boolean> {
   return new Promise((resolve) => {
-    let formattedUrl = url.trim()
-    if (!formattedUrl.startsWith("http://") && !formattedUrl.startsWith("https://")) {
-      formattedUrl = `http://${formattedUrl}`
+    const parsed = normalizeHttpUrl(url)
+    if (!parsed) {
+      resolve(false)
+      return
     }
+    const client = parsed.protocol === "https:" ? https : http
+    const healthUrl = new URL("/api/health", parsed.origin)
 
-    const req = http.get(`${formattedUrl}/api/health`, (res) => {
+    const req = client.get(healthUrl, (res) => {
       resolve(res.statusCode === 200)
+      res.resume()
     })
 
     req.on("error", () => resolve(false))
@@ -158,8 +103,7 @@ function setupIpc(): void {
   })
 
   ipcMain.handle("set-backend-url", (_event, url: string) => {
-    saveServerUrl(url)
-    return true
+    return saveServerUrl(url)
   })
 
   ipcMain.handle("test-connection", async (_event, url: string) => {
@@ -176,7 +120,7 @@ async function createWindow(): Promise<void> {
     width: 1280,
     height: 800,
     title: "integraCore Client",
-    icon: getIconPath(),
+    icon: getIconPath(__dirname),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -189,7 +133,7 @@ async function createWindow(): Promise<void> {
     mainWindow = null
   })
 
-  const frontendPath = getFrontendPath()
+  const frontendPath = getFrontendPath(__dirname)
   log(`[client] Loading frontend from: ${frontendPath}`)
   if (app.isPackaged) {
     await mainWindow.loadFile(frontendPath)
@@ -214,7 +158,7 @@ if (!gotLock) {
   app.setAppUserModelId("com.integracore.client")
 
   app.whenReady().then(async () => {
-    initLogging()
+    logger.init()
     setupIpc()
     log(`[client] Config: ${getConfigPath()} (server URL: ${loadServerUrl()})`)
 
@@ -222,7 +166,7 @@ if (!gotLock) {
     // config.json — without one the app shows a dialog and quits before the
     // UI exists. Dev runs skip it; force with INTEGRA_FORCE_LICENSE_GATE=1.
     if (app.isPackaged || process.env.INTEGRA_FORCE_LICENSE_GATE === "1") {
-      if (!enforceLicense()) {
+      if (!enforceAppLicense("integraCore Client", licenseKey, log)) {
         app.quit()
         return
       }

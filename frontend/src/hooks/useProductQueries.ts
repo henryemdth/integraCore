@@ -23,7 +23,7 @@ export function useAllProducts() {
   return useQuery({
     queryKey: queryKeys.products.listAll,
     queryFn: async () => {
-      const res = await api.get("/api/products?limit=10000")
+      const res = await api.get("/api/products/all")
       return res.data.products as Product[]
     },
   })

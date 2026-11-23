@@ -6,6 +6,7 @@ import { findActiveDiscount, findActiveDiscounts } from "./discountLookup.js";
 import {
   DEFAULT_LOW_STOCK_THRESHOLD,
   PRODUCT_STATUS,
+  nowString,
   reportLabels,
   buildImportColumnAliases,
   importTemplateHeaders,
@@ -14,6 +15,7 @@ import {
   type ImportProductField,
   type ReportLanguage,
 } from "@integracore/shared";
+import { sanitizeExcelCell } from "../utils/excelSanitize.js";
 import type { ProductRow } from "../types/models.js";
 
 // Re-reads the product (with its effective discount) after a mutation and
@@ -82,20 +84,23 @@ export function productService(db: DatabaseAdapter) {
     status: string;
     sort: string;
     order: "ASC" | "DESC";
+    allowPriceSort?: boolean;
   }) {
-    const { page, limit, search, category, status, sort, order } = params;
+    const { page, limit, search, category, status, sort, order, allowPriceSort = true } = params;
     const offset = (page - 1) * limit;
 
-    const validSorts = ["name", "sku", "price", "sell_price", "stock", "created_at"];
+    const validSorts = allowPriceSort
+      ? ["name", "sku", "price", "sell_price", "stock", "created_at"]
+      : ["name", "sku", "sell_price", "stock", "created_at"];
     const sortColumn = validSorts.includes(sort) ? sort : "created_at";
 
     const { where, params: sqlParams } = buildProductFilter(search, category, status);
 
-    const countRow = await db.get<{ count: number }>(
+    const countRow = await db.get<{ count: number | string }>(
       `SELECT COUNT(*) as count FROM products ${where}`,
       sqlParams
     );
-    const total = countRow!.count;
+    const total = Number(countRow!.count);
     const totalPages = Math.ceil(total / limit);
 
     const products = await db.all<ProductRow>(
@@ -106,6 +111,12 @@ export function productService(db: DatabaseAdapter) {
     const productsWithDiscount = await attachActiveDiscountInfo(products);
 
     return { products: productsWithDiscount, total, page, totalPages };
+  }
+
+  /** Unbounded catalogue listing for the sale form and filter dropdowns. */
+  async function listAll() {
+    const products = await db.all<ProductRow>("SELECT * FROM products ORDER BY name ASC");
+    return await attachActiveDiscountInfo(products);
   }
 
   async function listLowStock() {
@@ -156,6 +167,9 @@ export function productService(db: DatabaseAdapter) {
     for (const p of products) {
       sheet.addRow({
         ...p,
+        name: sanitizeExcelCell(p.name),
+        sku: sanitizeExcelCell(p.sku),
+        category: sanitizeExcelCell(p.category),
         effective_price: p.discounted_price ?? p.sell_price,
         has_discount: p.discounted_price ? L.yes : L.no,
         discount_end_date: p.discounted_price ? (p.discount_end_date || "").slice(0, 10) : "",
@@ -210,13 +224,28 @@ export function productService(db: DatabaseAdapter) {
       positional.forEach((field, i) => colFor.set(field, i + 1));
     }
 
+    // Unwrap ExcelJS formula ({ formula, result }) and richText ({ richText: [...] })
+    // cell objects so they never stringify as "[object Object]".
+    const unwrapCell = (val: unknown): unknown => {
+      if (val && typeof val === "object") {
+        if ("result" in val) return (val as { result?: unknown }).result;
+        if ("richText" in val && Array.isArray((val as { richText?: unknown[] }).richText)) {
+          return (val as { richText: { text?: string }[] }).richText.map((r) => r.text ?? "").join("");
+        }
+        if ("text" in val) return (val as { text?: unknown }).text;
+      }
+      return val;
+    };
+
     // Excel-native numbers pass through; text with a single comma decimal
     // ("12,5") is converted. Ambiguous formats ("1.234,56") are deliberately
     // left to parseFloat's existing behavior rather than guessed.
     const parseCellNumber = (value: unknown): number => {
-      const raw = String(value ?? "").trim();
+      const raw = String(unwrapCell(value) ?? "").trim();
       return parseFloat((/^(-?\d+),(\d+)$/.test(raw) ? raw.replace(",", ".") : raw) || "0");
     };
+
+    let lastInsertedId: number | null = null;
 
     // Atomic: a mid-file failure (db error, crash) rolls back the whole batch
     // instead of leaving a partial import behind.
@@ -233,15 +262,17 @@ export function productService(db: DatabaseAdapter) {
         // Price header): they read as empty, same tolerance as an empty cell.
         const cell = (field: ImportProductField): unknown => {
           const col = colFor.get(field);
-          return col === undefined ? undefined : row.getCell(col).value;
+          return col === undefined ? undefined : unwrapCell(row.getCell(col).value);
         };
         const name = String(cell("name") ?? "").trim();
         const sku = String(cell("sku") ?? "").trim();
         const category = String(cell("category") ?? "").trim();
         const price = parseCellNumber(cell("price"));
         const sellPrice = parseCellNumber(cell("sellPrice"));
-        const stock = parseInt(String(cell("stock") ?? "0"), 10);
-        const lowStockThreshold = parseInt(String(cell("lowStockThreshold") ?? String(DEFAULT_LOW_STOCK_THRESHOLD)), 10);
+        const stockRaw = cell("stock");
+        const stock = stockRaw === undefined || stockRaw === null || String(stockRaw).trim() === "" ? 0 : parseInt(String(stockRaw), 10);
+        const thresholdRaw = cell("lowStockThreshold");
+        const lowStockThreshold = thresholdRaw === undefined || thresholdRaw === null || String(thresholdRaw).trim() === "" ? DEFAULT_LOW_STOCK_THRESHOLD : parseInt(String(thresholdRaw), 10);
         const statusRaw = String(cell("status") ?? "").trim();
         const status = statusRaw ? resolveImportStatus(statusRaw) : PRODUCT_STATUS.active;
 
@@ -249,6 +280,8 @@ export function productService(db: DatabaseAdapter) {
         if (!sku) { errors.push({ row: rowNumber, sku: "N/A", error: "Missing required field: sku", code: "MISSING_SKU" }); continue; }
         if (isNaN(price) || price < 0) { errors.push({ row: rowNumber, sku, error: "Invalid price", code: "INVALID_PRICE" }); continue; }
         if (isNaN(sellPrice) || sellPrice < 0) { errors.push({ row: rowNumber, sku, error: "Invalid sell price", code: "INVALID_SELL_PRICE" }); continue; }
+        if (isNaN(stock) || stock < 0) { errors.push({ row: rowNumber, sku, error: "Invalid stock (must be >= 0)", code: "INVALID_STOCK" }); continue; }
+        if (isNaN(lowStockThreshold) || lowStockThreshold < 0) { errors.push({ row: rowNumber, sku, error: "Invalid low stock threshold (must be >= 0)", code: "INVALID_THRESHOLD" }); continue; }
         if (seenSkus.has(sku)) { errors.push({ row: rowNumber, sku, error: "Duplicate SKU in file", code: "DUPLICATE_SKU_FILE" }); continue; }
         if (!status) { errors.push({ row: rowNumber, sku, error: "Invalid status (must be 'active' or 'discontinued')", code: "INVALID_STATUS" }); continue; }
 
@@ -256,13 +289,19 @@ export function productService(db: DatabaseAdapter) {
         if (existing) { errors.push({ row: rowNumber, sku, error: "SKU already exists in database", code: "SKU_EXISTS_DB" }); continue; }
 
         seenSkus.add(sku);
-        await tx.run(
+        const inserted = await tx.run(
           "INSERT INTO products (name, sku, category, price, sell_price, stock, low_stock_threshold, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-          [name, sku, category, price, sellPrice, isNaN(stock) ? 0 : stock, isNaN(lowStockThreshold) ? DEFAULT_LOW_STOCK_THRESHOLD : lowStockThreshold, status]
+          [name, sku, category, price, sellPrice, stock, lowStockThreshold, status]
         );
+        lastInsertedId = inserted.insertId;
         imported++;
       }
     });
+
+    // Notify connected clients so their product catalogue refreshes after bulk import.
+    if (imported > 0 && lastInsertedId !== null) {
+      await reloadAndEmitProduct(db, lastInsertedId);
+    }
 
     return { imported, errors };
   }
@@ -300,6 +339,22 @@ export function productService(db: DatabaseAdapter) {
       if (skuExists) throw new AppError(409, "SKU already exists", "SKU_EXISTS");
     }
 
+    if (data.sell_price !== undefined) {
+      const conflictingDiscount = await db.get<{ id: number; discounted_price: number }>(
+        `SELECT id, discounted_price FROM product_discounts
+         WHERE product_id = ? AND status = 'active' AND end_date >= ? AND discounted_price >= ?
+         LIMIT 1`,
+        [id, nowString(), data.sell_price]
+      );
+      if (conflictingDiscount) {
+        throw new AppError(
+          400,
+          "Sell price cannot be lower than or equal to an active or scheduled discount price",
+          "SELL_PRICE_BELOW_DISCOUNT"
+        );
+      }
+    }
+
     await db.run(
       `UPDATE products SET
         name = COALESCE(?, name),
@@ -325,8 +380,13 @@ export function productService(db: DatabaseAdapter) {
     const existing = await db.get<ProductRow>("SELECT * FROM products WHERE id = ?", [id]);
     if (!existing) throw new AppError(404, "Product not found", "PRODUCT_NOT_FOUND");
 
-    const hasSales = await db.get<{ count: number }>("SELECT COUNT(*) as count FROM sale_items WHERE product_id = ?", [id]);
-    if (hasSales!.count > 0) throw new AppError(409, "Cannot delete product with existing sales", "PRODUCT_HAS_SALES");
+    const hasSales = await db.get<{ count: number | string }>("SELECT COUNT(*) as count FROM sale_items WHERE product_id = ?", [id]);
+    if (Number(hasSales!.count) > 0) throw new AppError(409, "Cannot delete product with existing sales", "PRODUCT_HAS_SALES");
+
+    const hasDiscounts = await db.get<{ count: number | string }>("SELECT COUNT(*) as count FROM product_discounts WHERE product_id = ?", [id]);
+    if (Number(hasDiscounts!.count) > 0) {
+      throw new AppError(409, "Cannot delete product with discount history. Mark it as discontinued instead.", "PRODUCT_HAS_DISCOUNTS");
+    }
 
     await db.run("DELETE FROM products WHERE id = ?", [id]);
     return { success: true };
@@ -348,17 +408,20 @@ export function productService(db: DatabaseAdapter) {
     const product = await db.get<ProductRow>("SELECT * FROM products WHERE id = ?", [id]);
     if (!product) throw new AppError(404, "Product not found", "PRODUCT_NOT_FOUND");
 
-    if (product.stock < quantity) {
-      throw new AppError(400, `Insufficient stock for "${product.name}": available ${product.stock}, requested ${quantity}`, "INSUFFICIENT_STOCK", { name: product.name, available: product.stock, requested: quantity });
-    }
-
-    await db.run(
-      "UPDATE products SET stock = stock - ?, updated_at = datetime('now') WHERE id = ?",
-      [quantity, id]
+    // Atomic conditional decrement prevents concurrent stock-out / sale races
+    // from driving stock negative.
+    const updated = await db.run(
+      "UPDATE products SET stock = stock - ?, updated_at = datetime('now') WHERE id = ? AND stock >= ?",
+      [quantity, id, quantity]
     );
+    if (updated.changes === 0) {
+      const latest = await db.get<Pick<ProductRow, "stock">>("SELECT stock FROM products WHERE id = ?", [id]);
+      const available = latest?.stock ?? 0;
+      throw new AppError(400, `Insufficient stock for "${product.name}": available ${available}, requested ${quantity}`, "INSUFFICIENT_STOCK", { name: product.name, available, requested: quantity });
+    }
 
     return await reloadAndEmitProduct(db, id);
   }
 
-  return { list, listLowStock, getCategories, getById, exportToExcel, importFromExcel, buildImportTemplate, create, update, remove, stockIn, stockOut };
+  return { list, listAll, listLowStock, getCategories, getById, exportToExcel, importFromExcel, buildImportTemplate, create, update, remove, stockIn, stockOut };
 }

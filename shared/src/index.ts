@@ -44,6 +44,33 @@ export function nextDayDateString(dateStr: string): string {
   return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
 }
 
+/** Returns the day before the given YYYY-MM-DD date, also YYYY-MM-DD. */
+export function prevDayDateString(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const date = new Date(y, (m || 1) - 1, d || 1);
+  date.setDate(date.getDate() - 1);
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+}
+
+/** Converts a local calendar YYYY-MM-DD start-of-day (00:00:00.000) to a UTC SQL timestamp string. */
+export function localDateStartToUtc(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dt = new Date(y, (m || 1) - 1, d || 1, 0, 0, 0, 0);
+  return dt.toISOString().slice(0, 23).replace("T", " ");
+}
+
+/** Converts a local calendar YYYY-MM-DD end-of-day (23:59:59.999) to a UTC SQL timestamp string. */
+export function localDateEndToUtc(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dt = new Date(y, (m || 1) - 1, d || 1, 23, 59, 59, 999);
+  return dt.toISOString().slice(0, 23).replace("T", " ");
+}
+
+/** Rounds a numeric currency amount to 2 decimal places, avoiding IEEE-754 float drift. */
+export function roundMoney(amount: number): number {
+  return Math.round((amount + Number.EPSILON) * 100) / 100;
+}
+
 export function formatDateString(dateStr: string): string {
   if (!dateStr) return "";
   const d = new Date(dateStr);

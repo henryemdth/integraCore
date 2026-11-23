@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useState, useEffect, type ReactNode } from "react"
 import { useQueryClient } from "@tanstack/react-query"
-import api from "@/lib/api"
+import api, { setUnauthorizedHandler } from "@/lib/api"
 import type { User } from "@integracore/shared"
 
 interface AuthContextType {
@@ -10,6 +10,7 @@ interface AuthContextType {
   login: (username: string, password: string) => Promise<void>
   setup: (username: string, password: string, fullName: string) => Promise<void>
   logout: () => void
+  refreshUser: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
@@ -18,6 +19,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const queryClient = useQueryClient()
+
+  // Stable identity so effects that react to session loss (e.g. the socket
+  // provider's auth-failure handler and the axios 401 interceptor) don't
+  // re-run on every provider render.
+  const logout = useCallback(() => {
+    localStorage.removeItem("token")
+    setUser(null)
+    queryClient.clear()
+  }, [queryClient])
+
+  const refreshUser = useCallback(async () => {
+    const token = localStorage.getItem("token")
+    if (!token) return
+    try {
+      const res = await api.get("/api/auth/me")
+      setUser(res.data.user)
+    } catch {
+      logout()
+    }
+  }, [logout])
+
+  useEffect(() => {
+    setUnauthorizedHandler(logout)
+    return () => setUnauthorizedHandler(null)
+  }, [logout])
 
   useEffect(() => {
     const token = localStorage.getItem("token")
@@ -33,12 +59,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const login = async (username: string, password: string) => {
+    queryClient.clear()
     const res = await api.post("/api/auth/login", { username, password })
     localStorage.setItem("token", res.data.token)
     setUser(res.data.user)
   }
 
   const setup = async (username: string, password: string, fullName: string) => {
+    queryClient.clear()
     const res = await api.post("/api/auth/setup", {
       username,
       password,
@@ -47,14 +75,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("token", res.data.token)
     setUser(res.data.user)
   }
-
-  // Stable identity so effects that react to session loss (e.g. the socket
-  // provider's auth-failure handler) don't re-run on every provider render.
-  const logout = useCallback(() => {
-    localStorage.removeItem("token")
-    setUser(null)
-    queryClient.clear()
-  }, [queryClient])
 
   return (
     <AuthContext.Provider
@@ -65,6 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         setup,
         logout,
+        refreshUser,
       }}
     >
       {children}

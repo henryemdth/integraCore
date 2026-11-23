@@ -29,7 +29,7 @@ export function parseDecimalInput(value: string): number {
   if (!trimmed) return NaN
   const lastComma = trimmed.lastIndexOf(",")
   const lastDot = trimmed.lastIndexOf(".")
-  let normalized = trimmed
+  let normalized: string
   if (lastComma > lastDot) {
     // Comma is the decimal separator; dots (if any) are thousands groups.
     normalized = trimmed.replace(/\./g, "").replace(",", ".")
@@ -70,11 +70,24 @@ export function formatDate(dateStr: string): string {
 }
 
 // Space-format timestamps carry no timezone: render the wall-clock digits as
-// local time (same convention as the SQLite deployment), never via new Date()'s
-// implementation-defined non-ISO parsing.
+// local time (used by notifications.created_at which is stored in local time).
 export function formatDateTime(dateStr: string): string {
   const { y, m, d, h = 0, min = 0, s = 0, ms = 0 } = parseTimestampParts(dateStr)
   const parsed = new Date(y, (m || 1) - 1, d || 1, h, min, s, ms)
+  return new Intl.DateTimeFormat(i18n.language, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(parsed)
+}
+
+// UTC timestamps (e.g. sales.created_at from SQLite datetime('now') / PG NOW())
+// are converted from UTC into the user's local timezone for display.
+export function formatUtcDateTime(dateStr: string): string {
+  const { y, m, d, h = 0, min = 0, s = 0, ms = 0 } = parseTimestampParts(dateStr)
+  const parsed = new Date(Date.UTC(y, (m || 1) - 1, d || 1, h, min, s, ms))
   return new Intl.DateTimeFormat(i18n.language, {
     year: "numeric",
     month: "short",

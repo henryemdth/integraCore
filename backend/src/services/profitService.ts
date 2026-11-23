@@ -35,27 +35,31 @@ export function profitService(db: DatabaseAdapter) {
     const days = target.period_days || DEFAULT_PROFIT_PERIOD_DAYS;
 
     // Aggregates come back as strings on PostgreSQL (SUM of NUMERIC), so the
-    // value is coerced before any arithmetic — same convention as stats().
-    const sales = await db.get<{ total_revenue: number | string }>(
-      `SELECT COALESCE(SUM(si.subtotal), 0) as total_revenue
+    // values are coerced before any arithmetic — same convention as stats().
+    const sales = await db.get<{ total_revenue: number | string; total_profit: number | string }>(
+      `SELECT COALESCE(SUM(si.subtotal), 0) as total_revenue,
+              COALESCE(SUM((si.unit_price - COALESCE(si.cost_price, p.price, 0)) * si.quantity), 0) as total_profit
        FROM sale_items si
        JOIN sales s ON si.sale_id = s.id
+       JOIN products p ON p.id = si.product_id
        WHERE s.created_at >= datetime('now', '-' || ? || ' days')`,
       [days]
     );
 
     const revenue = Number(sales!.total_revenue);
-    const targetAmount = target.target_amount;
-    const percentage = targetAmount > 0 ? Math.round((revenue / targetAmount) * 100) : 0;
-    const behind = targetAmount > 0 && revenue < targetAmount;
+    const profit = Number(sales!.total_profit);
+    const targetAmount = Number(target.target_amount);
+    const percentage = targetAmount > 0 ? Math.max(Math.round((profit / targetAmount) * 100), 0) : 0;
+    const behind = targetAmount > 0 && profit < targetAmount;
 
     return {
+      profit,
       revenue,
       target_amount: targetAmount,
       period_days: days,
       percentage,
       behind,
-      gap: targetAmount - revenue,
+      gap: targetAmount - profit,
     };
   }
 
@@ -103,23 +107,29 @@ export function profitService(db: DatabaseAdapter) {
     );
   }
 
-  async function markAsRead(id: number) {
-    const result = await db.run("UPDATE notifications SET read = 1 WHERE id = ?", [id]);
+  async function markAsRead(id: number, isAdmin = true) {
+    const result = await db.run(
+      "UPDATE notifications SET read = 1 WHERE id = ? AND (audience = 'all' OR (? = 1 AND audience = 'admin'))",
+      [id, isAdmin ? 1 : 0]
+    );
     if (result.changes === 0) throw new AppError(404, "Notification not found", "NOTIFICATION_NOT_FOUND");
     return { success: true };
   }
 
-  async function markAllAsRead() {
-    await db.run("UPDATE notifications SET read = 1 WHERE read = 0");
+  async function markAllAsRead(isAdmin = true) {
+    await db.run(
+      "UPDATE notifications SET read = 1 WHERE read = 0 AND (audience = 'all' OR (? = 1 AND audience = 'admin'))",
+      [isAdmin ? 1 : 0]
+    );
     return { success: true };
   }
 
   async function getUnreadCount(isAdmin = false) {
-    const row = await db.get<{ count: number }>(
+    const row = await db.get<{ count: number | string }>(
       "SELECT COUNT(*) as count FROM notifications WHERE read = 0 AND (audience = 'all' OR (? = 1 AND audience = 'admin'))",
       [isAdmin ? 1 : 0]
     );
-    return row!.count;
+    return Number(row!.count);
   }
 
   return { getTarget, updateTarget, checkProfit, createNotification, listNotifications, markAsRead, markAllAsRead, getUnreadCount };

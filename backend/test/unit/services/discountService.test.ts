@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { createTestDb, seedTestProduct, seedTestUser, seedTestSale } from "../../helpers/test-helper.js";
 import type { SqliteAdapter } from "../../../src/db/sqlite.js";
 import { discountService } from "../../../src/services/discountService.js";
-import { todayDateString, nextDayDateString } from "@integracore/shared";
+import { todayDateString, nextDayDateString, prevDayDateString } from "@integracore/shared";
 
 vi.mock("../../../src/socket/index.js", () => ({
   emitProductUpdated: vi.fn(),
@@ -411,17 +411,18 @@ describe("discountService", () => {
   });
 
   describe("checkDateTriggers", () => {
-    it("reports discount starting today as activated and one ending today as expired", async () => {
+    it("reports discount starting today as activated and one that ended yesterday as expired", async () => {
       const p1 = await seedTestProduct(db, { sku: "P1" });
       const p2 = await seedTestProduct(db, { sku: "P2", name: "Other" });
       const today = todayDateString();
+      const yesterday = prevDayDateString(today);
 
       await service.create(p1.id, { discounted_price: 10, start_date: today, end_date: today });
-      await service.create(p2.id, { discounted_price: 12, start_date: today, end_date: today });
+      await service.create(p2.id, { discounted_price: 12, start_date: yesterday, end_date: yesterday });
 
       const result = await service.checkDateTriggers();
-      expect(result.activated).toBeGreaterThanOrEqual(1);
-      expect(result.expired).toBeGreaterThanOrEqual(1);
+      expect(result.activated).toBe(1);
+      expect(result.expired).toBe(1);
     });
 
     it("does not report discounts outside today as activated", async () => {

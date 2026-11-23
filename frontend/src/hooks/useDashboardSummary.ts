@@ -8,6 +8,7 @@ interface DashboardSummary {
   totalSalesToday: number
   revenueToday: number
   revenueThisMonth: number
+  profitThisMonth?: number | null
   targetAmount: number
   targetPercentage: number
   totalUsers: number

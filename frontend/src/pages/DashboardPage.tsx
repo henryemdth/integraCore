@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Progress } from "@/components/ui/progress"
 import { Package, ShoppingCart, TrendingUp, Users, AlertTriangle } from "lucide-react"
 import { Link } from "react-router-dom"
-import { formatDateTime } from "@/lib/format"
+import { formatUtcDateTime } from "@/lib/format"
 import { QueryErrorState } from "@/components/ui/query-error"
 
 export default function DashboardPage() {
@@ -79,7 +79,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex items-center justify-between text-body-sm">
                   <span className="text-muted-foreground">{t("dashboard.kpi.revenueLabel")}</span>
-                  <span className="font-data">{formatCurrency(data.revenueThisMonth)} / {formatCurrency(data.targetAmount)}</span>
+                  <span className="font-data">{formatCurrency(data.profitThisMonth ?? data.revenueThisMonth)} / {formatCurrency(data.targetAmount)}</span>
                 </div>
               </div>
             ) : (
@@ -153,7 +153,7 @@ export default function DashboardPage() {
                   <TableRow key={sale.id}>
                     <TableCell className="font-data">#{sale.id}</TableCell>
                     <TableCell>{sale.seller_name}</TableCell>
-                    <TableCell className="text-body-sm text-muted-foreground">{formatDateTime(sale.created_at)}</TableCell>
+                    <TableCell className="text-body-sm text-muted-foreground">{formatUtcDateTime(sale.created_at)}</TableCell>
                     <TableCell className="text-right font-data font-semibold">{formatCurrency(sale.total)}</TableCell>
                   </TableRow>
                 ))}

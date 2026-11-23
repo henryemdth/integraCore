@@ -1,9 +1,8 @@
 import { app, BrowserWindow, dialog } from "electron"
 import path from "path"
-import fs from "fs"
 import { fork, ChildProcess } from "child_process"
-import { CONFIG_FILENAME, ensureConfigFile, pickAllowedEnv, readJsonConfig, type ServerEnvKey } from "./config.js"
-import { getMachineId, verifyLicenseKey, type LicenseReason } from "./license.js"
+import { ensureConfigFile, pickAllowedEnv, readJsonConfig, type ServerEnvKey } from "./config.js"
+import { createFileLogger, enforceAppLicense, getConfigPath, getFrontendPath, getIconPath, getResourcesPath } from "./common.js"
 
 const DEFAULT_BACKEND_PORT = "3001"
 const MAX_START_ATTEMPTS = 3
@@ -39,60 +38,17 @@ let configEnv: Partial<Record<ServerEnvKey, string>> = {}
 // (SERVER_ENV_ALLOWLIST) — it is an Electron-side secret, never a backend var.
 let licenseKey = ""
 
-// ---- file logging ---------------------------------------------------------
-// Packaged Windows apps have no visible console: everything important is also
-// appended to userData/logs/server-main.log so failures are diagnosable.
-
-let logFile: string | null = null
-
-function initLogging(): void {
-  try {
-    const logsDir = path.join(app.getPath("userData"), "logs")
-    fs.mkdirSync(logsDir, { recursive: true })
-    logFile = path.join(logsDir, "server-main.log")
-    // Keep one rotated copy when the log grows past 1 MB.
-    if (fs.existsSync(logFile) && fs.statSync(logFile).size > 1024 * 1024) {
-      fs.renameSync(logFile, logFile.replace(/\.log$/, ".old.log"))
-    }
-  } catch {
-    logFile = null // logging is best-effort; never block startup on it
-  }
-}
-
-function log(line: string): void {
-  console.log(line)
-  if (!logFile) return
-  try {
-    fs.appendFileSync(logFile, `${new Date().toISOString()} ${line}\n`)
-  } catch { /* best-effort */ }
-}
+const logger = createFileLogger("server-main.log")
+const log = logger.log
 
 // ---- paths ----------------------------------------------------------------
-
-function getResourcesPath(): string {
-  if (app.isPackaged) {
-    return process.resourcesPath
-  }
-  return path.resolve(__dirname, "..", "..", "..")
-}
-
-function getFrontendPath(): string {
-  return path.join(getResourcesPath(), "frontend", "dist", "index.html")
-}
 
 function getFrontendUrl(): string {
   return process.env.DEV_FRONTEND_URL || "http://localhost:5173"
 }
 
 function getBackendEntry(): string {
-  return path.join(getResourcesPath(), "backend", "dist", "index.cjs")
-}
-
-function getIconPath(): string {
-  if (app.isPackaged) {
-    return path.join(process.resourcesPath, "icon.png")
-  }
-  return path.resolve(__dirname, "..", "..", "build", "icon.png")
+  return path.join(getResourcesPath(__dirname), "backend", "dist", "index.cjs")
 }
 
 function getDataDir(): string {
@@ -100,10 +56,6 @@ function getDataDir(): string {
 }
 
 // ---- desktop config.json ---------------------------------------------------
-
-function getConfigPath(): string {
-  return path.join(app.getPath("userData"), CONFIG_FILENAME)
-}
 
 // Reads (creating with defaults on first run) the admin-editable config and
 // derives everything the backend fork needs from it. Runs once at startup.
@@ -122,39 +74,6 @@ function loadDesktopConfig(): void {
   })
   backendPort = configEnv.PORT || DEFAULT_BACKEND_PORT
   log(`[server] Config: ${configPath} (port ${backendPort})`)
-}
-
-// ---- license gate ----------------------------------------------------------
-// A packaged install runs only with a valid LICENSE_KEY in config.json. On
-// failure: one native dialog (reason + this machine's ID + where the key
-// goes) and quit — no window, no backend.
-
-const LICENSE_REASON_TEXT: Record<LicenseReason, string> = {
-  MISSING: "Falta la clave de activación (LICENSE_KEY).",
-  MALFORMED: "La clave de activación no es válida.",
-  BAD_SIGNATURE: "La clave de activación no es válida (firma incorrecta o clave de otro cliente).",
-  WRONG_MACHINE: "Esta clave pertenece a otra computadora.",
-  EXPIRED: "La licencia ha expirado. Solicite una renovación a su proveedor.",
-}
-
-function enforceLicense(): boolean {
-  const machineId = getMachineId()
-  const result = verifyLicenseKey(licenseKey, machineId)
-  if (result.ok) {
-    log(`[license] Activated: ${result.payload.customer} (${result.payload.type})`)
-    return true
-  }
-  log(`[license] Locked (${result.reason})${result.detail ? `: ${result.detail}` : ""}`)
-  const detail = result.reason === "EXPIRED" && result.detail ? `\n${result.detail}` : ""
-  dialog.showErrorBox(
-    "integraCore Server — Activación requerida",
-    `${LICENSE_REASON_TEXT[result.reason]}${detail}\n\n` +
-      `ID de esta máquina (envíelo a su proveedor):\n${machineId}\n\n` +
-      `Coloque su clave en el archivo:\n${getConfigPath()}\n` +
-      `con:  "LICENSE_KEY": "<clave proporcionada por su proveedor>"\n` +
-      `y reinicie la aplicación.`
-  )
-  return false
 }
 
 // ---- transient startup splash --------------------------------------------
@@ -292,7 +211,7 @@ function showFatalError(detail: string): void {
     `El servidor no pudo iniciarse.\n\n${detail}\n\nCausas posibles:\n` +
       `- El puerto ${backendPort} ya está en uso (otra instancia de integraCore Server u otra aplicación).\n` +
       `- El antivirus bloqueó el servidor.\n\n` +
-      `Se guardaron más detalles en:\n${logFile ?? "(registro no disponible)"}`
+      `Se guardaron más detalles en:\n${logger.getLogFile() ?? "(registro no disponible)"}`
   )
   app.quit()
 }
@@ -311,7 +230,7 @@ function handleBackendExit(): void {
       await startBackend()
       crashRestarts = 0
       log("[server] Backend restarted and ready")
-      await mainWindow?.loadFile(getFrontendPath())
+      await mainWindow?.loadFile(getFrontendPath(__dirname))
     } catch (err) {
       log(`[server] Backend restart failed: ${err instanceof Error ? err.message : err}`)
       handleBackendExit()
@@ -353,7 +272,7 @@ async function createWindow(): Promise<void> {
     width: 1280,
     height: 800,
     title: "integraCore Server",
-    icon: getIconPath(),
+    icon: getIconPath(__dirname),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -393,7 +312,7 @@ if (!gotLock) {
   })
 
   app.whenReady().then(async () => {
-    initLogging()
+    logger.init()
     loadDesktopConfig()
 
     // License gate: a packaged install requires a valid LICENSE_KEY in
@@ -401,7 +320,7 @@ if (!gotLock) {
     // window or backend exists. Dev runs skip it; force with
     // INTEGRA_FORCE_LICENSE_GATE=1 to exercise the flow locally.
     if (app.isPackaged || process.env.INTEGRA_FORCE_LICENSE_GATE === "1") {
-      if (!enforceLicense()) {
+      if (!enforceAppLicense("integraCore Server", licenseKey, log)) {
         app.quit()
         return
       }
@@ -417,7 +336,7 @@ if (!gotLock) {
       await startBackendWithRetries()
       crashRestarts = 0
       log("[server] Backend is ready — loading the app")
-      await mainWindow?.loadFile(getFrontendPath())
+      await mainWindow?.loadFile(getFrontendPath(__dirname))
     } catch (err) {
       killBackend()
       showFatalError(err instanceof Error ? err.message : String(err))
